@@ -1,0 +1,76 @@
+# ============ macOS ============
+.DS_Store
+.AppleDouble
+.LSOverride
+Icon?
+._*
+
+# ============ Xcode / Swift ============
+*.xcuserstate
+xcuserdata/
+DerivedData/
+build/
+*.swp
+*.hmap
+*.ipa
+*.dSYM.zip
+*.dSYM
+
+# SPM
+.build/
+.swiftpm/
+Package.resolved
+
+# CocoaPods (使う場合)
+Pods/
+
+# ============ Backend (Cloud Run) ============
+# Node.js
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+.venv/
+venv/
+env/
+*.egg-info/
+
+# Go
+vendor/
+
+# Rust
+target/
+
+# 環境変数
+.env
+.env.local
+.env.*.local
+
+# ログ
+*.log
+logs/
+
+# ============ GCP 認証情報(絶対に commit しない) ============
+*.p8                     # Apple 秘密鍵
+service-account*.json    # GCP service account key
+credentials.json
+gcp-key.json
+application_default_credentials.json
+
+# ============ エディタ / IDE ============
+.vscode/
+.idea/
+*.iml
+.project
+.settings/
+
+# ============ その他 ============
+*.tmp
+*.bak
+*~
+.cache/

@@ -1,0 +1,606 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<title>お囃子練習リズムゲーム - インフラ構成案</title>
+<style>
+  :root {
+    --bg: #fbf7ee;
+    --card: #ffffff;
+    --border: #e5dcc4;
+    --border-strong: #cbb984;
+    --text: #241a17;
+    --muted: #7a6b62;
+    --accent: #c8211d;      /* 太鼓の朱 */
+    --accent-soft: #f4c95d; /* 金 */
+    --gcp: #1a73e8;
+    --gcp-soft: #e8f0fe;
+    --external: #5f6368;
+    --external-soft: #eeeeee;
+    --client: #c8211d;
+    --client-soft: #fde7e6;
+    --ok: #1e7a3a;
+    --code: #f4efdf;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    background: var(--bg);
+    color: var(--text);
+    font-family: "Hiragino Sans", "Yu Gothic", "Noto Sans JP", sans-serif;
+    line-height: 1.7;
+    font-size: 14px;
+  }
+  .doc {
+    max-width: 960px;
+    margin: 0 auto;
+    padding: 48px 32px;
+  }
+  header {
+    border-bottom: 3px solid var(--accent);
+    padding-bottom: 18px;
+    margin-bottom: 32px;
+  }
+  header h1 {
+    margin: 0 0 6px 0;
+    font-size: 26px;
+    color: var(--accent);
+    letter-spacing: 1px;
+  }
+  header .subtitle {
+    margin: 0;
+    color: var(--muted);
+    font-size: 13px;
+  }
+  header .meta {
+    margin-top: 12px;
+    font-size: 11px;
+    color: var(--muted);
+  }
+
+  h2 {
+    font-size: 18px;
+    color: var(--accent);
+    border-left: 4px solid var(--accent);
+    padding-left: 12px;
+    margin: 40px 0 14px 0;
+  }
+  h3 {
+    font-size: 14px;
+    color: var(--text);
+    margin: 22px 0 8px 0;
+    border-bottom: 1px dashed var(--border-strong);
+    padding-bottom: 4px;
+  }
+  p { margin: 8px 0; }
+  ul { margin: 6px 0 6px 20px; padding: 0; }
+  li { margin: 3px 0; }
+
+  .toc {
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    padding: 14px 20px;
+    margin-bottom: 24px;
+  }
+  .toc h3 {
+    margin: 0 0 8px 0;
+    border: none;
+    color: var(--muted);
+    font-size: 12px;
+    letter-spacing: 1px;
+  }
+  .toc ol {
+    margin: 0;
+    padding-left: 22px;
+    columns: 2;
+    column-gap: 24px;
+  }
+  .toc li { margin: 2px 0; }
+  .toc a { color: var(--text); text-decoration: none; }
+  .toc a:hover { color: var(--accent); }
+
+  table {
+    border-collapse: collapse;
+    width: 100%;
+    margin: 8px 0 16px 0;
+    background: var(--card);
+    border: 1px solid var(--border);
+    font-size: 13px;
+  }
+  th, td {
+    text-align: left;
+    padding: 8px 12px;
+    border-bottom: 1px solid var(--border);
+    vertical-align: top;
+  }
+  th {
+    background: #f7edd0;
+    color: var(--text);
+    font-weight: 600;
+    border-bottom: 2px solid var(--border-strong);
+  }
+  tr:last-child td { border-bottom: none; }
+  td.num { text-align: right; font-variant-numeric: tabular-nums; }
+  tr.total td {
+    font-weight: 700;
+    background: #fff8e1;
+    border-top: 2px solid var(--border-strong);
+  }
+
+  code {
+    background: var(--code);
+    padding: 1px 6px;
+    border-radius: 3px;
+    font-size: 12px;
+    font-family: "SF Mono", "Consolas", monospace;
+    color: #6a3f00;
+  }
+
+  .callout {
+    border-left: 4px solid var(--accent-soft);
+    background: #fff8e1;
+    padding: 12px 18px;
+    margin: 12px 0;
+    border-radius: 0 6px 6px 0;
+  }
+  .callout.warn {
+    border-left-color: var(--accent);
+    background: #fde7e6;
+  }
+  .callout.ok {
+    border-left-color: var(--ok);
+    background: #e8f5e9;
+  }
+
+  /* ===== Architecture Diagram ===== */
+  .diagram-wrap {
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    padding: 20px;
+    overflow-x: auto;
+  }
+  .diagram-legend {
+    display: flex;
+    gap: 18px;
+    flex-wrap: wrap;
+    margin-top: 12px;
+    font-size: 12px;
+    color: var(--muted);
+  }
+  .diagram-legend span {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+  }
+  .legend-box {
+    display: inline-block;
+    width: 12px; height: 12px;
+    border-radius: 2px;
+  }
+  .legend-client { background: var(--client-soft); border: 1.5px solid var(--client); }
+  .legend-gcp { background: var(--gcp-soft); border: 1.5px solid var(--gcp); }
+  .legend-external { background: var(--external-soft); border: 1.5px solid var(--external); }
+
+  /* Component cards */
+  .comp-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+    gap: 12px;
+    margin: 12px 0;
+  }
+  .comp-card {
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-left: 4px solid var(--gcp);
+    border-radius: 4px;
+    padding: 12px 16px;
+  }
+  .comp-card h4 {
+    margin: 0 0 4px 0;
+    font-size: 14px;
+    color: var(--gcp);
+  }
+  .comp-card .role {
+    font-size: 12px;
+    color: var(--muted);
+    margin-bottom: 6px;
+  }
+  .comp-card p { margin: 4px 0; font-size: 12.5px; }
+
+  footer {
+    margin-top: 60px;
+    padding-top: 18px;
+    border-top: 1px solid var(--border);
+    font-size: 11px;
+    color: var(--muted);
+    text-align: center;
+  }
+</style>
+</head>
+<body>
+<div class="doc">
+
+<header>
+  <h1>お囃子練習リズムゲーム — インフラ構成案</h1>
+  <p class="subtitle">GCP 中心 / 価格最適化重視 / 初年度規模想定 (自治体 10-20 / プレイヤー 数百)</p>
+  <div class="meta">Version 1 — Draft / 提案書</div>
+</header>
+
+<div class="toc">
+  <h3>目次</h3>
+  <ol>
+    <li><a href="#premise">前提条件と想定規模</a></li>
+    <li><a href="#policy">構成方針</a></li>
+    <li><a href="#diagram">構成図</a></li>
+    <li><a href="#components">コンポーネント詳細と選定理由</a></li>
+    <li><a href="#cost">コスト試算</a></li>
+    <li><a href="#alternatives">検討した代替案</a></li>
+    <li><a href="#growth">スケール時の移行パス</a></li>
+    <li><a href="#risks">リスクと注意点</a></li>
+  </ol>
+</div>
+
+<!-- ======================== -->
+<section id="premise">
+<h2>1. 前提条件と想定規模</h2>
+
+<h3>初年度の運用規模想定</h3>
+<table>
+  <tr><th style="width:38%;">項目</th><th>想定値</th><th>根拠 / 補足</th></tr>
+  <tr><td>採用自治体数</td><td>10 〜 20</td><td>近隣自治体との直接商談ベース</td></tr>
+  <tr><td>プレイヤー数(累計DL)</td><td>数百</td><td>1自治体あたり数十名を想定</td></tr>
+  <tr><td>公開譜面数</td><td>100 〜 300 / 年</td><td>自治体あたり 5 〜 15 譜面を想定</td></tr>
+  <tr><td>公開リクエスト頻度</td><td>10 〜 30 / 月</td><td>制作は集中的に行われる想定(祭りシーズン前)</td></tr>
+  <tr><td>DL リクエスト頻度</td><td>500 〜 2,000 / 月</td><td>プレイヤー × 平均 2-3 譜面 × 月内複数DL(再インストール等)</td></tr>
+  <tr><td>譜面 1 件のサイズ</td><td>5 〜 20 KB</td><td>ノーツ 100-300 個 × 30 bytes</td></tr>
+  <tr><td>ストレージ総量</td><td>~10 MB(初年度)</td><td>300 譜面 × 20 KB でも 6 MB 程度</td></tr>
+</table>
+
+<div class="callout">
+  <b>結論のプレビュー:</b> この規模なら GCP の主要サービスはすべて <b>無料枠内</b> に収まる。
+  実質的な運用コストは <b>月額 ¥0 〜 ¥100 程度</b>(GCP 部分のみ)。
+</div>
+</section>
+
+<!-- ======================== -->
+<section id="policy">
+<h2>2. 構成方針</h2>
+<ul>
+  <li><b>GCP 中心</b> — ユーザーが業務で慣れているため学習コスト低減</li>
+  <li><b>フリーティア内収まりを最優先</b> — 初年度規模なら実質無料で運用可</li>
+  <li><b>サーバーレスを徹底</b> — 常時稼働型サーバー(GCE, Cloud SQL 等)は使わない、リクエスト単価のみ</li>
+  <li><b>カスタムドメイン + HTTPS Load Balancer は MVP では見送り</b> — 月 $18+ かかるため過剰。GCS/Cloud Run のデフォルトドメイン(<code>storage.googleapis.com</code>, <code>*.run.app</code>)を利用</li>
+  <li><b>CDN は導入しない</b> — 想定 DL 頻度なら Cloud Storage 直配信で十分</li>
+  <li><b>可用性より価格</b> — マルチリージョン化はしない(<code>asia-northeast1</code> Tokyo のみ)</li>
+</ul>
+</section>
+
+<!-- ======================== -->
+<section id="diagram">
+<h2>3. 構成図</h2>
+
+<div class="diagram-wrap">
+<svg viewBox="0 0 920 620" xmlns="http://www.w3.org/2000/svg" style="width:100%; height:auto;">
+  <defs>
+    <marker id="arrow" markerWidth="10" markerHeight="10" refX="9" refY="3" orient="auto" markerUnits="strokeWidth">
+      <path d="M0,0 L0,6 L9,3 z" fill="#666"/>
+    </marker>
+    <marker id="arrow-accent" markerWidth="10" markerHeight="10" refX="9" refY="3" orient="auto" markerUnits="strokeWidth">
+      <path d="M0,0 L0,6 L9,3 z" fill="#c8211d"/>
+    </marker>
+    <marker id="arrow-blue" markerWidth="10" markerHeight="10" refX="9" refY="3" orient="auto" markerUnits="strokeWidth">
+      <path d="M0,0 L0,6 L9,3 z" fill="#1a73e8"/>
+    </marker>
+  </defs>
+
+  <!-- Client: iOS app -->
+  <g>
+    <rect x="360" y="20" width="200" height="60" rx="8" fill="#fde7e6" stroke="#c8211d" stroke-width="2"/>
+    <text x="460" y="45" text-anchor="middle" font-size="14" font-weight="600" fill="#c8211d">iOS アプリ</text>
+    <text x="460" y="65" text-anchor="middle" font-size="11" fill="#7a6b62">プレイヤー / 制作者</text>
+  </g>
+
+  <!-- Arrow: download -->
+  <line x1="410" y1="80" x2="200" y2="150" stroke="#c8211d" stroke-width="2" marker-end="url(#arrow-accent)"/>
+  <text x="230" y="115" font-size="11" fill="#c8211d" font-weight="600">GET /{id}.json</text>
+  <text x="230" y="130" font-size="10" fill="#7a6b62">(譜面ダウンロード)</text>
+
+  <!-- Arrow: publish -->
+  <line x1="510" y1="80" x2="720" y2="150" stroke="#c8211d" stroke-width="2" marker-end="url(#arrow-accent)"/>
+  <text x="595" y="115" font-size="11" fill="#c8211d" font-weight="600">POST /publish</text>
+  <text x="595" y="130" font-size="10" fill="#7a6b62">(IAP検証付き公開)</text>
+
+  <!-- Cloud Storage -->
+  <g>
+    <rect x="60" y="150" width="280" height="80" rx="8" fill="#e8f0fe" stroke="#1a73e8" stroke-width="2"/>
+    <text x="200" y="175" text-anchor="middle" font-size="14" font-weight="600" fill="#1a73e8">Cloud Storage</text>
+    <text x="200" y="195" text-anchor="middle" font-size="11" fill="#7a6b62">公開バケット (asia-northeast1)</text>
+    <text x="200" y="212" text-anchor="middle" font-size="11" fill="#7a6b62">譜面 JSON 保管 / 匿名GET配信</text>
+  </g>
+
+  <!-- Cloud Run -->
+  <g>
+    <rect x="580" y="150" width="280" height="80" rx="8" fill="#e8f0fe" stroke="#1a73e8" stroke-width="2"/>
+    <text x="720" y="175" text-anchor="middle" font-size="14" font-weight="600" fill="#1a73e8">Cloud Run</text>
+    <text x="720" y="195" text-anchor="middle" font-size="11" fill="#7a6b62">公開API サービス</text>
+    <text x="720" y="212" text-anchor="middle" font-size="11" fill="#7a6b62">/publish, /check-id</text>
+  </g>
+
+  <!-- Cloud Run → GCS (write) -->
+  <path d="M 580 210 Q 460 260 340 210" stroke="#1a73e8" stroke-width="2" fill="none" marker-end="url(#arrow-blue)"/>
+  <text x="460" y="255" text-anchor="middle" font-size="10" fill="#1a73e8">write {id}.json</text>
+
+  <!-- Firestore -->
+  <g>
+    <rect x="440" y="320" width="220" height="80" rx="8" fill="#e8f0fe" stroke="#1a73e8" stroke-width="2"/>
+    <text x="550" y="345" text-anchor="middle" font-size="14" font-weight="600" fill="#1a73e8">Firestore (Native)</text>
+    <text x="550" y="363" text-anchor="middle" font-size="11" fill="#7a6b62">transactions (使用済み)</text>
+    <text x="550" y="380" text-anchor="middle" font-size="11" fill="#7a6b62">charts (公開ID台帳)</text>
+  </g>
+
+  <!-- Cloud Run → Firestore -->
+  <line x1="680" y1="230" x2="600" y2="320" stroke="#1a73e8" stroke-width="2" marker-end="url(#arrow-blue)"/>
+
+  <!-- Secret Manager -->
+  <g>
+    <rect x="700" y="320" width="180" height="80" rx="8" fill="#e8f0fe" stroke="#1a73e8" stroke-width="2"/>
+    <text x="790" y="345" text-anchor="middle" font-size="14" font-weight="600" fill="#1a73e8">Secret Manager</text>
+    <text x="790" y="363" text-anchor="middle" font-size="11" fill="#7a6b62">Apple API 秘密鍵</text>
+    <text x="790" y="380" text-anchor="middle" font-size="11" fill="#7a6b62">Shared Secret</text>
+  </g>
+  <line x1="760" y1="230" x2="775" y2="320" stroke="#1a73e8" stroke-width="2" marker-end="url(#arrow-blue)"/>
+
+  <!-- App Store Server API (external) -->
+  <g>
+    <rect x="220" y="320" width="200" height="80" rx="8" fill="#eeeeee" stroke="#5f6368" stroke-width="2" stroke-dasharray="4 3"/>
+    <text x="320" y="345" text-anchor="middle" font-size="14" font-weight="600" fill="#5f6368">App Store Server API</text>
+    <text x="320" y="363" text-anchor="middle" font-size="11" fill="#7a6b62">Apple 外部サービス</text>
+    <text x="320" y="380" text-anchor="middle" font-size="11" fill="#7a6b62">JWS 署名検証</text>
+  </g>
+  <path d="M 610 230 Q 500 280 400 320" stroke="#5f6368" stroke-width="2" fill="none" stroke-dasharray="4 3" marker-end="url(#arrow)"/>
+
+  <!-- Observability & Build (bottom row) -->
+  <g>
+    <rect x="60" y="460" width="220" height="70" rx="8" fill="#e8f0fe" stroke="#1a73e8" stroke-width="2"/>
+    <text x="170" y="485" text-anchor="middle" font-size="13" font-weight="600" fill="#1a73e8">Cloud Logging</text>
+    <text x="170" y="503" text-anchor="middle" font-size="11" fill="#7a6b62">全サービスから自動収集</text>
+    <text x="170" y="518" text-anchor="middle" font-size="11" fill="#7a6b62">無料枠 50GB/月(要制御)</text>
+  </g>
+
+  <g>
+    <rect x="310" y="460" width="240" height="70" rx="8" fill="#eeeeee" stroke="#5f6368" stroke-width="2" stroke-dasharray="4 3"/>
+    <text x="430" y="485" text-anchor="middle" font-size="13" font-weight="600" fill="#5f6368">GitHub Actions</text>
+    <text x="430" y="503" text-anchor="middle" font-size="11" fill="#7a6b62">CI/CD(外部)</text>
+    <text x="430" y="518" text-anchor="middle" font-size="11" fill="#7a6b62">build → push → deploy</text>
+  </g>
+
+  <g>
+    <rect x="580" y="460" width="240" height="70" rx="8" fill="#e8f0fe" stroke="#1a73e8" stroke-width="2"/>
+    <text x="700" y="485" text-anchor="middle" font-size="13" font-weight="600" fill="#1a73e8">Artifact Registry</text>
+    <text x="700" y="503" text-anchor="middle" font-size="11" fill="#7a6b62">Cloud Run 用イメージ</text>
+    <text x="700" y="518" text-anchor="middle" font-size="11" fill="#7a6b62">~500MB → 実質無料</text>
+  </g>
+
+  <!-- Section labels -->
+  <text x="460" y="440" text-anchor="middle" font-size="12" fill="#7a6b62" font-style="italic">— 開発・観測基盤 —</text>
+  <text x="460" y="298" text-anchor="middle" font-size="12" fill="#7a6b62" font-style="italic">— バックエンド内部 —</text>
+
+  <!-- GitHub Actions → Artifact Registry (dashed since Actions is external) -->
+  <line x1="550" y1="495" x2="580" y2="495" stroke="#5f6368" stroke-width="2" stroke-dasharray="4 3" marker-end="url(#arrow)"/>
+
+  <!-- Artifact Registry → Cloud Run (deploy arrow up) -->
+  <path d="M 700 460 L 700 380 L 740 380 L 740 230" stroke="#1a73e8" stroke-width="1.5" fill="none" marker-end="url(#arrow-blue)" stroke-dasharray="3 3"/>
+  <text x="720" y="420" font-size="10" fill="#1a73e8">deploy</text>
+
+</svg>
+
+<div class="diagram-legend">
+  <span><span class="legend-box legend-client"></span> クライアント(iOS)</span>
+  <span><span class="legend-box legend-gcp"></span> GCP サービス</span>
+  <span><span class="legend-box legend-external"></span> 外部サービス</span>
+</div>
+</div>
+
+<h3>データフロー概要</h3>
+<ul>
+  <li><b>譜面DL (プレイヤー):</b> iOS アプリ → <code>GET storage.googleapis.com/[bucket]/{id}.json</code> → Cloud Storage 直配信</li>
+  <li><b>譜面公開 (制作者):</b> iOS アプリ → <code>POST *.run.app/publish</code> → Cloud Run → App Store API で JWS 検証 → Firestore で重複確認 → Cloud Storage 書き込み</li>
+  <li><b>デプロイ:</b> GitHub push → GitHub Actions(build → push → deploy) → Artifact Registry → Cloud Run 更新</li>
+</ul>
+</section>
+
+<!-- ======================== -->
+<section id="components">
+<h2>4. コンポーネント詳細と選定理由</h2>
+
+<div class="comp-grid">
+
+<div class="comp-card">
+<h4>Cloud Storage</h4>
+<div class="role">譜面 JSON の配信・保管</div>
+<p><b>選定理由:</b> HTTPS 標準搭載、公開バケットで匿名 GET 可、egress 単価が安く、無料枠 5GB。カスタムドメイン不要なら実質永久無料。</p>
+<p><b>設定:</b> リージョン Standard <code>asia-northeast1</code>、Uniform bucket-level access、<code>allUsers → Storage Object Viewer</code>、<b>ListObjects 権限は付与しない</b>。</p>
+</div>
+
+<div class="comp-card">
+<h4>Cloud Run</h4>
+<div class="role">/publish, /check-id の公開API</div>
+<p><b>選定理由:</b> サーバーレスで常時稼働コストゼロ、リクエスト単価のみ、コンテナ形式で柔軟。無料枠が広く(月200万リクエスト)、本規模では実質無料。</p>
+<p><b>設定:</b> リージョン <code>asia-northeast1</code>、min instances = 0(スケール to zero)、認証 = 公開(コード内で IAP 検証)。</p>
+</div>
+
+<div class="comp-card">
+<h4>Firestore (Native mode)</h4>
+<div class="role">IAP トランザクション台帳 / 公開ID台帳</div>
+<p><b>選定理由:</b> サーバーレス DB。書き込み頻度が低く、無料枠(20K read/write per day)で余裕。トランザクショナルな重複防止が必要な用途に最適。</p>
+<p><b>コレクション:</b> <code>transactions</code>(使用済み IAP transaction_id)、<code>charts</code>(公開済み chart_id + メタ)。</p>
+</div>
+
+<div class="comp-card">
+<h4>Secret Manager</h4>
+<div class="role">Apple 認証情報の秘匿保管</div>
+<p><b>選定理由:</b> App Store Server API 用の秘密鍵/Issuer ID/Bundle ID/App Store shared secret を安全に保管。Cloud Run から IAM 経由でアクセス。</p>
+<p><b>コスト:</b> 秘密数 6 まで無料、アクセス数 10K/月まで無料 → 本規模では ¥0。</p>
+</div>
+
+<div class="comp-card">
+<h4>Artifact Registry</h4>
+<div class="role">Cloud Run 用コンテナイメージの格納</div>
+<p><b>選定理由:</b> Cloud Run とリージョン内で密結合し、イメージ pull が高速。GitHub Actions からも <code>gcloud auth</code> で push 可能。無料枠 0.5GB。</p>
+<p><b>備考:</b> イメージサイズを Alpine ベース等で 200MB 以内に抑えれば無料枠内。</p>
+</div>
+
+<div class="comp-card" style="border-left-color: #5f6368;">
+<h4 style="color: #5f6368;">GitHub Actions(外部)</h4>
+<div class="role">CI/CD(build → push → deploy)</div>
+<p><b>選定理由:</b> ユーザーが普段 GitHub Actions を利用しており学習コスト最小。Workload Identity Federation で GCP 認証を鍵レス化できる。無料枠 2,000分/月(Private リポジトリ)で本規模には十分。</p>
+<p><b>フロー:</b> GitHub push → Actions で Docker build → Artifact Registry へ push → <code>gcloud run deploy</code> で Cloud Run 更新。Cloud Build は使用しない。</p>
+</div>
+
+<div class="comp-card">
+<h4>Cloud Logging</h4>
+<div class="role">全サービスのログ集約</div>
+<p><b>選定理由:</b> Cloud Run / Cloud Storage / Firestore すべて自動でログが集まる。無料枠 50GB/月 → 本規模では ¥0。</p>
+<p><b>用途:</b> 障害調査、IAP 検証失敗の追跡、DL統計。</p>
+</div>
+
+<div class="comp-card">
+<h4>Cloud Monitoring</h4>
+<div class="role">メトリクス・アラート</div>
+<p><b>選定理由:</b> GCP 標準、Cloud Logging 由来のメトリクスが自動で使える。基本無料。</p>
+<p><b>用途:</b> Cloud Run のエラー率アラート、Firestore の読み書き回数モニタ。</p>
+</div>
+
+</div>
+</section>
+
+<!-- ======================== -->
+<section id="cost">
+<h2>5. コスト試算</h2>
+
+<h3>月額目安(想定規模ベース)</h3>
+<table>
+  <tr><th>サービス</th><th>想定使用量</th><th>無料枠</th><th class="num">課金対象</th><th class="num">月額(円)</th></tr>
+  <tr><td>Cloud Storage 保管</td><td>~10 MB</td><td>5 GB</td><td class="num">なし</td><td class="num">0</td></tr>
+  <tr><td>Cloud Storage 読み出し (Class B)</td><td>~2,000/月</td><td>50,000/月</td><td class="num">なし</td><td class="num">0</td></tr>
+  <tr><td>Cloud Storage 書き込み (Class A)</td><td>~30/月</td><td>5,000/月</td><td class="num">なし</td><td class="num">0</td></tr>
+  <tr><td>Cloud Storage egress</td><td>~50 MB/月</td><td>アジア内は $0.12/GB</td><td class="num">~6MB</td><td class="num">~1</td></tr>
+  <tr><td>Cloud Run リクエスト</td><td>~50/月</td><td>2M/月</td><td class="num">なし</td><td class="num">0</td></tr>
+  <tr><td>Cloud Run CPU/Memory</td><td>~10 GB-sec/月</td><td>360K GB-sec/月</td><td class="num">なし</td><td class="num">0</td></tr>
+  <tr><td>Firestore reads</td><td>~500/月</td><td>20K/日</td><td class="num">なし</td><td class="num">0</td></tr>
+  <tr><td>Firestore writes</td><td>~100/月</td><td>20K/日</td><td class="num">なし</td><td class="num">0</td></tr>
+  <tr><td>Firestore storage</td><td>~1 MB</td><td>1 GB</td><td class="num">なし</td><td class="num">0</td></tr>
+  <tr><td>Secret Manager 秘密数</td><td>4</td><td>6</td><td class="num">なし</td><td class="num">0</td></tr>
+  <tr><td>Secret Manager アクセス</td><td>~200/月</td><td>10K/月</td><td class="num">なし</td><td class="num">0</td></tr>
+  <tr><td>Artifact Registry ストレージ</td><td>~300 MB</td><td>500 MB</td><td class="num">なし</td><td class="num">0</td></tr>
+  <tr><td>Cloud Logging</td><td>~200 MB/月</td><td>50 GB/月</td><td class="num">なし</td><td class="num">0</td></tr>
+  <tr><td>GitHub Actions(GCP外)</td><td>~10 build/月</td><td>2,000 min/月</td><td class="num">なし</td><td class="num">0</td></tr>
+  <tr><td>Cloud Monitoring</td><td>基本のみ</td><td>広範囲</td><td class="num">なし</td><td class="num">0</td></tr>
+  <tr class="total"><td colspan="4"><b>GCP 合計(月額目安)</b></td><td class="num"><b>~ ¥1 〜 ¥100</b></td></tr>
+</table>
+
+<h3>関連コスト(GCP外)</h3>
+<table>
+  <tr><th>項目</th><th class="num">年額</th><th class="num">月額換算</th><th>備考</th></tr>
+  <tr><td>Apple Developer Program</td><td class="num">$99 (~¥14,850)</td><td class="num">~¥1,240</td><td>既契約前提(他アプリと共通)</td></tr>
+  <tr><td>カスタムドメイン (任意)</td><td class="num">$12 (~¥1,800)</td><td class="num">~¥150</td><td>MVP では見送り</td></tr>
+</table>
+
+<div class="callout ok">
+  <b>結論:</b> 想定規模の初年度、GCP 側の実運用コストは <b>月額 ¥100 以内</b>。
+  実質、Apple Developer Program 年会費が主要なランニングコスト。
+</div>
+
+<h3>コスト増加の閾値(要注意ライン)</h3>
+<table>
+  <tr><th>閾値</th><th>目安</th><th>対応</th></tr>
+  <tr><td>Cloud Run リクエスト</td><td>200 万/月 超え</td><td>1リクエストあたり ~$0.0000024。10倍規模でも月数十円レベル</td></tr>
+  <tr><td>Cloud Storage egress</td><td>1 GB/月 超え</td><td>アジア内 $0.12/GB。数万DL規模まで無視できる</td></tr>
+  <tr><td>Firestore 書き込み</td><td>20K/日 超え</td><td>1日で数百譜面公開されない限り超えない</td></tr>
+  <tr><td>Cloud Logging</td><td>50 GB/月 超え</td><td>不要ログは除外設定、または保存期間短縮</td></tr>
+</table>
+</section>
+
+<!-- ======================== -->
+<section id="alternatives">
+<h2>6. 検討した代替案</h2>
+
+<table>
+  <tr><th>候補</th><th>採用可否</th><th>理由</th></tr>
+  <tr><td><b>Cloud SQL</b>(PostgreSQL/MySQL)</td><td>不採用</td><td>最小構成でも月 $10〜、常時稼働コスト発生。書き込み頻度極低の本用途に過剰</td></tr>
+  <tr><td><b>App Engine (Standard)</b></td><td>不採用</td><td>Cloud Run とほぼ同機能だがコンテナ運用の柔軟性・スケール to zero の使いやすさで Cloud Run が上</td></tr>
+  <tr><td><b>Cloud Functions</b></td><td>不採用</td><td>関数単位で軽量だが、App Store SDK 依存関係の管理でコンテナベースの方が扱いやすい</td></tr>
+  <tr><td><b>Compute Engine (GCE)</b></td><td>不採用</td><td>常時稼働コスト発生。サーバーレスの利点を捨てる理由がない</td></tr>
+  <tr><td><b>Firebase Authentication</b></td><td>不採用</td><td>設計上アカウント概念なしのため不要</td></tr>
+  <tr><td><b>Firebase Hosting</b></td><td>不採用</td><td>静的サイト用途、譜面配信は Cloud Storage で十分</td></tr>
+  <tr><td><b>Cloud CDN</b></td><td>初年度は不採用</td><td>本規模ではキャッシュヒットで得られる帯域節約より、LB 費用($18+/月)が高い。DL 10万/月超えたら再検討</td></tr>
+  <tr><td><b>HTTPS Load Balancer + カスタムドメイン</b></td><td>初年度は不採用</td><td>月 $18〜。デフォルトドメイン(<code>*.run.app</code>, <code>storage.googleapis.com</code>)で機能上問題なし。ブランディング上必要になったら追加</td></tr>
+  <tr><td><b>Cloudflare (DNS/Proxy)</b></td><td>要検討(将来)</td><td>無料でカスタムドメインが実現できるが、GCP 集約したいユーザー方針に反する。MVP 期は導入見送り</td></tr>
+  <tr><td><b>Redis / Memorystore</b></td><td>不採用</td><td>キャッシュ需要なし、常時稼働コスト発生</td></tr>
+  <tr><td><b>Cloud Tasks / Pub/Sub</b></td><td>不採用</td><td>非同期処理が発生しないため不要</td></tr>
+  <tr><td><b>Cloud Build(CI/CD)</b></td><td>不採用</td><td>ユーザーが普段 GitHub Actions を利用しているため、CI/CD は Actions に一本化。GCP 側の複雑度を減らす</td></tr>
+</table>
+</section>
+
+<!-- ======================== -->
+<section id="growth">
+<h2>7. スケール時の移行パス</h2>
+
+<p>規模が10〜100倍に成長した場合、以下の順で拡張する。基本アーキテクチャは変えなくて良い。</p>
+
+<table>
+  <tr><th>タイミング</th><th>追加/変更</th><th>追加コスト目安</th></tr>
+  <tr><td>DL 10万/月 超え</td><td>Cloud CDN 前段追加</td><td>~$5-15/月(帯域削減で相殺可)</td></tr>
+  <tr><td>ブランド用ドメイン欲しい</td><td>Cloud Run: カスタムドメインマッピング(無料)<br>Cloud Storage: Cloudflare 前段 or Load Balancer</td><td>無料 〜 $18/月</td></tr>
+  <tr><td>Firestore 20K/日 突破</td><td>従量課金に移行(read/write 0.06/100K)</td><td>~$1-3/月</td></tr>
+  <tr><td>国際展開</td><td>マルチリージョンバケット化</td><td>ストレージ単価 ~2倍</td></tr>
+  <tr><td>ライブ配信/リアルタイム同期</td><td>Firestore realtime listener / Pub/Sub</td><td>~$5-20/月</td></tr>
+</table>
+
+<div class="callout">
+  <b>アーキテクチャ選定の要点:</b> サーバーレス中心の構成のため、負荷が増えても水平スケールで対応可能。
+  「小さくローンチ → 徐々に拡張」がスムーズに進む設計。
+</div>
+</section>
+
+<!-- ======================== -->
+<section id="risks">
+<h2>8. リスクと注意点</h2>
+
+<h3>技術リスク</h3>
+<ul>
+  <li><b>Cloud Run コールドスタート</b>: min instances = 0 のため、初回リクエストで数秒遅延の可能性。公開頻度が低い本用途では許容範囲だが、UX 上気になれば min instances = 1 に(月数百円 追加)</li>
+  <li><b>App Store Server API のレート制限</b>: Apple は具体的な数値を非公開。per-hour で HTTP 429 + <code>RateLimitExceededError</code> を返し、<code>Retry-After</code> ヘッダで次回可能時刻を通知する仕様。本プロジェクトの想定頻度(月 10-30 公開)なら余裕は膨大で実質影響なし。<br><b>さらに重要:</b> IAP の JWS(署名付きトランザクション)は Apple 公式ライブラリ(<code>AppStoreServerLibrary</code>)で<b>完全オフライン検証が可能</b>。本プロジェクトは Consumable のみで購読状態の照会も不要なため、<b>App Store Server API を1回も呼ばずに公開処理を完結できる</b>設計を採る予定 → レート制限のリスクは実質ゼロ</li>
+  <li><b>デフォルトドメインのブランド性</b>: <code>*.run.app</code> をアプリ内で見せるとやや素朴。ただしユーザー(iOS アプリ)にとってはコード内定数なので表面には出ない</li>
+</ul>
+
+<h3>コストリスク</h3>
+<div class="callout warn">
+<b>必須実装項目(実装時に必ず対応)</b>:
+以下の2項目は個別ドキュメントに具体的な実装チェックリストがある。
+実装完了時にチェックリスト全項目を確認し、未完了項目がある場合は本番リリースしないこと。
+参照: <code>dev_documents/implementation_notes/cost_protection.md</code>
+</div>
+<ul>
+  <li><b>ログ量の暴走</b>【必須実装】: エラー時のスタックトレースや HTTP 200 の詳細ログで無料枠 50GB/月 を圧迫する可能性。Log Router 除外設定、構造化ログ、保持期間14日、Cloud Monitoring アラートを実装</li>
+  <li><b>Cloud Storage の悪意ある大量DL</b>【必須実装】: 公開バケットのため理論上可能。GCP 予算アラート(¥500/¥1,000/¥3,000)、req 頻度アラート(1時間 1K/10K)、クライアント側キャッシュ、緊急バケット公開停止 Runbook を実装</li>
+</ul>
+
+<h3>運用リスク</h3>
+<ul>
+  <li><b>秘密鍵の管理</b>: Apple の p8 秘密鍵はローテーション不能に近いため、Secret Manager での厳格な IAM 管理必須</li>
+  <li><b>Firestore データの喪失</b>: 定期エクスポート(週次)を Cloud Scheduler + Cloud Functions で自動化推奨(数百円/月)</li>
+  <li><b>取り下げ運用の準備</b>: 譜面取り下げ機能はまだ実装しない前提だが、緊急時のために手動で GCS から削除する運用手順書を用意</li>
+</ul>
+</section>
+
+<footer>
+  お囃子練習リズムゲーム — インフラ構成提案書 v1<br>
+  想定規模: 自治体 10-20 / プレイヤー数百 / 初年度 月額目安 ¥100 以内(GCP)
+</footer>
+
+</div>
+</body>
+</html>
