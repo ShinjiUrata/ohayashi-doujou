@@ -482,9 +482,16 @@ JSON形式、端末ローカル保存(Documentsディレクトリ)+ ネット越
 
 ```
 ohayashi-doujou/
-├── CLAUDE.md                ← このファイル
-└── mockups/
-    └── play.html            ← プレイ画面のHTMLモック(動作確認用)
+├── .gitignore
+├── CLAUDE.md                       ← このファイル(設計合意ドキュメント)
+├── infra-proposal.html             ← GCP インフラ構成提案書
+├── dev_documents/
+│   └── implementation_notes/
+│       └── cost_protection.md      ← 必須実装項目(ログ量制御 / GCS大量DL対策)
+├── mockups/
+│   └── play.html                   ← プレイ画面のHTMLモック(動作確認用)
+├── ios/                            ← Xcode プロジェクト(Phase 1 で作成予定)
+└── backend/                        ← Cloud Run コード(Phase 4 で作成予定)
 ```
 
-実装が始まれば、Xcodeプロジェクト(`OhayashiTaiko.xcodeproj` 等)と、後にバックエンド(Cloud Run コード、IaCなど)が追加される予定。
+GitHub リポジトリ: <https://github.com/ShinjiUrata/ohayashi-doujou>(Private)
