@@ -1,0 +1,253 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<title>お囃子道場 - 譜面検索 / DL画面モック</title>
+<style>
+  :root {
+    --bg: #14121d;
+    --panel: #1d1a2a;
+    --gold: #f4c95d;
+    --gold-dim: #b8935a;
+    --cream: #f5ead0;
+    --accent: #c8211d;
+    --sub: #4ea7d9;
+    --ok: #6bc98a;
+    --border: rgba(244,201,93,0.15);
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; min-height: 100vh;
+    display: flex; align-items: center; justify-content: center;
+    background: radial-gradient(circle at 50% 30%, #2a1a2a 0%, #0a0810 100%);
+    font-family: "Hiragino Sans", "Yu Gothic", "Noto Sans JP", sans-serif;
+    color: var(--cream); padding: 20px;
+  }
+  .layout { display: flex; gap: 32px; align-items: flex-start; flex-wrap: wrap; justify-content: center; }
+
+  .phone {
+    width: 340px; height: 720px; background: #000; border-radius: 48px; padding: 12px;
+    box-shadow: 0 0 0 2px #2a2a3a, 0 20px 60px rgba(0,0,0,0.6), inset 0 0 0 1px rgba(255,255,255,0.05);
+    position: relative;
+  }
+  .phone::before {
+    content: ""; position: absolute; top: 14px; left: 50%; transform: translateX(-50%);
+    width: 110px; height: 28px; background: #000; border-radius: 20px; z-index: 10;
+  }
+  .screen {
+    width: 100%; height: 100%; background: var(--bg); border-radius: 36px;
+    overflow: hidden; position: relative; display: flex; flex-direction: column;
+  }
+
+  .header {
+    padding: 54px 20px 14px;
+    display: flex; justify-content: space-between; align-items: center;
+    background: linear-gradient(180deg, rgba(78,167,217,0.15), rgba(0,0,0,0));
+  }
+  .header .back { color: var(--gold); font-size: 14px; opacity: 0.8; }
+  .header .title { font-size: 15px; color: var(--gold); font-weight: 700; letter-spacing: 2px; }
+  .header .spacer { width: 40px; }
+
+  .body {
+    padding: 22px 24px;
+    flex: 1;
+    display: flex; flex-direction: column;
+  }
+  .hero {
+    text-align: center;
+    margin-bottom: 20px;
+  }
+  .hero .icon {
+    display: inline-block;
+    width: 56px; height: 56px;
+    border-radius: 50%;
+    background: radial-gradient(circle at 35% 30%, #8fd1f4, var(--sub) 60%, #1b4d70 100%);
+    color: #fff; font-size: 22px; font-weight: 700;
+    line-height: 56px;
+    box-shadow: 0 0 20px rgba(78,167,217,0.4);
+    margin-bottom: 10px;
+  }
+  .hero .lead {
+    font-size: 14px; color: var(--cream); opacity: 0.9;
+    margin: 6px 0 4px;
+  }
+  .hero .sub {
+    font-size: 11px; color: rgba(245,234,208,0.5);
+  }
+
+  .form-label {
+    font-size: 11px; color: var(--gold); letter-spacing: 2px;
+    margin: 8px 4px 6px;
+  }
+  .input-wrap {
+    background: var(--panel);
+    border: 2px solid var(--border);
+    border-radius: 12px;
+    padding: 14px 16px;
+    display: flex; align-items: center; gap: 8px;
+  }
+  .input-wrap.focus {
+    border-color: rgba(244,201,93,0.5);
+    box-shadow: 0 0 0 3px rgba(244,201,93,0.1);
+  }
+  .input-wrap input {
+    flex: 1;
+    background: transparent;
+    border: none;
+    color: var(--cream);
+    font-size: 15px;
+    font-family: "SF Mono", "Menlo", monospace;
+    letter-spacing: 1px;
+    outline: none;
+    width: 100%;
+  }
+  .input-wrap .cursor {
+    display: inline-block;
+    width: 2px; height: 18px;
+    background: var(--gold);
+    margin-left: -4px;
+    animation: blink 1s steps(2) infinite;
+  }
+  @keyframes blink { 50% { opacity: 0; } }
+
+  .input-hint {
+    font-size: 10px; color: rgba(245,234,208,0.5);
+    margin: 6px 4px 0;
+    letter-spacing: 1px;
+  }
+
+  .status {
+    margin-top: 14px;
+    padding: 10px 14px;
+    background: rgba(107,201,138,0.1);
+    border: 1px solid rgba(107,201,138,0.35);
+    border-radius: 10px;
+    display: flex; align-items: center; gap: 8px;
+    color: var(--ok);
+    font-size: 12px;
+  }
+  .status .dot {
+    width: 8px; height: 8px; border-radius: 50%; background: var(--ok);
+    box-shadow: 0 0 8px var(--ok);
+  }
+
+  .btn-dl {
+    margin-top: 18px;
+    background: linear-gradient(180deg, #5fb8ea 0%, var(--sub) 100%);
+    color: #fff;
+    border-radius: 14px;
+    padding: 16px;
+    text-align: center;
+    font-weight: 700;
+    letter-spacing: 3px;
+    font-size: 16px;
+    box-shadow: 0 4px 14px rgba(78,167,217,0.4), inset 0 -2px 0 rgba(0,0,0,0.2);
+    border: 1px solid rgba(200,240,255,0.3);
+  }
+
+  .info-box {
+    margin-top: auto;
+    padding: 12px 14px;
+    background: rgba(244,201,93,0.06);
+    border: 1px dashed rgba(244,201,93,0.3);
+    border-radius: 10px;
+    font-size: 10px; line-height: 1.6;
+    color: rgba(245,234,208,0.7);
+  }
+  .info-box b { color: var(--gold); }
+
+  /* Legend */
+  .legend { width: 320px; color: var(--cream); font-size: 13px; line-height: 1.7; }
+  .legend h2 {
+    font-size: 15px; color: var(--gold);
+    border-bottom: 1px solid rgba(244,201,93,0.3);
+    padding-bottom: 6px; margin-top: 24px;
+  }
+  .legend h2:first-child { margin-top: 0; }
+  .legend code {
+    background: rgba(244,201,93,0.1); color: var(--gold);
+    padding: 1px 6px; border-radius: 4px; font-size: 12px;
+  }
+  .legend .row { margin: 6px 0; }
+  .legend .row b { color: var(--gold); }
+  .footer-note {
+    margin-top: 24px; font-size: 11px; color: rgba(245,234,208,0.5);
+    border-top: 1px solid rgba(255,255,255,0.08); padding-top: 12px;
+  }
+</style>
+</head>
+<body>
+
+<div class="layout">
+
+  <div class="phone">
+    <div class="screen">
+      <div class="header">
+        <div class="back">◀ 戻る</div>
+        <div class="title">譜面を入手</div>
+        <div class="spacer"></div>
+      </div>
+
+      <div class="body">
+        <div class="hero">
+          <div class="icon">🔍</div>
+          <div class="lead">譜面 ID を入力してください</div>
+          <div class="sub">制作者から教えてもらった ID を打ち込むだけ</div>
+        </div>
+
+        <div class="form-label">譜面 ID</div>
+        <div class="input-wrap focus">
+          <input value="shimoda-2026-irihayashi" readonly>
+          <span class="cursor"></span>
+        </div>
+        <div class="input-hint">半角小英字・数字・ハイフン / 3〜64文字</div>
+
+        <div class="status">
+          <span class="dot"></span>
+          この譜面は取得可能です
+        </div>
+
+        <div class="btn-dl">ダウンロード</div>
+
+        <div class="info-box">
+          <b>オフライン設計</b>:一度ダウンロードすれば、その後はネット接続なしでプレイできます。祭り会場でも安心。
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="legend">
+    <h2>画面 03: 譜面検索 / DL</h2>
+    <div class="row"><b>目的</b>: ID を入力して譜面をサーバーからDLし、端末ローカルに保存</div>
+
+    <h2>要素</h2>
+    <div class="row"><b>ID 入力欄</b>: 等幅フォント、小英数・ハイフンのみ</div>
+    <div class="row"><b>入力バリデーション</b>: 文字種・長さ(3〜64)を UI 側で先に検証</div>
+    <div class="row"><b>ダウンロードボタン</b>: 青系(プレイ経路の朱と区別)</div>
+    <div class="row"><b>オフライン説明カード</b>: 祭り会場での安心感を明示</div>
+
+    <h2>API</h2>
+    <div class="row"><code>GET https://storage.googleapis.com/ohayashi-charts-{env}/{id}.json</code></div>
+    <div class="row">200 → ローカル保存 / 404 → 見つかりません</div>
+
+    <h2>コスト保護</h2>
+    <div class="row">同じ ID を再検索したときは既存ローカルファイルを検出して DL スキップ</div>
+    <div class="row"><code>cost_protection.md §2C</code> 参照</div>
+
+    <h2>遷移</h2>
+    <div class="row">DL 成功 → <code>02 譜面一覧</code>(NEW ハイライト付き)</div>
+    <div class="row">戻る → 遷移元(01 or 02)</div>
+
+    <h2>Phase</h2>
+    <div class="row">Phase 4(バックエンド + 譜面共有)</div>
+
+    <div class="footer-note">
+      ※ 譜面一覧 API は存在しない(§3.8 の設計方針)<br>
+      ※ QR スキャンは将来対応
+    </div>
+  </div>
+
+</div>
+
+</body>
+</html>

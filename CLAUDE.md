@@ -227,10 +227,12 @@ JSON形式、端末ローカル保存(Documentsディレクトリ)+ ネット越
 | トランザクション台帳 | Firestore | 使用済み IAP トランザクションID、公開済み譜面ID の記録 |
 | CDN | 当面なし | 規模が出たら Cloud CDN を前段に追加 |
 
-#### アプリ視点のエンドポイント
-- `GET https://charts.example.com/{id}.json` — 個別譜面DL
-- `POST https://api.example.com/publish` — 公開(IAP決済成功後の即時アップロード、ID指定込み)
-- `POST https://api.example.com/check-id` — 公開ボタン押下前のID重複事前確認(課金後に重複エラーで決済損失を防ぐため)
+#### アプリ視点のエンドポイント(独自ドメイン不採用)
+- `GET https://storage.googleapis.com/ohayashi-charts-{env}/{id}.json` — 個別譜面DL(GCS 直接 URL、`{env}` は dev/prod)
+- `POST https://api-<hash>.asia-northeast1.run.app/publish` — 公開(IAP決済成功後の即時アップロード、ID指定込み)
+- `POST https://api-<hash>.asia-northeast1.run.app/check-id` — 公開ボタン押下前のID重複事前確認(課金後に重複エラーで決済損失を防ぐため)
+
+URL は Cloud Run と GCS が自動発行するデフォルトを使用。独自ドメイン取得なし、Cloud Load Balancer なし、DNS 管理なし。
 
 **譜面一覧APIは存在しない**。バケットの ListObjects 権限も付与しない。
 譜面の発見手段は「制作者から ID を直接教えてもらう」のみ(配布モデルがそれで完結するため、検索一覧を実装する必然性が薄い)。
@@ -294,7 +296,7 @@ JSON形式、端末ローカル保存(Documentsディレクトリ)+ ネット越
    ↓
 [ダウンロードボタン]
    ↓
-   GET https://charts.example.com/{id}.json
+   GET https://storage.googleapis.com/ohayashi-charts-{env}/{id}.json
    ↓
    ├ 200: 端末ローカル(アプリ専用ディレクトリ)に保存 → 一覧に追加
    └ 404: 「この譜面IDは見つかりません」表示
@@ -384,6 +386,9 @@ JSON形式、端末ローカル保存(Documentsディレクトリ)+ ネット越
 - [ ] iOS 側: 譜面検索画面(ID入力 → GET → ローカル保存)
 - [ ] iOS 側: 保存済み譜面一覧
 - [ ] iOS 側: 制作モードからの公開フロー(ID入力 → /check-id → IAP → /publish)
+- [ ] terraform/ ディレクトリ整備(afterglow フラット構成踏襲、`ohayashi-doujou-terraform-state` バケット)
+- [ ] import.sh で手動作成リソースを Terraform 管理下に取り込み
+- [ ] GitHub Actions workflow 整備(terraform-ci / api-ci / api-dev-cd / api-prod-cd / ios-ci)
 
 ### Phase 5: IAP(StoreKit 2)
 - [ ] App Store Connect で Consumable プロダクト登録(`rhythm.chart.publish.single`)
@@ -418,7 +423,7 @@ JSON形式、端末ローカル保存(Documentsディレクトリ)+ ネット越
 6. **アプリアイコン・スプラッシュ**のデザイン素材
 7. **タイトル画面・メニュー画面**のデザイン方針
 8. **譜面のサンプル**: 開発中の動作確認用に、簡単なテスト譜面を1〜2個用意したい
-9. **GCP プロジェクト名**(本番 / 開発の分け方)、**配信ドメイン**(例: `charts.example.com` / `api.example.com`)
+9. **GCP プロジェクト名**確定 — 決定済み: `ohayashi-doujou-dev` / `ohayashi-doujou-prod`(asia-northeast1)。**独自ドメインは取得しない方針**、URL は Cloud Run + GCS が発行するデフォルトを使用
 10. **IAP プロダクトID**(仮: `rhythm.chart.publish.single`)、価格ティア確定、サンドボックス用 Apple ID 用意
 11. **譜面の取り下げフロー** の運用方針(管理ツールの形、ユーザーからの取り下げ依頼受付方法)
 12. **利用規約の準備**(IAP 関連、課金は公開時即時消費・キャンセル不可、譜面公開のポリシー など)
@@ -449,6 +454,9 @@ JSON形式、端末ローカル保存(Documentsディレクトリ)+ ネット越
 | アカウント / 認証なし | 仕様(スコア共有なし・公開譜面のみ)的に不要、UX を最大限シンプルに |
 | Bundle ID prefix は `com.zembrem` に統一 | 既存の afterglow アプリ (`com.zembrem.spanglow`) と同一 Apple Developer アカウントで運用するため、prefix を揃えて証明書・プロビジョニングプロファイル管理を単純化する |
 | Bundle ID 本体は `ohayashidoujou`(ハイフンなし) | (1) プロジェクト名「お囃子道場」と1:1対応、(2) Bundle ID のハイフンは技術的にはOKだが慣例的に避けられる、(3) 将来「お囃子」ブランドで別アプリを出す余地を残すため個別名詞にしている |
+| インフラは Terraform 管理(フラット構成、afterglow 踏襲) | (1) IaC 化で環境差分・レビュー・再現性を担保、(2) afterglow プロジェクトの運用実績を踏襲して学習コスト削減、(3) `tf.sh` ラッパーで dev/prod 取り違え事故を防止 |
+| Cloud Load Balancer は MVP で不採用 | (1) LB は月額 $18 の固定料金、無料枠内運用と矛盾、(2) charts の URL は iOS ハードコードでユーザー可視性なし、(3) 規模拡大時に Phase 6+ で LB + CDN 追加する余地は残る |
+| 独自ドメイン取得なし | (1) 維持コスト・DNS 管理・SSL 証明書管理をゼロに、(2) URL は iOS ハードコードでユーザー可視性なし、(3) Cloud Run と GCS が自動発行する URL で全機能が完結する |
 
 ---
 

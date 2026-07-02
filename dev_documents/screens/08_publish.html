@@ -1,0 +1,333 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<title>お囃子道場 - 公開(IAP)画面モック</title>
+<style>
+  :root {
+    --bg: #14121d;
+    --panel: #1d1a2a;
+    --panel-hi: #26223a;
+    --gold: #f4c95d;
+    --gold-dim: #b8935a;
+    --cream: #f5ead0;
+    --accent: #c8211d;
+    --sub: #4ea7d9;
+    --ok: #6bc98a;
+    --warn: #ff9c3b;
+    --border: rgba(244,201,93,0.2);
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; min-height: 100vh;
+    display: flex; align-items: center; justify-content: center;
+    background: radial-gradient(circle at 50% 30%, #2a1a2a 0%, #0a0810 100%);
+    font-family: "Hiragino Sans", "Yu Gothic", "Noto Sans JP", sans-serif;
+    color: var(--cream); padding: 20px;
+  }
+  .layout { display: flex; gap: 32px; align-items: flex-start; flex-wrap: wrap; justify-content: center; }
+
+  .phone {
+    width: 340px; height: 720px; background: #000; border-radius: 48px; padding: 12px;
+    box-shadow: 0 0 0 2px #2a2a3a, 0 20px 60px rgba(0,0,0,0.6), inset 0 0 0 1px rgba(255,255,255,0.05);
+    position: relative;
+  }
+  .phone::before {
+    content: ""; position: absolute; top: 14px; left: 50%; transform: translateX(-50%);
+    width: 110px; height: 28px; background: #000; border-radius: 20px; z-index: 10;
+  }
+  .screen {
+    width: 100%; height: 100%; background: var(--bg); border-radius: 36px;
+    overflow: hidden; position: relative; display: flex; flex-direction: column;
+  }
+
+  .header {
+    padding: 48px 20px 12px;
+    display: flex; justify-content: space-between; align-items: center;
+    background: linear-gradient(180deg, rgba(196,33,29,0.18), rgba(0,0,0,0));
+  }
+  .header .back { color: var(--gold); font-size: 13px; }
+  .header .title { font-size: 15px; color: var(--gold); font-weight: 700; letter-spacing: 3px; }
+  .header .spacer { width: 20px; }
+
+  .body {
+    flex: 1;
+    overflow-y: auto;
+    padding: 14px 20px 8px;
+  }
+
+  .chart-summary {
+    background: var(--panel);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 12px 14px;
+    margin-bottom: 16px;
+  }
+  .chart-summary .name { font-size: 15px; color: var(--cream); font-weight: 700; }
+  .chart-summary .meta {
+    font-size: 11px; color: rgba(245,234,208,0.6);
+    margin-top: 4px; display: flex; gap: 10px;
+  }
+  .chart-summary .meta b { color: var(--gold-dim); font-weight: 400; }
+
+  .form-label {
+    font-size: 10px; color: var(--gold); letter-spacing: 2px;
+    margin: 4px 2px 6px;
+  }
+  .id-input-wrap {
+    background: var(--panel);
+    border: 2px solid rgba(244,201,93,0.4);
+    border-radius: 12px;
+    padding: 12px 14px;
+  }
+  .id-input {
+    background: transparent; border: none; outline: none;
+    color: var(--cream);
+    font-size: 15px;
+    font-family: "SF Mono", "Menlo", monospace;
+    letter-spacing: 1px;
+    width: 100%;
+  }
+  .id-hint {
+    font-size: 10px; color: rgba(245,234,208,0.5);
+    margin: 6px 2px 0;
+    letter-spacing: 1px;
+  }
+
+  .id-status {
+    margin-top: 10px;
+    padding: 8px 12px;
+    border-radius: 10px;
+    display: flex; align-items: center; gap: 8px;
+    font-size: 12px;
+  }
+  .id-status.ok {
+    background: rgba(107,201,138,0.1);
+    border: 1px solid rgba(107,201,138,0.35);
+    color: var(--ok);
+  }
+  .id-status .dot {
+    width: 8px; height: 8px; border-radius: 50%;
+    background: currentColor;
+    box-shadow: 0 0 6px currentColor;
+  }
+
+  .price-card {
+    margin-top: 20px;
+    background: linear-gradient(135deg, rgba(196,33,29,0.15), rgba(196,33,29,0.05));
+    border: 1px solid rgba(196,33,29,0.4);
+    border-radius: 14px;
+    padding: 14px 16px;
+    display: flex; align-items: center; gap: 12px;
+  }
+  .price-card .icon {
+    width: 40px; height: 40px; border-radius: 10px;
+    background: rgba(196,33,29,0.25);
+    display: flex; align-items: center; justify-content: center;
+    color: var(--gold);
+    font-size: 22px;
+  }
+  .price-card .desc { flex: 1; font-size: 11px; color: rgba(245,234,208,0.75); line-height: 1.5; }
+  .price-card .price {
+    color: var(--gold);
+    font-size: 20px; font-weight: 700;
+    font-family: "SF Mono", monospace;
+    text-shadow: 0 0 10px rgba(244,201,93,0.4);
+  }
+
+  .flow-list {
+    margin-top: 16px;
+    background: var(--panel);
+    border: 1px solid rgba(255,255,255,0.05);
+    border-radius: 10px;
+    padding: 10px 14px;
+    font-size: 11px;
+  }
+  .flow-list .step {
+    display: flex; gap: 10px;
+    align-items: flex-start;
+    padding: 4px 0;
+  }
+  .flow-list .step .num {
+    display: inline-flex; align-items: center; justify-content: center;
+    width: 18px; height: 18px; border-radius: 50%;
+    background: rgba(244,201,93,0.2); color: var(--gold);
+    font-size: 10px; font-weight: 700;
+    flex-shrink: 0;
+    margin-top: 2px;
+  }
+  .flow-list .step .text { color: rgba(245,234,208,0.75); line-height: 1.55; }
+  .flow-list .step .text code {
+    font-size: 10px; color: var(--sub);
+    background: rgba(78,167,217,0.1);
+    padding: 1px 5px; border-radius: 4px;
+  }
+
+  .footer-actions {
+    padding: 12px 20px 22px;
+    border-top: 1px solid rgba(255,255,255,0.05);
+    background: rgba(0,0,0,0.3);
+  }
+  .btn-publish {
+    background: linear-gradient(180deg, #dd4238, var(--accent));
+    color: #fff;
+    border-radius: 14px;
+    padding: 18px;
+    text-align: center;
+    font-weight: 700;
+    font-size: 16px;
+    letter-spacing: 3px;
+    box-shadow: 0 0 20px rgba(196,33,29,0.5), inset 0 -2px 0 rgba(0,0,0,0.25);
+    border: 1px solid rgba(255,180,180,0.3);
+  }
+  .btn-publish small {
+    display: block; font-size: 10px; margin-top: 3px;
+    letter-spacing: 1px; opacity: 0.85; font-weight: 400;
+  }
+  .caveat {
+    text-align: center;
+    font-size: 9px;
+    color: rgba(245,234,208,0.4);
+    margin-top: 8px;
+    letter-spacing: 1px;
+  }
+
+  /* Legend */
+  .legend { width: 320px; color: var(--cream); font-size: 13px; line-height: 1.7; }
+  .legend h2 {
+    font-size: 15px; color: var(--gold);
+    border-bottom: 1px solid rgba(244,201,93,0.3);
+    padding-bottom: 6px; margin-top: 24px;
+  }
+  .legend h2:first-child { margin-top: 0; }
+  .legend code {
+    background: rgba(244,201,93,0.1); color: var(--gold);
+    padding: 1px 6px; border-radius: 4px; font-size: 12px;
+  }
+  .legend .row { margin: 6px 0; }
+  .legend .row b { color: var(--gold); }
+  .warn-callout {
+    background: rgba(255,156,59,0.08);
+    border-left: 3px solid var(--warn);
+    padding: 8px 10px;
+    margin: 10px 0;
+    font-size: 12px;
+    color: #f0d7b0;
+  }
+  .footer-note {
+    margin-top: 24px; font-size: 11px; color: rgba(245,234,208,0.5);
+    border-top: 1px solid rgba(255,255,255,0.08); padding-top: 12px;
+  }
+</style>
+</head>
+<body>
+
+<div class="layout">
+
+  <div class="phone">
+    <div class="screen">
+      <div class="header">
+        <div class="back">◀</div>
+        <div class="title">譜面を公開</div>
+        <div class="spacer"></div>
+      </div>
+
+      <div class="body">
+        <div class="chart-summary">
+          <div class="name">獅子舞 入り囃子</div>
+          <div class="meta">
+            <span><b>地域:</b> 下田町</span>
+            <span><b>時間:</b> 0:24</span>
+            <span><b>ノーツ:</b> 18</span>
+          </div>
+        </div>
+
+        <div class="form-label">公開 ID(自分で決められます)</div>
+        <div class="id-input-wrap">
+          <input class="id-input" value="shimoda-2026-irihayashi" readonly>
+        </div>
+        <div class="id-hint">小英字・数字・ハイフン / 3〜64 文字 / 覚えやすいものを推奨</div>
+
+        <div class="id-status ok">
+          <span class="dot"></span>
+          この ID は利用可能です(<code style="background:transparent;color:inherit;font-family:'SF Mono',monospace;font-size:11px;">/check-id</code> 確認済)
+        </div>
+
+        <div class="price-card">
+          <div class="icon">♪</div>
+          <div class="desc">
+            <div style="color:var(--cream);font-weight:600;margin-bottom:2px;">公開料金(1曲)</div>
+            公開ボタンを押すと即時課金・即時公開されます
+          </div>
+          <div class="price">¥1,000</div>
+        </div>
+
+        <div class="flow-list">
+          <div class="step">
+            <div class="num">1</div>
+            <div class="text">公開ボタン → Apple の決済ダイアログ</div>
+          </div>
+          <div class="step">
+            <div class="num">2</div>
+            <div class="text">購入成功 → <code>/publish</code> でアップロード</div>
+          </div>
+          <div class="step">
+            <div class="num">3</div>
+            <div class="text">発行 ID を地域内で告知(口頭 / ポスター)</div>
+          </div>
+        </div>
+      </div>
+
+      <div class="footer-actions">
+        <div class="btn-publish">
+          この譜面を公開する
+          <small>¥1,000 を支払って即時アップロード</small>
+        </div>
+        <div class="caveat">※ 購入は返金・キャンセル不可(即時消費)</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="legend">
+    <h2>画面 08: 公開(IAP)</h2>
+    <div class="row"><b>目的</b>: 譜面をサーバーにアップロードして他端末で DL 可能にする。本アプリで唯一の課金ポイント</div>
+
+    <div class="warn-callout">
+      <b>資金決済法の設計配慮</b><br>
+      Consumable かつ「購入と役務提供が同時」設計。前払式支払手段に該当しないため、有効期限管理・供託義務は不要。
+    </div>
+
+    <h2>要素</h2>
+    <div class="row"><b>譜面サマリ</b>: 公開対象の情報を最終確認</div>
+    <div class="row"><b>公開ID入力</b>: 制作者が自由に決める(早い者勝ち)</div>
+    <div class="row"><b>ID 事前確認</b>: 課金前に <code>/check-id</code> で重複チェック</div>
+    <div class="row"><b>価格カード</b>: ¥1,000 を目立たせる</div>
+    <div class="row"><b>公開ボタン</b>: 決済ダイアログ起動 → 成功時 <code>/publish</code></div>
+
+    <h2>API / 課金</h2>
+    <div class="row"><code>POST /check-id</code>(事前確認、無料)</div>
+    <div class="row"><code>POST /publish</code>(JWS + 譜面 JSON)</div>
+    <div class="row">IAP: <code>rhythm.chart.publish.single</code>(Consumable)</div>
+
+    <h2>技術</h2>
+    <div class="row">StoreKit 2(<code>product.purchase()</code>)</div>
+    <div class="row">Cloud Run 側で JWS 検証・Firestore 台帳記録</div>
+
+    <h2>遷移</h2>
+    <div class="row">成功 → 完了エリア(発行ID表示)→ <code>02 譜面一覧</code></div>
+    <div class="row">キャンセル → <code>07 編集</code>に戻る</div>
+
+    <h2>Phase</h2>
+    <div class="row">Phase 4(バックエンド接続)</div>
+    <div class="row">Phase 5(IAP 統合)</div>
+
+    <div class="footer-note">
+      ※ 更新公開機能は持たない(取り下げ→再公開の課金回避を防ぐため)<br>
+      ※ 修正したい場合は別 ID で新規公開
+    </div>
+  </div>
+
+</div>
+
+</body>
+</html>

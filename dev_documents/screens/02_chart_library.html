@@ -1,0 +1,280 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<title>お囃子道場 - 保存済み譜面一覧画面モック</title>
+<style>
+  :root {
+    --bg: #14121d;
+    --panel: #1d1a2a;
+    --panel-hi: #26223a;
+    --gold: #f4c95d;
+    --gold-dim: #b8935a;
+    --cream: #f5ead0;
+    --accent: #c8211d;
+    --sub: #4ea7d9;
+    --border: rgba(244,201,93,0.15);
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; min-height: 100vh;
+    display: flex; align-items: center; justify-content: center;
+    background: radial-gradient(circle at 50% 30%, #2a1a2a 0%, #0a0810 100%);
+    font-family: "Hiragino Sans", "Yu Gothic", "Noto Sans JP", sans-serif;
+    color: var(--cream); padding: 20px;
+  }
+  .layout { display: flex; gap: 32px; align-items: flex-start; flex-wrap: wrap; justify-content: center; }
+
+  .phone {
+    width: 340px; height: 720px; background: #000; border-radius: 48px; padding: 12px;
+    box-shadow: 0 0 0 2px #2a2a3a, 0 20px 60px rgba(0,0,0,0.6), inset 0 0 0 1px rgba(255,255,255,0.05);
+    position: relative;
+  }
+  .phone::before {
+    content: ""; position: absolute; top: 14px; left: 50%; transform: translateX(-50%);
+    width: 110px; height: 28px; background: #000; border-radius: 20px; z-index: 10;
+  }
+  .screen {
+    width: 100%; height: 100%; background: var(--bg); border-radius: 36px;
+    overflow: hidden; position: relative; display: flex; flex-direction: column;
+  }
+
+  /* ===== Header ===== */
+  .header {
+    padding: 54px 20px 12px;
+    display: flex; justify-content: space-between; align-items: center;
+    background: linear-gradient(180deg, rgba(196,33,29,0.12), rgba(0,0,0,0));
+  }
+  .header .back {
+    color: var(--gold); font-size: 14px; opacity: 0.8; cursor: pointer;
+  }
+  .header .title { font-size: 15px; color: var(--gold); font-weight: 700; letter-spacing: 2px; }
+  .header .add {
+    display: inline-flex; align-items: center; gap: 4px;
+    color: var(--gold);
+    background: rgba(244,201,93,0.1);
+    border: 1px solid rgba(244,201,93,0.3);
+    padding: 4px 10px;
+    border-radius: 12px;
+    font-size: 11px;
+  }
+  .subheader {
+    padding: 4px 20px 12px;
+    font-size: 10px; color: rgba(245,234,208,0.5); letter-spacing: 1px;
+  }
+
+  /* ===== List ===== */
+  .list {
+    flex: 1;
+    overflow-y: auto;
+    padding: 4px 12px 12px;
+  }
+  .chart-card {
+    background: var(--panel);
+    border: 1px solid var(--border);
+    border-radius: 14px;
+    padding: 14px 16px;
+    margin-bottom: 10px;
+    position: relative;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+  }
+  .chart-card .icon {
+    width: 44px; height: 44px; border-radius: 50%;
+    background: radial-gradient(circle at 35% 30%, #ff6b6b, var(--accent) 60%, #6c1210 100%);
+    display: flex; align-items: center; justify-content: center;
+    color: #fff; font-size: 12px; font-weight: 700;
+    box-shadow: 0 0 12px rgba(196,33,29,0.4);
+    flex-shrink: 0;
+  }
+  .chart-card .meta { flex: 1; min-width: 0; }
+  .chart-card .name {
+    font-size: 14px; color: var(--cream); font-weight: 600;
+    margin-bottom: 4px;
+    white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+  }
+  .chart-card .info {
+    font-size: 11px; color: rgba(245,234,208,0.5);
+    display: flex; gap: 10px;
+  }
+  .chart-card .info .region { color: var(--gold-dim); }
+  .chart-card .chev {
+    color: rgba(244,201,93,0.4);
+    font-size: 18px;
+  }
+
+  .chart-card.new::after {
+    content: "NEW";
+    position: absolute;
+    top: -6px; right: 12px;
+    background: var(--gold);
+    color: #241a17;
+    font-size: 9px;
+    font-weight: 700;
+    padding: 2px 6px;
+    border-radius: 6px;
+    letter-spacing: 1px;
+  }
+
+  /* Swipe delete hint */
+  .swipe-hint {
+    background: linear-gradient(90deg, var(--panel) 78%, #6c1210 100%);
+    border: 1px solid var(--border);
+    border-radius: 14px;
+    padding: 14px 16px;
+    margin-bottom: 10px;
+    position: relative;
+    display: flex; align-items: center; gap: 12px;
+    overflow: hidden;
+  }
+  .swipe-hint .icon {
+    width: 44px; height: 44px; border-radius: 50%;
+    background: radial-gradient(circle at 35% 30%, #ff6b6b, var(--accent) 60%);
+    flex-shrink: 0;
+  }
+  .swipe-hint .meta { flex: 1; opacity: 0.6; }
+  .swipe-hint .meta .name { font-size: 13px; }
+  .swipe-hint .meta .info { font-size: 10px; opacity: 0.7; }
+  .swipe-hint .delete {
+    position: absolute; right: 12px; top: 50%; transform: translateY(-50%);
+    background: rgba(220,50,50,0.85);
+    color: #fff; font-size: 10px; font-weight: 700;
+    padding: 6px 10px; border-radius: 8px;
+    letter-spacing: 1px;
+  }
+
+  /* ===== Footer nav ===== */
+  .footer-nav {
+    padding: 12px 20px 24px;
+    display: flex; justify-content: space-around;
+    border-top: 1px solid rgba(255,255,255,0.05);
+    background: rgba(0,0,0,0.3);
+  }
+  .nav-btn { text-align: center; opacity: 0.6; font-size: 10px; color: var(--cream); }
+  .nav-btn .icon-emoji { font-size: 16px; display: block; margin-bottom: 2px; }
+  .nav-btn.active { opacity: 1; color: var(--gold); }
+
+  /* ===== Legend ===== */
+  .legend { width: 320px; color: var(--cream); font-size: 13px; line-height: 1.7; }
+  .legend h2 {
+    font-size: 15px; color: var(--gold);
+    border-bottom: 1px solid rgba(244,201,93,0.3);
+    padding-bottom: 6px; margin-top: 24px;
+  }
+  .legend h2:first-child { margin-top: 0; }
+  .legend code {
+    background: rgba(244,201,93,0.1); color: var(--gold);
+    padding: 1px 6px; border-radius: 4px; font-size: 12px;
+  }
+  .legend .row { margin: 6px 0; }
+  .legend .row b { color: var(--gold); }
+  .footer-note {
+    margin-top: 24px; font-size: 11px; color: rgba(245,234,208,0.5);
+    border-top: 1px solid rgba(255,255,255,0.08); padding-top: 12px;
+  }
+</style>
+</head>
+<body>
+
+<div class="layout">
+
+  <div class="phone">
+    <div class="screen">
+      <div class="header">
+        <div class="back">◀ 戻る</div>
+        <div class="title">譜面ライブラリ</div>
+        <div class="add">+ IDで入手</div>
+      </div>
+      <div class="subheader">保存済み 4件 / 作成日順</div>
+
+      <div class="list">
+        <div class="chart-card new">
+          <div class="icon">獅</div>
+          <div class="meta">
+            <div class="name">獅子舞 入り囃子</div>
+            <div class="info">
+              <span class="region">下田町</span>
+              <span>0:24</span>
+              <span>2026-06-23</span>
+            </div>
+          </div>
+          <div class="chev">›</div>
+        </div>
+
+        <div class="chart-card">
+          <div class="icon">神</div>
+          <div class="meta">
+            <div class="name">神輿囃子</div>
+            <div class="info">
+              <span class="region">上川町</span>
+              <span>0:32</span>
+              <span>2026-05-10</span>
+            </div>
+          </div>
+          <div class="chev">›</div>
+        </div>
+
+        <div class="chart-card">
+          <div class="icon">囃</div>
+          <div class="meta">
+            <div class="name">屋台囃子</div>
+            <div class="info">
+              <span class="region">下田町</span>
+              <span>0:48</span>
+              <span>2026-05-02</span>
+            </div>
+          </div>
+          <div class="chev">›</div>
+        </div>
+
+        <div class="swipe-hint">
+          <div class="icon"></div>
+          <div class="meta">
+            <div class="name">練習用シンプル</div>
+            <div class="info">— / 0:12 / 2026-04-01</div>
+          </div>
+          <div class="delete">削除</div>
+        </div>
+      </div>
+
+      <div class="footer-nav">
+        <div class="nav-btn active"><span class="icon-emoji">♪</span>ライブラリ</div>
+        <div class="nav-btn"><span class="icon-emoji">●</span>録音</div>
+        <div class="nav-btn"><span class="icon-emoji">☰</span>設定</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="legend">
+    <h2>画面 02: 保存済み譜面一覧(ハブ)</h2>
+    <div class="row"><b>目的</b>: 端末に保存された譜面を一覧・選択・管理。全経路の帰着点</div>
+
+    <h2>要素</h2>
+    <div class="row"><b>ヘッダ</b>: 戻る / タイトル / 「+IDで入手」ボタン</div>
+    <div class="row"><b>譜面カード</b>: 譜面名 / 地域 / 収録時間 / 作成日</div>
+    <div class="row"><b>NEW バッジ</b>: DL 直後・録音直後の譜面を目立たせる(ハイライト)</div>
+    <div class="row"><b>スワイプ削除</b>: 標準の左スワイプで削除アクション</div>
+
+    <h2>データ</h2>
+    <div class="row">保存先: <code>Application Support/charts/{id}.json</code></div>
+    <div class="row">一覧走査時は <code>notes</code> 配列を読み飛ばす軽量パース</div>
+
+    <h2>遷移</h2>
+    <div class="row">セルタップ → <code>04 プレイ</code></div>
+    <div class="row">+IDで入手 → <code>03 検索/DL</code></div>
+    <div class="row">戻る → <code>01 タイトル</code></div>
+
+    <h2>Phase</h2>
+    <div class="row">Phase 3 で導入。リネームは Phase 6</div>
+
+    <div class="footer-note">
+      ※ MVP は「作成日 降順」固定・検索なし<br>
+      ※ 譜面数は数十〜数百程度を想定
+    </div>
+  </div>
+
+</div>
+
+</body>
+</html>

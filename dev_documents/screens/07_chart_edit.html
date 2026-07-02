@@ -1,0 +1,286 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<title>お囃子道場 - 譜面編集画面モック</title>
+<style>
+  :root {
+    --bg: #14121d;
+    --panel: #1d1a2a;
+    --panel-hi: #26223a;
+    --gold: #f4c95d;
+    --gold-dim: #b8935a;
+    --cream: #f5ead0;
+    --accent: #c8211d;
+    --sub: #4ea7d9;
+    --don: #e23b3b;
+    --don-glow: #ff6b6b;
+    --ka: #4ea7d9;
+    --ka-glow: #8fd1f4;
+    --border: rgba(244,201,93,0.15);
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; min-height: 100vh;
+    display: flex; align-items: center; justify-content: center;
+    background: radial-gradient(circle at 50% 30%, #2a1a2a 0%, #0a0810 100%);
+    font-family: "Hiragino Sans", "Yu Gothic", "Noto Sans JP", sans-serif;
+    color: var(--cream); padding: 20px;
+  }
+  .layout { display: flex; gap: 32px; align-items: flex-start; flex-wrap: wrap; justify-content: center; }
+
+  .phone {
+    width: 340px; height: 720px; background: #000; border-radius: 48px; padding: 12px;
+    box-shadow: 0 0 0 2px #2a2a3a, 0 20px 60px rgba(0,0,0,0.6), inset 0 0 0 1px rgba(255,255,255,0.05);
+    position: relative;
+  }
+  .phone::before {
+    content: ""; position: absolute; top: 14px; left: 50%; transform: translateX(-50%);
+    width: 110px; height: 28px; background: #000; border-radius: 20px; z-index: 10;
+  }
+  .screen {
+    width: 100%; height: 100%; background: var(--bg); border-radius: 36px;
+    overflow: hidden; position: relative; display: flex; flex-direction: column;
+  }
+
+  .header {
+    padding: 48px 20px 12px;
+    display: flex; justify-content: space-between; align-items: center;
+    background: linear-gradient(180deg, rgba(78,167,217,0.12), rgba(0,0,0,0));
+  }
+  .header .back { color: var(--gold); font-size: 13px; }
+  .header .title { font-size: 14px; color: var(--gold); font-weight: 700; letter-spacing: 2px; }
+  .header .discard { color: rgba(255,59,59,0.75); font-size: 12px; letter-spacing: 1px; }
+
+  .body {
+    flex: 1;
+    overflow-y: auto;
+    padding: 12px 18px 8px;
+  }
+
+  .form-block { margin-bottom: 14px; }
+  .form-label {
+    font-size: 10px; color: var(--gold); letter-spacing: 2px;
+    margin: 0 2px 4px;
+  }
+  .form-input {
+    background: var(--panel);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 10px 12px;
+    color: var(--cream);
+    font-size: 14px;
+    width: 100%;
+    outline: none;
+  }
+  .form-input.filled { border-color: rgba(244,201,93,0.35); }
+
+  .summary {
+    background: var(--panel);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 10px 12px;
+    margin-bottom: 12px;
+    display: flex; gap: 14px;
+    font-size: 11px;
+  }
+  .summary .kv { display: flex; flex-direction: column; }
+  .summary .k { color: rgba(245,234,208,0.5); letter-spacing: 1px; }
+  .summary .v { color: var(--gold); font-weight: 700; font-family: "SF Mono", monospace; font-size: 13px; }
+
+  .section-title {
+    font-size: 10px;
+    color: rgba(244,201,93,0.7);
+    letter-spacing: 3px;
+    margin: 4px 2px 6px;
+  }
+
+  .note-list {
+    background: var(--panel);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 8px 4px;
+    max-height: 200px;
+    overflow-y: auto;
+    font-family: "SF Mono", "Menlo", monospace;
+  }
+  .note-row {
+    display: grid;
+    grid-template-columns: 60px 80px 1fr auto;
+    align-items: center;
+    padding: 5px 10px;
+    font-size: 11px;
+    border-bottom: 1px dashed rgba(255,255,255,0.04);
+  }
+  .note-row:last-child { border-bottom: none; }
+  .note-row .t { color: rgba(245,234,208,0.75); }
+  .note-row .type-badge {
+    display: inline-block;
+    padding: 2px 8px;
+    border-radius: 10px;
+    font-size: 10px;
+    letter-spacing: 1px;
+    text-align: center;
+  }
+  .note-row .type-badge.don-l { background: rgba(226,59,59,0.2); color: var(--don-glow); }
+  .note-row .type-badge.don-r { background: rgba(226,59,59,0.2); color: var(--don-glow); }
+  .note-row .type-badge.ka-l { background: rgba(78,167,217,0.2); color: var(--ka-glow); }
+  .note-row .type-badge.ka-r { background: rgba(78,167,217,0.2); color: var(--ka-glow); }
+  .note-row .del {
+    color: rgba(255,59,59,0.5); font-size: 12px; padding: 0 4px;
+  }
+
+  .footer-actions {
+    padding: 12px 18px 22px;
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 8px;
+    border-top: 1px solid rgba(255,255,255,0.05);
+    background: rgba(0,0,0,0.3);
+  }
+  .btn {
+    padding: 12px;
+    border-radius: 12px;
+    text-align: center;
+    font-weight: 700;
+    font-size: 13px;
+    letter-spacing: 2px;
+  }
+  .btn.trial {
+    background: var(--panel-hi);
+    color: var(--gold);
+    border: 1px solid rgba(244,201,93,0.35);
+  }
+  .btn.save {
+    background: var(--panel-hi);
+    color: var(--cream);
+    border: 1px solid rgba(255,255,255,0.15);
+  }
+  .btn.publish {
+    grid-column: 1 / -1;
+    background: linear-gradient(180deg, #5fb8ea, var(--sub));
+    color: #fff;
+    box-shadow: 0 0 16px rgba(78,167,217,0.35), inset 0 -2px 0 rgba(0,0,0,0.2);
+    border: 1px solid rgba(200,240,255,0.3);
+  }
+  .btn.publish small {
+    display: block; font-size: 9px; margin-top: 2px; opacity: 0.85; letter-spacing: 1px; font-weight: 400;
+  }
+
+  /* Legend */
+  .legend { width: 320px; color: var(--cream); font-size: 13px; line-height: 1.7; }
+  .legend h2 {
+    font-size: 15px; color: var(--gold);
+    border-bottom: 1px solid rgba(244,201,93,0.3);
+    padding-bottom: 6px; margin-top: 24px;
+  }
+  .legend h2:first-child { margin-top: 0; }
+  .legend code {
+    background: rgba(244,201,93,0.1); color: var(--gold);
+    padding: 1px 6px; border-radius: 4px; font-size: 12px;
+  }
+  .legend .row { margin: 6px 0; }
+  .legend .row b { color: var(--gold); }
+  .callout {
+    background: rgba(107,201,138,0.08);
+    border-left: 3px solid #6bc98a;
+    padding: 8px 10px;
+    margin: 10px 0;
+    font-size: 12px;
+    color: #cfe8d5;
+  }
+  .footer-note {
+    margin-top: 24px; font-size: 11px; color: rgba(245,234,208,0.5);
+    border-top: 1px solid rgba(255,255,255,0.08); padding-top: 12px;
+  }
+</style>
+</head>
+<body>
+
+<div class="layout">
+
+  <div class="phone">
+    <div class="screen">
+      <div class="header">
+        <div class="back">◀</div>
+        <div class="title">譜面編集</div>
+        <div class="discard">破棄</div>
+      </div>
+
+      <div class="body">
+        <div class="form-block">
+          <div class="form-label">譜面名</div>
+          <input class="form-input filled" value="獅子舞 入り囃子" readonly>
+        </div>
+        <div class="form-block">
+          <div class="form-label">地域</div>
+          <input class="form-input filled" value="下田町" readonly>
+        </div>
+
+        <div class="summary">
+          <div class="kv"><span class="k">時間</span><span class="v">0:24</span></div>
+          <div class="kv"><span class="k">ノーツ数</span><span class="v">18</span></div>
+          <div class="kv"><span class="k">状態</span><span class="v" style="color:#6bc98a;">ドラフト</span></div>
+        </div>
+
+        <div class="section-title">ノーツ(時系列)</div>
+        <div class="note-list">
+          <div class="note-row"><span class="t">0:00.000</span><span class="type-badge don-l">don_l</span><span></span><span class="del">×</span></div>
+          <div class="note-row"><span class="t">0:00.450</span><span class="type-badge ka-r">ka_r</span><span></span><span class="del">×</span></div>
+          <div class="note-row"><span class="t">0:00.900</span><span class="type-badge don-r">don_r</span><span></span><span class="del">×</span></div>
+          <div class="note-row"><span class="t">0:01.350</span><span class="type-badge ka-l">ka_l</span><span></span><span class="del">×</span></div>
+          <div class="note-row"><span class="t">0:01.800</span><span class="type-badge don-l">don_l</span><span></span><span class="del">×</span></div>
+          <div class="note-row"><span class="t">0:02.250</span><span class="type-badge don-r">don_r</span><span></span><span class="del">×</span></div>
+          <div class="note-row"><span class="t">0:02.700</span><span class="type-badge ka-r">ka_r</span><span></span><span class="del">×</span></div>
+          <div class="note-row"><span class="t">0:03.150</span><span class="type-badge don-l">don_l</span><span></span><span class="del">×</span></div>
+        </div>
+      </div>
+
+      <div class="footer-actions">
+        <div class="btn trial">▶ 試遊</div>
+        <div class="btn save">保存</div>
+        <div class="btn publish">
+          この譜面を公開する
+          <small>¥1,000 / 課金は次の画面で確認</small>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="legend">
+    <h2>画面 07: 譜面編集</h2>
+    <div class="row"><b>目的</b>: 録音後のメタデータ入力・ノーツ確認・試遊 / 保存 / 公開への導線</div>
+
+    <div class="callout">
+      <b>ここまで全部無料</b><br>
+      試遊も保存もローカルで完結。課金は「公開」ボタン以降のフローでのみ発生する。
+    </div>
+
+    <h2>要素</h2>
+    <div class="row"><b>メタデータフォーム</b>: 譜面名 / 地域名</div>
+    <div class="row"><b>サマリ</b>: 時間 / ノーツ数 / ドラフト状態</div>
+    <div class="row"><b>ノーツリスト</b>: 時刻順 + type バッジ、× で個別削除</div>
+    <div class="row"><b>試遊</b>: プレイ画面へドラフトのまま渡す</div>
+    <div class="row"><b>保存</b>: 端末ローカルに書き出し</div>
+    <div class="row"><b>公開</b>: 課金フローへの入口(青色で強調)</div>
+
+    <h2>データ</h2>
+    <div class="row">入力: 録音済みドラフト JSON</div>
+    <div class="row">保存先: <code>Application Support/charts/{id}.json</code></div>
+
+    <h2>遷移</h2>
+    <div class="row">試遊 → <code>04 プレイ</code>(戻り先はこの画面)</div>
+    <div class="row">保存 → <code>02 譜面一覧</code></div>
+    <div class="row">公開 → <code>08 公開(IAP)</code></div>
+    <div class="row">破棄 → <code>01 タイトル</code></div>
+
+    <div class="footer-note">
+      ※ ノーツの位置微調整 UI は MVP では未実装(削除のみ)<br>
+      ※ 完璧な精度は不要、意図が反映されれば十分の設計方針
+    </div>
+  </div>
+
+</div>
+
+</body>
+</html>

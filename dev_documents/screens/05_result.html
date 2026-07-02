@@ -1,0 +1,227 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<title>お囃子道場 - リザルト画面モック</title>
+<style>
+  :root {
+    --bg: #14121d;
+    --panel: #1d1a2a;
+    --gold: #f4c95d;
+    --gold-dim: #b8935a;
+    --cream: #f5ead0;
+    --accent: #c8211d;
+    --sub: #4ea7d9;
+    --good: #f4c95d;
+    --ok-c: #6bc98a;
+    --miss: #7a6b62;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; min-height: 100vh;
+    display: flex; align-items: center; justify-content: center;
+    background: radial-gradient(circle at 50% 30%, #2a1a2a 0%, #0a0810 100%);
+    font-family: "Hiragino Sans", "Yu Gothic", "Noto Sans JP", sans-serif;
+    color: var(--cream); padding: 20px;
+  }
+  .layout { display: flex; gap: 32px; align-items: flex-start; flex-wrap: wrap; justify-content: center; }
+
+  .phone {
+    width: 340px; height: 720px; background: #000; border-radius: 48px; padding: 12px;
+    box-shadow: 0 0 0 2px #2a2a3a, 0 20px 60px rgba(0,0,0,0.6), inset 0 0 0 1px rgba(255,255,255,0.05);
+    position: relative;
+  }
+  .phone::before {
+    content: ""; position: absolute; top: 14px; left: 50%; transform: translateX(-50%);
+    width: 110px; height: 28px; background: #000; border-radius: 20px; z-index: 10;
+  }
+  .screen {
+    width: 100%; height: 100%;
+    background: radial-gradient(circle at 50% 40%, #2a1a2a 0%, var(--bg) 70%);
+    border-radius: 36px;
+    overflow: hidden; position: relative; display: flex; flex-direction: column;
+  }
+
+  .header {
+    padding: 48px 20px 12px;
+    text-align: center;
+    background: linear-gradient(180deg, rgba(244,201,93,0.12), rgba(0,0,0,0));
+  }
+  .header .label {
+    font-size: 11px; color: var(--gold-dim); letter-spacing: 4px;
+  }
+  .header .title {
+    font-size: 22px; color: var(--gold); letter-spacing: 6px;
+    font-weight: 700;
+    text-shadow: 0 0 16px rgba(244,201,93,0.5);
+    margin-top: 2px;
+  }
+
+  .chart-title {
+    text-align: center; margin: 12px 20px 4px;
+    font-size: 13px; color: var(--cream);
+  }
+  .chart-title small { display: block; font-size: 10px; opacity: 0.5; margin-top: 2px; letter-spacing: 1px; }
+
+  .stars {
+    text-align: center;
+    margin: 12px 0 8px;
+    font-size: 26px;
+    color: var(--gold);
+    letter-spacing: 6px;
+    text-shadow: 0 0 12px rgba(244,201,93,0.6);
+  }
+  .stars .off { color: rgba(244,201,93,0.2); text-shadow: none; }
+
+  .score-main {
+    text-align: center;
+    padding: 4px 20px 8px;
+  }
+  .score-main .label { font-size: 10px; color: var(--gold-dim); letter-spacing: 3px; }
+  .score-main .value {
+    font-size: 52px;
+    font-weight: 700;
+    color: var(--gold);
+    line-height: 1;
+    margin-top: 4px;
+    text-shadow: 0 0 20px rgba(244,201,93,0.4);
+    font-family: "SF Mono", "Menlo", monospace;
+    letter-spacing: 2px;
+  }
+
+  .stats {
+    margin: 14px 20px;
+    background: var(--panel);
+    border: 1px solid rgba(244,201,93,0.2);
+    border-radius: 14px;
+    padding: 12px;
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 8px 12px;
+  }
+  .stat {
+    display: flex; justify-content: space-between; align-items: center;
+    padding: 6px 8px;
+    font-size: 12px;
+  }
+  .stat .label { color: rgba(245,234,208,0.65); letter-spacing: 1px; }
+  .stat .num { font-weight: 700; font-family: "SF Mono", monospace; }
+  .stat.good .num { color: var(--good); }
+  .stat.ok .num { color: var(--ok-c); }
+  .stat.miss .num { color: var(--miss); }
+  .stat.combo .num { color: var(--gold); }
+
+  .buttons {
+    margin: auto 20px 26px;
+    display: flex; flex-direction: column; gap: 10px;
+  }
+  .btn {
+    padding: 15px;
+    border-radius: 14px;
+    text-align: center;
+    font-weight: 700;
+    font-size: 15px;
+    letter-spacing: 3px;
+    box-shadow: 0 4px 12px rgba(0,0,0,0.3);
+  }
+  .btn.primary {
+    background: linear-gradient(180deg, #dd4238, var(--accent));
+    color: #fff;
+    box-shadow: 0 0 20px rgba(196,33,29,0.4), inset 0 -2px 0 rgba(0,0,0,0.2);
+  }
+  .btn.secondary {
+    background: var(--panel);
+    color: var(--cream);
+    border: 1px solid rgba(244,201,93,0.25);
+  }
+
+  /* Legend */
+  .legend { width: 320px; color: var(--cream); font-size: 13px; line-height: 1.7; }
+  .legend h2 {
+    font-size: 15px; color: var(--gold);
+    border-bottom: 1px solid rgba(244,201,93,0.3);
+    padding-bottom: 6px; margin-top: 24px;
+  }
+  .legend h2:first-child { margin-top: 0; }
+  .legend code {
+    background: rgba(244,201,93,0.1); color: var(--gold);
+    padding: 1px 6px; border-radius: 4px; font-size: 12px;
+  }
+  .legend .row { margin: 6px 0; }
+  .legend .row b { color: var(--gold); }
+  .footer-note {
+    margin-top: 24px; font-size: 11px; color: rgba(245,234,208,0.5);
+    border-top: 1px solid rgba(255,255,255,0.08); padding-top: 12px;
+  }
+</style>
+</head>
+<body>
+
+<div class="layout">
+
+  <div class="phone">
+    <div class="screen">
+      <div class="header">
+        <div class="label">RESULT</div>
+        <div class="title">結果発表</div>
+      </div>
+
+      <div class="chart-title">
+        獅子舞 入り囃子
+        <small>下田町 / 0:24</small>
+      </div>
+
+      <div class="stars">
+        ★★★<span class="off">☆</span><span class="off">☆</span>
+      </div>
+
+      <div class="score-main">
+        <div class="label">SCORE</div>
+        <div class="value">12,450</div>
+      </div>
+
+      <div class="stats">
+        <div class="stat good"><span class="label">良</span><span class="num">32</span></div>
+        <div class="stat combo"><span class="label">最大コンボ</span><span class="num">24</span></div>
+        <div class="stat ok"><span class="label">可</span><span class="num">6</span></div>
+        <div class="stat miss"><span class="label">不可</span><span class="num">2</span></div>
+      </div>
+
+      <div class="buttons">
+        <div class="btn primary">もう一度 プレイ</div>
+        <div class="btn secondary">一覧に戻る</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="legend">
+    <h2>画面 05: リザルト</h2>
+    <div class="row"><b>目的</b>: プレイ終了直後のスコアと戦績表示。子供の達成感を演出</div>
+
+    <h2>要素</h2>
+    <div class="row"><b>星評価</b>: 総合ランクを直感的に表現(5段階)</div>
+    <div class="row"><b>スコア</b>: 大きな金色数字、演出のハイライト</div>
+    <div class="row"><b>内訳</b>: 良 / 可 / 不可 / 最大コンボ</div>
+    <div class="row"><b>CTA</b>: 「もう一度」を目立たせ、リトライ導線を強調</div>
+
+    <h2>データ</h2>
+    <div class="row">通信・保存なし。スコアはメモリ内のみで表示</div>
+    <div class="row">ベストスコアのローカル保持は将来検討</div>
+
+    <h2>遷移</h2>
+    <div class="row"><b>もう一度</b> → <code>04 プレイ</code></div>
+    <div class="row"><b>一覧に戻る</b> → <code>02 譜面一覧</code></div>
+
+    <h2>Phase</h2>
+    <div class="row">Phase 2(スコア機能完成時)</div>
+
+    <div class="footer-note">
+      ※ スコア共有・ランキングは仕様上なし<br>
+      ※ アカウント / 認証もなし
+    </div>
+  </div>
+
+</div>
+
+</body>
+</html>
