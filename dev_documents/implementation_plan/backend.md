@@ -184,7 +184,11 @@
 4. **chart_json 内容検証**
    - `id`(公開 ID)存在・バリデーション(小英数ハイフン、3〜64 文字)
    - `notes` 配列存在、要素の型検証
+     - `t`: 非負整数(ms)
+     - `type`: `don_l` / `don_r` / `ka_l` / `ka_r` / `don_both` のいずれか(その他は拒否)
+     - `duration`(Optional): 非負整数(ms)、省略時は 0(単発タップ扱い)、上限は `duration_ms` 以下
    - `duration_ms` 妥当性(0 < x < 600000 くらい)
+   - `notes` の総数上限(例: 10,000)を設けて DoS 防止
 
 5. **chart_id 重複チェック(Firestore)**
    - 存在すれば `409 Conflict`(check-id を通ってもレースあり得る)

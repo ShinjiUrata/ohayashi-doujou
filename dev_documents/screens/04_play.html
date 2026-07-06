@@ -253,9 +253,13 @@
     <h2>ノーツ</h2>
     <div class="row"><div class="swatch sw-don"></div> ドン(大):内側をタップ、手は「左/右」誘導</div>
     <div class="row"><div class="swatch sw-ka"></div> カッ(小):外側をタップ、左右で叩く位置が違う</div>
+    <div class="row"><span style="display:inline-block;width:26px;height:26px;border-radius:50%;background:radial-gradient(circle at 35% 30%,#ff6b6b,#e23b3b 60%);box-shadow:0 0 14px rgba(226,59,59,0.7),0 0 24px rgba(226,59,59,0.4);flex-shrink:0;"></span> 大ドン(`don_both`):両手同時打、中央左右に 50ms 以内の 2 タッチ</div>
+    <div class="row"><span style="display:inline-block;width:14px;height:26px;border-radius:8px;background:linear-gradient(180deg,#e23b3b,rgba(226,59,59,0.15));flex-shrink:0;"></span> ホールド(`duration &gt; 0`):頭 + 尾の帯、押し続ける</div>
 
     <h2>判定</h2>
     <p>ドン は中央ゾーン共通、カッ は左右外側で区別。判定窓は暫定 ±200ms(良)/ ±400ms(可)</p>
+    <p><b>大ドン</b>: 中央左右両側に 50ms 以内の 2 タッチが成立すれば通常のタイミング判定を適用</p>
+    <p><b>ホールド</b>: 頭 + 尾の 2 段判定、尾は ±150ms 以内でリリース。途中離しは加点少なめ</p>
 
     <h2>技術</h2>
     <p><code>SpriteKit</code> でノーツ落下・当たり判定、<code>AVAudioEngine</code> で効果音、<code>UIImpactFeedbackGenerator</code> で触覚</p>

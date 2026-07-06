@@ -89,8 +89,10 @@ ios/
 
 **粒度**:
 - `Chart` struct(Codable): `id`, `name`, `region`, `created_at (ISO8601)`, `duration_ms`, `notes: [Note]`
-- `Note` struct: `t: Int (ms)`, `type: NoteType`
-- `NoteType` enum(String, Codable): `don_l`, `don_r`, `ka_l`, `ka_r`
+- `Note` struct: `t: Int (ms)`, `type: NoteType`, `duration: Int?`(Optional、省略時は単発タップ、0 以上はホールドの継続時間 ms)
+- `NoteType` enum(String, Codable): `don_l`, `don_r`, `ka_l`, `ka_r`, `don_both`
+  - `don_both`: 両手同時打(大ドン)、中央ゾーン左右両側に 50ms 以内の 2 タッチで判定
+  - `Codable` の `decode` は未知の値を無視できるよう寛容パースを検討(後方互換用)
 - `ChartStorage` クラス:
   - 保存先: `Application Support/charts/{id}.json`(Documents 直下は避ける)
   - `list() -> [ChartSummary]`(軽量パース: `notes` を読み飛ばす形)
@@ -149,6 +151,7 @@ ios/
 
 ### Phase 1(最小プロトタイプ)
 - `PlayScene: SKScene` サブクラス
+- **`SKView.isMultipleTouchEnabled = true`** を設定(両手同時打の下地)
 - 静的レイアウト:
   - 4 レーン(グリッド)
   - 判定ライン(黄金)
@@ -160,19 +163,32 @@ ios/
 - 効果音 + 触覚
 - スコア表示なし、譜面もハードコード
 
-### Phase 2(譜面再生)
+### Phase 2(譜面再生 + 拡張ノーツ)
 - 譜面 JSON からノーツ列を読み込み、`t` の時刻順にスケジュール
 - 落下速度: 「ノーツ生成から判定ライン到達までの時間」を一定(暫定 3 秒)
 - スコア / コンボ計算
 - 良: 高得点+コンボ加算、可: 中得点+コンボ加算、不可: 加算なし+コンボリセット
 - 譜面終了検出 → `ResultView` へ SwiftUI 側で遷移
 - ヘッダの終了ボタン → 中断
+- **両手同時打(`don_both`)判定**:
+  - `touchesBegan` で受信した `Set<UITouch>` を時系列バッファに保持(直近 100ms)
+  - 中央ゾーン左半分 + 右半分にそれぞれ 1 タッチが 50ms 以内にあれば `don_both` 成立
+  - ノーツ描画は「大サイズ + 二重グロー + 『両』文字」
+  - スコア: 通常ドンの 1.5〜2 倍(数値は Phase 6 で調整)
+- **ホールドノート(`duration > 0`)判定**:
+  - 描画: 頭 + 尾(帯)、尾の長さは落下速度と `duration` から算出
+  - 頭タイミング判定は単発と同じ
+  - 押している間 `SKAction` で押下エフェクト継続
+  - 尾の終端タイミング(`t + duration`)にリリースを検出、±150ms 以内で成立
+  - 途中で離した場合は「不完全ホールド」で加点少なめ、コンボは維持
+  - タッチトラッキング: 開始時の `UITouch` を保持し `touchesEnded` まで追跡
 
 ### Phase 6(仕上げ)
 - タップ位置の波紋エフェクト
 - 太鼓の一瞬光る演出
 - 判定文字(良/可/不可)の表示アニメーション
-- 判定窓の最終調整(試遊フィードバック反映)
+- 判定窓の最終調整(試遊フィードバック反映、ホールド尾 ±150ms も調整)
+- 連打ノート(トリル)対応の可否検討
 
 **Phase**: Phase 1-2, 6
 
@@ -224,15 +240,21 @@ ios/
 
 **粒度**:
 - `RecordingScene: SKScene`
+- **`isMultipleTouchEnabled = true`** を設定(両手同時打の検出のため)
 - 太鼓を中央で左右分割表示(録音時のみ)
 - タップ位置 → `type` を判定:
   - 太鼓左外 → `ka_l`
   - 太鼓内 左半分 → `don_l`
   - 太鼓内 右半分 → `don_r`
   - 太鼓右外 → `ka_r`
+  - **太鼓内 左半分 + 右半分に 50ms 以内の 2 タッチ → `don_both`**(既に登録した `don_l`/`don_r` を後追いで `don_both` にマージ)
+- **タップ継続時間による分岐**:
+  - 各 `UITouch` を `touchesBegan` で受信し、`touchesEnded` まで開始時刻を保持
+  - 継続時間 < 500ms → `duration` 省略(単発)
+  - 継続時間 ≥ 500ms → `duration` に継続時間(ms)を格納してホールドノートとして記録
 - 開始時刻(`CACurrentMediaTime()`)からの経過ミリ秒を記録
 - 打点時に効果音 + 触覚(プレイ時と同じ)
-- 直前打点をログ表示(視覚確認用)
+- 直前打点をログ表示(視覚確認用)、ホールドは尾が伸びる表現
 - 停止ボタン → タップ列を `Chart`(id/name/region 空)に組み立てて `ChartEditView` へ
 
 **Phase**: Phase 3
@@ -249,6 +271,8 @@ ios/
 - 譜面名 / 地域 の TextField
 - 譜面サマリ(時間・ノーツ数・状態)
 - ノーツリスト(時系列、type バッジ、× で個別削除)
+  - `don_both` は独自バッジ(二重グロー・「両」)で表示
+  - `duration > 0` のホールドには帯マーク + `800ms` 等の継続時間表示
 - 「試遊」→ ドラフト譜面を `PlayView` に渡す、戻り先はこの画面
 - 「保存」→ ローカル ID(UUID)を生成して `ChartStorage.save()` → ライブラリへ
 - 「公開」→ `PublishView` へ(ドラフトを引き継ぐ)
@@ -420,10 +444,12 @@ ios/
 **粒度**:
 
 ### ユニットテスト対象
-- `Chart` の Codable 往復
-- スコア計算ロジック(良/可/不可 × コンボ)
-- ゾーン判定(座標 → `NoteType`)
-- タイミング判定(ms 差 → 判定)
+- `Chart` の Codable 往復(`don_both` + `duration` を含むケース、後方互換ケースの両方)
+- スコア計算ロジック(良/可/不可 × コンボ、ホールドの完全/不完全)
+- ゾーン判定(座標 → `NoteType`、`don_both` の 2 タッチ検出含む)
+- タイミング判定(ms 差 → 判定、ホールド頭 + 尾の 2 段判定)
+- 両手同時打の 50ms 判定ウィンドウ
+- ホールドノート 500ms 閾値による録音時の単発/ホールド自動判別
 - API レスポンスのパース
 
 ### UI テスト

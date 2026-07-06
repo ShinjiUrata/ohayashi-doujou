@@ -126,6 +126,24 @@
   .note-row .type-badge.don-r { background: rgba(226,59,59,0.2); color: var(--don-glow); }
   .note-row .type-badge.ka-l { background: rgba(78,167,217,0.2); color: var(--ka-glow); }
   .note-row .type-badge.ka-r { background: rgba(78,167,217,0.2); color: var(--ka-glow); }
+  .note-row .type-badge.don-both {
+    background: linear-gradient(135deg, rgba(226,59,59,0.35), rgba(226,59,59,0.15));
+    color: #ffd8d8;
+    box-shadow: 0 0 6px rgba(226,59,59,0.5);
+    font-weight: 700;
+  }
+  .note-row .hold-mark {
+    display: inline-flex; align-items: center; gap: 4px;
+    font-size: 10px; color: var(--gold);
+    background: rgba(244,201,93,0.12);
+    padding: 1px 6px; border-radius: 6px;
+    margin-left: 6px;
+    letter-spacing: 1px;
+  }
+  .note-row .hold-mark .bar {
+    display: inline-block; width: 18px; height: 3px;
+    background: var(--gold); border-radius: 2px;
+  }
   .note-row .del {
     color: rgba(255,59,59,0.5); font-size: 12px; padding: 0 4px;
   }
@@ -227,12 +245,12 @@
         <div class="note-list">
           <div class="note-row"><span class="t">0:00.000</span><span class="type-badge don-l">don_l</span><span></span><span class="del">×</span></div>
           <div class="note-row"><span class="t">0:00.450</span><span class="type-badge ka-r">ka_r</span><span></span><span class="del">×</span></div>
-          <div class="note-row"><span class="t">0:00.900</span><span class="type-badge don-r">don_r</span><span></span><span class="del">×</span></div>
+          <div class="note-row"><span class="t">0:00.900</span><span class="type-badge don-both">don_both</span><span></span><span class="del">×</span></div>
           <div class="note-row"><span class="t">0:01.350</span><span class="type-badge ka-l">ka_l</span><span></span><span class="del">×</span></div>
-          <div class="note-row"><span class="t">0:01.800</span><span class="type-badge don-l">don_l</span><span></span><span class="del">×</span></div>
-          <div class="note-row"><span class="t">0:02.250</span><span class="type-badge don-r">don_r</span><span></span><span class="del">×</span></div>
-          <div class="note-row"><span class="t">0:02.700</span><span class="type-badge ka-r">ka_r</span><span></span><span class="del">×</span></div>
-          <div class="note-row"><span class="t">0:03.150</span><span class="type-badge don-l">don_l</span><span></span><span class="del">×</span></div>
+          <div class="note-row"><span class="t">0:01.800</span><span class="type-badge don-l">don_l</span><span class="hold-mark"><span class="bar"></span>800ms</span><span class="del">×</span></div>
+          <div class="note-row"><span class="t">0:02.700</span><span class="type-badge don-r">don_r</span><span></span><span class="del">×</span></div>
+          <div class="note-row"><span class="t">0:03.150</span><span class="type-badge ka-r">ka_r</span><span></span><span class="del">×</span></div>
+          <div class="note-row"><span class="t">0:03.600</span><span class="type-badge don-both">don_both</span><span class="hold-mark"><span class="bar"></span>600ms</span><span class="del">×</span></div>
         </div>
       </div>
 

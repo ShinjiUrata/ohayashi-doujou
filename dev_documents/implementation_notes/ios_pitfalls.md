@@ -276,6 +276,41 @@
 
 ---
 
+## 21. マルチタッチ(両手同時打)の落とし穴
+
+**問題**:
+- `UIView.isMultipleTouchEnabled` は **デフォルトで false**、明示的に true にしないと 2 タッチ目以降が届かない
+- `SKView` にも同じ設定が必要(SpriteView 経由の SKScene も影響を受ける)
+- `touchesBegan(_:with:)` は「同時」でも複数タッチが 1 コールで届くとは限らない(2 コールに分かれる)
+- 「50ms 以内の 2 タッチを同時と見なす」判定を自前で実装する必要がある
+
+**対策**:
+- `PlayScene` / `RecordingScene` の初期化時に `view?.isMultipleTouchEnabled = true`
+- タッチイベントを**時系列バッファ**(直近 100ms)に蓄積、`touchesBegan` のたびに走査してペアを検出
+- `UITouch` インスタンスの同一性は `ObjectIdentifier` で追跡(`==` 演算子は Hashable ではない)
+- Palm rejection(手のひら誤検出)対策として、太鼓ゾーン外のタッチは無視
+
+---
+
+## 22. ホールドノート(長押し)の落とし穴
+
+**問題**:
+- **標準の `UILongPressGestureRecognizer` は使わない**:
+  - 内部で 500ms 待ってから発火する遅延方式のため、リアルタイム判定に不向き
+  - タッチ開始時刻の記録・継続中のエフェクト表示ができない
+- 各タッチの `began` → `moved` → `ended` を自前で追跡し、時刻差を測る必要がある
+- `UITouch` インスタンスは移動中も同一だが、`touchesCancelled` で消える可能性があることを忘れると誤判定
+
+**対策**:
+- `touchesBegan` で `[ObjectIdentifier: TouchInfo]` の辞書に開始時刻・開始座標を記録
+- `touchesEnded` で辞書を引いて継続時間を計算、500ms を閾値に単発/ホールドを分岐
+- `touchesCancelled` でも辞書から削除(電話着信・システムアラート対策)
+- ホールド中の視覚エフェクト: `SKAction.repeatForever` で振動アニメを継続、`touchesEnded` で停止
+- ホールド尾判定は「頭タイミング + `duration` 前後 ±150ms でリリース検出」
+- `CACurrentMediaTime()` で計測(`Date` は NTP 補正で戻ることがあるため不可)
+
+---
+
 ## 実装チェックリスト
 
 - [ ] AVAudioEngine の interruption / configurationChange 対応
@@ -297,3 +332,8 @@
 - [ ] プレイ中のみ isIdleTimerDisabled
 - [ ] ProMotion 対応(SpriteKit 自動)
 - [ ] TestFlight ビルドの Configuration 確認
+- [ ] `isMultipleTouchEnabled = true`(PlayScene / RecordingScene)
+- [ ] タッチイベントを時系列バッファで蓄積、50ms 以内のペアを `don_both` として検出
+- [ ] ホールドは `UILongPressGestureRecognizer` を使わず自前で `began`/`ended` 差分計測
+- [ ] `touchesCancelled` でタッチ辞書を確実にクリーンアップ
+- [ ] ホールド尾判定 ±150ms、途中離しの減点実装
