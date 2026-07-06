@@ -69,7 +69,8 @@ final class PlayScene: SKScene {
     let noteId: UUID
     let type: NoteType
     let expectedReleaseTime: TimeInterval
-    let effectNode: SKShapeNode?
+    weak var headNode: SKShapeNode?
+    weak var tailNode: SKShapeNode?
   }
 
   // MARK: - Public entry
@@ -490,17 +491,22 @@ final class PlayScene: SKScene {
   // MARK: - Hold tracking
 
   private func registerHold(note: PendingNote, touch: UITouch, atTime tapTime: TimeInterval) {
-    // 頭は消え、尾だけをホールド中エフェクトとして残す(視覚的にわかりやすく)
+    // 落下シーケンスを停止(この時点でシーケンス末尾の cleanup + remove も失われる)
     note.node?.removeAllActions()
-    let expected = note.targetTime + note.durationSec
-    let effect = note.tail
-    // 頭の丸だけ薄くする
+    // 頭を判定ラインへスナップ(タップ時の位置がバラつくため見た目を安定させる)
+    if let node = note.node {
+      node.position = CGPoint(x: node.position.x, y: hitLineY)
+    }
+    // 頭を半透明にしてホールド継続中の視覚フィードバック
     note.node?.alpha = 0.4
+
+    let expected = note.targetTime + note.durationSec
     let holder = ActiveHold(
       noteId: note.id,
       type: note.type,
       expectedReleaseTime: expected,
-      effectNode: effect
+      headNode: note.node,
+      tailNode: note.tail
     )
     activeHolds[ObjectIdentifier(touch)] = holder
   }
@@ -526,8 +532,12 @@ final class PlayScene: SKScene {
         result = .ok
       }
 
-      // 尾の描画クリーンアップ
-      hold.effectNode?.removeFromParent()
+      // 頭・尾をまとめて削除(尾は頭の子ノードなので厳密には頭を消せば十分だが、
+      // 安全のため明示的に片付ける)
+      hold.tailNode?.removeFromParent()
+      hold.headNode?.removeAllActions()
+      hold.headNode?.removeFromParent()
+
       score.record(result)
       onScoreChanged?(score)
       showJudge(result)
