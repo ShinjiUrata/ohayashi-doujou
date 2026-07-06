@@ -1,0 +1,19 @@
+# ============ Xcodegen 生成物 ============
+# .xcodeproj は project.yml から再生成できるため commit しない
+OhayashiDoujou.xcodeproj/
+
+# ============ Xcode ユーザー固有 ============
+xcuserdata/
+*.xcuserstate
+DerivedData/
+build/
+*.swp
+*.hmap
+*.ipa
+*.dSYM.zip
+*.dSYM
+
+# SPM
+.build/
+.swiftpm/
+Package.resolved
