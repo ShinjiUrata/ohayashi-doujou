@@ -3,19 +3,15 @@ import Foundation
 
 /// プレイ画面の SpriteKit シーン。
 ///
-/// Phase 1(最小プロトタイプ)の実装:
-/// - 静的レイアウト(4レーン + 判定ライン + 判定リング + 太鼓)
-/// - デモ用のハードコード譜面を再生
-/// - タップ位置で 3 ゾーン判別
-/// - タイミング判定(良/可/不可)
-/// - 効果音 + 触覚
-/// - `isMultipleTouchEnabled = true`(両手同時打を Phase 2 で組み込むための下地)
+/// Phase 2 完成版:
+/// - `Chart` を受け取り、`notes` を時系列でスケジュール
+/// - 3 ゾーン判定 + タイミング判定(良/可/不可)
+/// - **両手同時打**(`don_both`)判定: 中央左右半分に 50ms 以内の 2 タッチで成立
+/// - **ホールドノート**(`duration > 0`)判定: 頭 + 尾 の 2 段、尾は ±150ms
+/// - スコア / コンボを計算し、コールバックで SwiftUI 側へ通知
+/// - 譜面終了検出 → 完了コールバック
 ///
-/// Phase 2 以降で:
-/// - `Chart` からノーツ列を受け取ってスケジュール
-/// - 両手同時打 (`don_both`) 判定(50ms ウィンドウ)
-/// - ホールドノート判定(頭 + 尾、±150ms)
-/// - スコア / コンボ計算
+/// 実装方針の落とし穴は `implementation_notes/ios_pitfalls.md` §21-22 を参照。
 @MainActor
 final class PlayScene: SKScene {
   // MARK: - Layout constants
@@ -23,20 +19,80 @@ final class PlayScene: SKScene {
   private let laneCount: Int = 4
   private let fallDuration: TimeInterval = 2.5
 
-  // MARK: - Judgment constants(暫定、実装後に試遊調整)
+  // MARK: - Judgment constants(暫定、Phase 6 で試遊調整)
   private static let goodWindowMs: Int = 200
   private static let okWindowMs: Int = 400
+  private static let holdTailToleranceMs: Int = 150
+  /// 両手同時打の 2 タッチ同時判定ウィンドウ。
+  private static let bothPairWindowSec: TimeInterval = 0.05
+  /// ミス確定までの猶予(判定ラインを過ぎてから)。
+  private static let missGraceSec: TimeInterval = 0.5
+
+  // MARK: - Public API (SwiftUI 側から設定)
+  var onScoreChanged: (@MainActor (ScoreState) -> Void)?
+  var onFinished: (@MainActor (ScoreState) -> Void)?
 
   // MARK: - State
+  private var chart: Chart?
+  private(set) var score = ScoreState()
   private var startTime: TimeInterval = 0
   private var pendingNotes: [PendingNote] = []
   private var judgeLabel: SKLabelNode?
+
+  /// 直近のタッチ履歴(両手同時打の相方を探すため)。
+  /// `bothPairWindowSec` を大きく超えたエントリは破棄する。
+  private var recentTouches: [RecentTouch] = []
+
+  /// 進行中のホールド(頭が判定済みで、尾のリリース待ち)。
+  private var activeHolds: [ObjectIdentifier: ActiveHold] = [:]
 
   private struct PendingNote {
     let id: UUID
     let targetTime: TimeInterval
     let type: NoteType
+    let durationSec: TimeInterval  // 0 = 単発、>0 = ホールド
     weak var node: SKShapeNode?
+    weak var tail: SKShapeNode?
+  }
+
+  private enum CenterHalf { case left, right }
+
+  private struct RecentTouch {
+    let id: ObjectIdentifier
+    let time: TimeInterval
+    let zone: NoteType.Zone
+    let centerHalf: CenterHalf?  // zone == .center の時のみ意味を持つ
+    var consumed: Bool
+  }
+
+  private struct ActiveHold {
+    let noteId: UUID
+    let type: NoteType
+    let expectedReleaseTime: TimeInterval
+    let effectNode: SKShapeNode?
+  }
+
+  // MARK: - Public entry
+
+  /// 譜面を注入して再生を開始する。
+  func load(chart: Chart) {
+    self.chart = chart
+    self.score = ScoreState()
+    for pending in pendingNotes {
+      pending.node?.removeAllActions()
+      pending.node?.removeFromParent()
+      pending.tail?.removeFromParent()
+    }
+    pendingNotes.removeAll()
+    recentTouches.removeAll()
+    activeHolds.removeAll()
+    removeAllActions()
+
+    startTime = CACurrentMediaTime()
+    scheduleNotes(from: chart)
+    scheduleFinish(after: TimeInterval(chart.durationMs) / 1000 + Self.missGraceSec)
+
+    onScoreChanged?(score)
   }
 
   // MARK: - Scene lifecycle
@@ -51,14 +107,13 @@ final class PlayScene: SKScene {
     layoutMarkers()
     layoutHitLine()
     layoutDrum()
-
-    startTime = CACurrentMediaTime()
-    scheduleDemoNotes()
   }
 
   override func willMove(from view: SKView) {
     removeAllActions()
     pendingNotes.removeAll()
+    recentTouches.removeAll()
+    activeHolds.removeAll()
   }
 
   // MARK: - Layout
@@ -69,16 +124,6 @@ final class PlayScene: SKScene {
     overlay.strokeColor = .clear
     overlay.zPosition = -10
     addChild(overlay)
-
-    let title = SKLabelNode(fontNamed: "HiraginoSans-W6")
-    title.text = "♪ お囃子の練習"
-    title.fontSize = 14
-    title.fontColor = SKColor(red: 0xf4 / 255.0, green: 0xc9 / 255.0, blue: 0x5d / 255.0, alpha: 1)
-    title.horizontalAlignmentMode = .left
-    title.verticalAlignmentMode = .top
-    title.position = CGPoint(x: 20, y: size.height - 20)
-    title.zPosition = 10
-    addChild(title)
   }
 
   private func layoutLanes() {
@@ -147,53 +192,40 @@ final class PlayScene: SKScene {
 
   // MARK: - Note scheduling
 
-  private func scheduleDemoNotes() {
-    // Phase 1 プロトタイプ: 判定と描画の疎通確認用に 6 音のパターンを永続ループさせる。
-    // Phase 2 で `Chart` を注入する API に置き換え、このメソッドは削除する。
-    let pattern: [(TimeInterval, NoteType)] = [
-      (0.0, .don_l),
-      (0.7, .ka_r),
-      (1.4, .don_r),
-      (2.1, .ka_l),
-      (2.8, .don_l),
-      (3.5, .don_r),
-    ]
-    let cycleLength: TimeInterval = 4.5
-    let leadIn: TimeInterval = 2.0
-
-    let scheduleCycle = SKAction.run { [weak self] in
-      guard let self else { return }
-      let cycleStart = CACurrentMediaTime() - self.startTime
-      for (offset, type) in pattern {
-        self.spawnNote(targetTime: cycleStart + offset + self.fallDuration, type: type)
-      }
+  private func scheduleNotes(from chart: Chart) {
+    for note in chart.notes {
+      let targetSec = TimeInterval(note.t) / 1000.0
+      let durationSec = TimeInterval(note.duration ?? 0) / 1000.0
+      spawnNote(targetTime: targetSec, type: note.type, durationSec: durationSec)
     }
-    let wait = SKAction.wait(forDuration: cycleLength)
-    let loop = SKAction.repeatForever(SKAction.sequence([scheduleCycle, wait]))
-
-    // 起動後 leadIn 秒だけ待ってから 1 サイクル目を投入(準備が整うまでの間)
-    run(SKAction.sequence([SKAction.wait(forDuration: leadIn), loop]))
   }
 
-  private func spawnNote(targetTime: TimeInterval, type: NoteType) {
+  private func scheduleFinish(after delay: TimeInterval) {
+    let wait = SKAction.wait(forDuration: delay)
+    let notify = SKAction.run { [weak self] in
+      guard let self else { return }
+      self.onFinished?(self.score)
+    }
+    run(SKAction.sequence([wait, notify]), withKey: "finish")
+  }
+
+  private func spawnNote(targetTime: TimeInterval, type: NoteType, durationSec: TimeInterval) {
     let laneWidth = size.width / CGFloat(laneCount)
-    let laneIndex: Int
-    let isDon: Bool
+    let (laneIndex, isDon, isBoth): (Int, Bool, Bool)
     switch type {
-    case .ka_l:
-      laneIndex = 0; isDon = false
-    case .don_l:
-      laneIndex = 1; isDon = true
-    case .don_r:
-      laneIndex = 2; isDon = true
-    case .ka_r:
-      laneIndex = 3; isDon = false
+    case .ka_l:     (laneIndex, isDon, isBoth) = (0, false, false)
+    case .don_l:    (laneIndex, isDon, isBoth) = (1, true,  false)
+    case .don_r:    (laneIndex, isDon, isBoth) = (2, true,  false)
+    case .ka_r:     (laneIndex, isDon, isBoth) = (3, false, false)
     case .don_both:
-      laneIndex = 1; isDon = true  // Phase 2 で中央にまたがる形に拡張
+      // Phase 2 では左中央レーンをアンカーに、視覚だけ両手用のスタイルにする
+      (laneIndex, isDon, isBoth) = (1, true, true)
     }
     let x = (CGFloat(laneIndex) + 0.5) * laneWidth
 
-    let radius: CGFloat = isDon ? 18 : 14
+    let baseRadius: CGFloat = isDon ? 18 : 14
+    let radius: CGFloat = isBoth ? baseRadius + 6 : baseRadius
+
     let node = SKShapeNode(circleOfRadius: radius)
     node.zPosition = 3
     if isDon {
@@ -201,29 +233,61 @@ final class PlayScene: SKScene {
     } else {
       node.fillColor = SKColor(red: 0x4e / 255.0, green: 0xa7 / 255.0, blue: 0xd9 / 255.0, alpha: 1)
     }
-    node.strokeColor = SKColor.white.withAlphaComponent(0.3)
-    node.lineWidth = 1
+    node.strokeColor = SKColor.white.withAlphaComponent(isBoth ? 0.85 : 0.3)
+    node.lineWidth = isBoth ? 3 : 1
     node.position = CGPoint(x: x, y: size.height + 40)
+
+    if isBoth {
+      let glow = SKShapeNode(circleOfRadius: radius + 6)
+      glow.fillColor = .clear
+      glow.strokeColor = SKColor.red.withAlphaComponent(0.4)
+      glow.lineWidth = 6
+      glow.glowWidth = 8
+      glow.zPosition = 2
+      node.addChild(glow)
+    }
 
     let hand = SKLabelNode(fontNamed: "HiraginoSans-W6")
     hand.text = handLabel(for: type)
-    hand.fontSize = 11
+    hand.fontSize = isBoth ? 13 : 11
     hand.fontColor = .white
     hand.verticalAlignmentMode = .center
     node.addChild(hand)
 
+    // ホールドの尾(帯)を描画
+    var tailNode: SKShapeNode?
+    if durationSec > 0 {
+      // 尾の長さは落下速度と duration の積
+      let pixelsPerSec = (size.height + 40 - hitLineY) / fallDuration
+      let tailLength = pixelsPerSec * durationSec
+      let tail = SKShapeNode(rect: CGRect(x: -6, y: 0, width: 12, height: tailLength))
+      tail.fillColor = node.fillColor.withAlphaComponent(0.35)
+      tail.strokeColor = .clear
+      tail.zPosition = 2
+      // 尾は頭ノードの子として付けるとフォールスクロールが自然
+      node.addChild(tail)
+      tailNode = tail
+    }
+
     addChild(node)
 
     let id = UUID()
-    let pending = PendingNote(id: id, targetTime: targetTime, type: type, node: node)
+    let pending = PendingNote(
+      id: id,
+      targetTime: targetTime,
+      type: type,
+      durationSec: durationSec,
+      node: node,
+      tail: tailNode
+    )
     pendingNotes.append(pending)
 
     let spawnDelay = max(0, targetTime - fallDuration)
     let wait = SKAction.wait(forDuration: spawnDelay)
     let fall = SKAction.moveTo(y: hitLineY, duration: fallDuration)
-    let passThrough = SKAction.moveBy(x: 0, y: -60, duration: 0.5)
+    let passThrough = SKAction.moveBy(x: 0, y: -60, duration: Self.missGraceSec)
     let cleanup = SKAction.run { [weak self, id] in
-      self?.expire(id: id)
+      self?.expireAsMiss(id: id)
     }
     let remove = SKAction.removeFromParent()
     node.run(SKAction.sequence([wait, fall, passThrough, cleanup, remove]))
@@ -233,25 +297,73 @@ final class PlayScene: SKScene {
     switch type {
     case .don_l, .ka_l: return "左"
     case .don_r, .ka_r: return "右"
-    case .don_both: return "両"
+    case .don_both:     return "両"
     }
   }
 
-  private func expire(id: UUID) {
+  private func expireAsMiss(id: UUID) {
     guard let idx = pendingNotes.firstIndex(where: { $0.id == id }) else { return }
     pendingNotes.remove(at: idx)
-    showJudge("不可", color: SKColor(white: 0.6, alpha: 1))
+    score.record(.miss)
+    onScoreChanged?(score)
+    showJudge(.miss)
   }
 
   // MARK: - Touch handling
 
   override func touchesBegan(_ touches: Set<UITouch>, with event: UIEvent?) {
     let now = CACurrentMediaTime() - startTime
+
+    // 古いエントリを掃除(50ms を超えたペア検出は無効)
+    recentTouches.removeAll { now - $0.time > Self.bothPairWindowSec }
+
+    // 1) まず全タッチをバッファに登録
+    var newEntries: [RecentTouch] = []
     for touch in touches {
       let location = touch.location(in: self)
       let zone = tapZone(forX: location.x)
-      judge(tapTime: now, zone: zone)
+      let half: CenterHalf?
+      if zone == .center {
+        half = location.x < size.width / 2 ? .left : .right
+      } else {
+        half = nil
+      }
+      let entry = RecentTouch(
+        id: ObjectIdentifier(touch),
+        time: now,
+        zone: zone,
+        centerHalf: half,
+        consumed: false
+      )
+      recentTouches.append(entry)
+      newEntries.append(entry)
     }
+
+    // 2) 新規タッチについて、まず両手同時打の相方を優先的にチェック
+    for entry in newEntries where entry.zone == .center {
+      if tryMatchDonBoth(entry: entry, now: now, touchesBeganWith: touches) {
+        continue
+      }
+      // don_both マッチしなかった中央タッチは通常判定
+      if let touch = touches.first(where: { ObjectIdentifier($0) == entry.id }) {
+        judgeSingle(tapTime: now, zone: .center, touch: touch)
+      }
+    }
+
+    // 3) 外側ゾーンのタッチは常に通常判定
+    for entry in newEntries where entry.zone != .center {
+      if let touch = touches.first(where: { ObjectIdentifier($0) == entry.id }) {
+        judgeSingle(tapTime: now, zone: entry.zone, touch: touch)
+      }
+    }
+  }
+
+  override func touchesEnded(_ touches: Set<UITouch>, with event: UIEvent?) {
+    finishHolds(for: touches, cancelled: false)
+  }
+
+  override func touchesCancelled(_ touches: Set<UITouch>, with event: UIEvent?) {
+    finishHolds(for: touches, cancelled: true)
   }
 
   private func tapZone(forX x: CGFloat) -> NoteType.Zone {
@@ -265,61 +377,181 @@ final class PlayScene: SKScene {
     }
   }
 
-  private func judge(tapTime: TimeInterval, zone: NoteType.Zone) {
+  // MARK: - Judge: two-hand (don_both)
+
+  /// 両手同時打(`don_both`)を判定する。マッチ成功時は true を返す。
+  ///
+  /// 中央ゾーンのタッチが 2 つ(左半分・右半分)、50ms 以内に検出されたとき成立する。
+  private func tryMatchDonBoth(
+    entry: RecentTouch,
+    now: TimeInterval,
+    touchesBeganWith touches: Set<UITouch>
+  ) -> Bool {
+    guard entry.zone == .center, let myHalf = entry.centerHalf else { return false }
+
+    // 判定ウィンドウ内の don_both ノーツを探す
+    let toleranceSec = TimeInterval(Self.okWindowMs) / 1000.0
+    guard let noteIdx = pendingNotes.firstIndex(where: { pending in
+      pending.type == .don_both &&
+      abs(pending.targetTime - now) <= toleranceSec
+    }) else {
+      return false
+    }
+
+    // 直近 50ms 以内で、まだ未消費かつ反対半分の中央タッチを探す
+    let pairIdx = recentTouches.lastIndex(where: { other in
+      other.id != entry.id &&
+      !other.consumed &&
+      other.zone == .center &&
+      other.centerHalf != nil &&
+      other.centerHalf != myHalf &&
+      now - other.time <= Self.bothPairWindowSec
+    })
+
+    guard let pairIdx else { return false }
+    recentTouches[pairIdx].consumed = true
+    if let selfIdx = recentTouches.lastIndex(where: { $0.id == entry.id }) {
+      recentTouches[selfIdx].consumed = true
+    }
+
+    let note = pendingNotes[noteIdx]
+    let diffMs = Int(abs(note.targetTime - now) * 1000)
+    let result: JudgeResult = diffMs <= Self.goodWindowMs ? .good : .ok
+
+    AudioEngine.shared.play(for: note.type)
+    Haptics.shared.fire(for: note.type)
+
+    // ホールド (don_both + duration > 0) の場合は活性化
+    if note.durationSec > 0 {
+      // どちらかのタッチにホールド追跡を紐付ける
+      if let anchorTouch = touches.first(where: { ObjectIdentifier($0) == entry.id }) {
+        registerHold(note: note, touch: anchorTouch, atTime: now)
+      }
+    } else {
+      note.node?.removeAllActions()
+      note.node?.removeFromParent()
+    }
+
+    pendingNotes.remove(at: noteIdx)
+    score.record(result)
+    onScoreChanged?(score)
+    showJudge(result)
+    return true
+  }
+
+  // MARK: - Judge: single tap
+
+  private func judgeSingle(tapTime: TimeInterval, zone: NoteType.Zone, touch: UITouch) {
     let toleranceSec = TimeInterval(Self.okWindowMs) / 1000.0
 
-    // ゾーンが一致する pending から、最も時刻が近いものを選ぶ
     let candidateIndex = pendingNotes
       .enumerated()
+      .filter { $0.element.type != .don_both }  // don_both は tryMatchDonBoth 側で扱う
       .filter { matchesZone(noteZone: $0.element.type.zone, tapZone: zone) }
       .filter { abs($0.element.targetTime - tapTime) <= toleranceSec }
       .min(by: { abs($0.element.targetTime - tapTime) < abs($1.element.targetTime - tapTime) })?
       .offset
 
     guard let idx = candidateIndex else {
-      // ウィンドウ内マッチなし
-      showJudge("不可", color: SKColor(white: 0.6, alpha: 1))
+      showJudge(.miss)
       return
     }
 
     let note = pendingNotes[idx]
     let diffMs = Int(abs(note.targetTime - tapTime) * 1000)
-
-    let judgeText: String
-    let color: SKColor
-    if diffMs <= Self.goodWindowMs {
-      judgeText = "良!"
-      color = SKColor(red: 0xf4 / 255.0, green: 0xc9 / 255.0, blue: 0x5d / 255.0, alpha: 1)
-    } else {
-      judgeText = "可"
-      color = SKColor(red: 0x6b / 255.0, green: 0xc9 / 255.0, blue: 0x8a / 255.0, alpha: 1)
-    }
+    let result: JudgeResult = diffMs <= Self.goodWindowMs ? .good : .ok
 
     AudioEngine.shared.play(for: note.type)
     Haptics.shared.fire(for: note.type)
 
-    note.node?.removeAllActions()
-    note.node?.removeFromParent()
-    pendingNotes.remove(at: idx)
+    if note.durationSec > 0 {
+      registerHold(note: note, touch: touch, atTime: tapTime)
+    } else {
+      note.node?.removeAllActions()
+      note.node?.removeFromParent()
+    }
 
-    showJudge(judgeText, color: color)
+    pendingNotes.remove(at: idx)
+    score.record(result)
+    onScoreChanged?(score)
+    showJudge(result)
+  }
+
+  // MARK: - Hold tracking
+
+  private func registerHold(note: PendingNote, touch: UITouch, atTime tapTime: TimeInterval) {
+    // 頭は消え、尾だけをホールド中エフェクトとして残す(視覚的にわかりやすく)
+    note.node?.removeAllActions()
+    let expected = note.targetTime + note.durationSec
+    let effect = note.tail
+    // 頭の丸だけ薄くする
+    note.node?.alpha = 0.4
+    let holder = ActiveHold(
+      noteId: note.id,
+      type: note.type,
+      expectedReleaseTime: expected,
+      effectNode: effect
+    )
+    activeHolds[ObjectIdentifier(touch)] = holder
+  }
+
+  private func finishHolds(for touches: Set<UITouch>, cancelled: Bool) {
+    let now = CACurrentMediaTime() - startTime
+    for touch in touches {
+      let key = ObjectIdentifier(touch)
+      guard let hold = activeHolds.removeValue(forKey: key) else { continue }
+      // 尾判定
+      let diffMs = Int(abs(hold.expectedReleaseTime - now) * 1000)
+      let result: JudgeResult
+      if cancelled {
+        result = .miss
+      } else if diffMs <= Self.holdTailToleranceMs {
+        result = .good
+      } else if now < hold.expectedReleaseTime {
+        // 早離し
+        let earlyMs = Int((hold.expectedReleaseTime - now) * 1000)
+        result = earlyMs <= Self.okWindowMs ? .ok : .miss
+      } else {
+        // 遅離し(尾ウィンドウを過ぎた、スコアは可扱いで加点)
+        result = .ok
+      }
+
+      // 尾の描画クリーンアップ
+      hold.effectNode?.removeFromParent()
+      score.record(result)
+      onScoreChanged?(score)
+      showJudge(result)
+    }
   }
 
   private func matchesZone(noteZone: NoteType.Zone, tapZone: NoteType.Zone) -> Bool {
     switch (noteZone, tapZone) {
     case (.leftKa, .leftKa),
          (.center, .center),
-         (.rightKa, .rightKa),
-         (.centerBoth, .center):
-      // Phase 1 段階では centerBoth も中央タップ 1 発で暫定成立(Phase 2 で 2 タッチ判定へ)
+         (.rightKa, .rightKa):
       return true
     default:
       return false
     }
   }
 
-  private func showJudge(_ text: String, color: SKColor) {
+  // MARK: - Judge display
+
+  private func showJudge(_ result: JudgeResult) {
     judgeLabel?.removeFromParent()
+    let (text, color): (String, SKColor)
+    switch result {
+    case .good:
+      text = "良!"
+      color = SKColor(red: 0xf4 / 255.0, green: 0xc9 / 255.0, blue: 0x5d / 255.0, alpha: 1)
+    case .ok:
+      text = "可"
+      color = SKColor(red: 0x6b / 255.0, green: 0xc9 / 255.0, blue: 0x8a / 255.0, alpha: 1)
+    case .miss:
+      text = "不可"
+      color = SKColor(white: 0.6, alpha: 1)
+    }
+
     let label = SKLabelNode(fontNamed: "HiraginoSans-W6")
     label.text = text
     label.fontSize = 28
