@@ -211,17 +211,27 @@ final class PlayScene: SKScene {
 
   private func spawnNote(targetTime: TimeInterval, type: NoteType, durationSec: TimeInterval) {
     let laneWidth = size.width / CGFloat(laneCount)
-    let (laneIndex, isDon, isBoth): (Int, Bool, Bool)
+    let x: CGFloat
+    let isDon: Bool
+    let isBoth: Bool
     switch type {
-    case .ka_l:     (laneIndex, isDon, isBoth) = (0, false, false)
-    case .don_l:    (laneIndex, isDon, isBoth) = (1, true,  false)
-    case .don_r:    (laneIndex, isDon, isBoth) = (2, true,  false)
-    case .ka_r:     (laneIndex, isDon, isBoth) = (3, false, false)
+    case .ka_l:
+      x = 0.5 * laneWidth
+      isDon = false; isBoth = false
+    case .don_l:
+      x = 1.5 * laneWidth
+      isDon = true;  isBoth = false
+    case .don_r:
+      x = 2.5 * laneWidth
+      isDon = true;  isBoth = false
+    case .ka_r:
+      x = 3.5 * laneWidth
+      isDon = false; isBoth = false
     case .don_both:
-      // Phase 2 では左中央レーンをアンカーに、視覚だけ両手用のスタイルにする
-      (laneIndex, isDon, isBoth) = (1, true, true)
+      // 両手打は 2 つのドンレーンのちょうど真ん中(画面中央)に落とす
+      x = size.width / 2
+      isDon = true;  isBoth = true
     }
-    let x = (CGFloat(laneIndex) + 0.5) * laneWidth
 
     let baseRadius: CGFloat = isDon ? 18 : 14
     let radius: CGFloat = isBoth ? baseRadius + 6 : baseRadius
