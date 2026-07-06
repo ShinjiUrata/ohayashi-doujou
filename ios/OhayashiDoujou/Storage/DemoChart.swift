@@ -30,13 +30,15 @@ public enum DemoChart {
       Note(t: 16600, type: .don_r),
       Note(t: 17200, type: .don_l),
       Note(t: 17800, type: .don_both),
+      // フィナーレ: 両手同時打ホールド(1200ms)
+      Note(t: 19000, type: .don_both, duration: 1200),
     ]
     return Chart(
       id: "demo-phase2",
       name: "練習譜面",
       region: "デモ",
       createdAt: Date(timeIntervalSince1970: 1_700_000_000),
-      durationMs: 19_000,
+      durationMs: 21_000,
       notes: notes
     )
   }()

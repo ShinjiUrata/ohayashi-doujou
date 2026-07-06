@@ -71,6 +71,9 @@ final class PlayScene: SKScene {
     let expectedReleaseTime: TimeInterval
     weak var headNode: SKShapeNode?
     weak var tailNode: SKShapeNode?
+    /// 両手同時打ホールドの相方タッチ ID(単発ホールドでは nil)。
+    /// どちらかの指が離れた時点で hold を確定させ、もう片方のエントリを掃除するために使う。
+    let partnerTouchId: ObjectIdentifier?
   }
 
   // MARK: - Public entry
@@ -432,11 +435,11 @@ final class PlayScene: SKScene {
     AudioEngine.shared.play(for: note.type)
     Haptics.shared.fire(for: note.type)
 
-    // ホールド (don_both + duration > 0) の場合は活性化
+    // ホールド (don_both + duration > 0) の場合は両手同時追跡
     if note.durationSec > 0 {
-      // どちらかのタッチにホールド追跡を紐付ける
       if let anchorTouch = touches.first(where: { ObjectIdentifier($0) == entry.id }) {
-        registerHold(note: note, touch: anchorTouch, atTime: now)
+        let partnerId = recentTouches[pairIdx].id
+        registerHold(note: note, touch: anchorTouch, partnerId: partnerId, atTime: now)
       }
     } else {
       note.node?.removeAllActions()
@@ -490,7 +493,12 @@ final class PlayScene: SKScene {
 
   // MARK: - Hold tracking
 
-  private func registerHold(note: PendingNote, touch: UITouch, atTime tapTime: TimeInterval) {
+  private func registerHold(
+    note: PendingNote,
+    touch: UITouch,
+    partnerId: ObjectIdentifier? = nil,
+    atTime tapTime: TimeInterval
+  ) {
     // 落下シーケンスを停止(この時点でシーケンス末尾の cleanup + remove も失われる)
     note.node?.removeAllActions()
     // 頭を判定ラインへスナップ(タップ時の位置がバラつくため見た目を安定させる)
@@ -501,14 +509,30 @@ final class PlayScene: SKScene {
     note.node?.alpha = 0.4
 
     let expected = note.targetTime + note.durationSec
-    let holder = ActiveHold(
+    let anchorId = ObjectIdentifier(touch)
+
+    // アンカー側のエントリ
+    activeHolds[anchorId] = ActiveHold(
       noteId: note.id,
       type: note.type,
       expectedReleaseTime: expected,
       headNode: note.node,
-      tailNode: note.tail
+      tailNode: note.tail,
+      partnerTouchId: partnerId
     )
-    activeHolds[ObjectIdentifier(touch)] = holder
+
+    // 両手同時打の場合、パートナー側にも同じ hold を登録
+    // (どちらかが release されたら hold 判定が確定する)
+    if let partnerId = partnerId {
+      activeHolds[partnerId] = ActiveHold(
+        noteId: note.id,
+        type: note.type,
+        expectedReleaseTime: expected,
+        headNode: note.node,
+        tailNode: note.tail,
+        partnerTouchId: anchorId
+      )
+    }
   }
 
   private func finishHolds(for touches: Set<UITouch>, cancelled: Bool) {
@@ -516,6 +540,10 @@ final class PlayScene: SKScene {
     for touch in touches {
       let key = ObjectIdentifier(touch)
       guard let hold = activeHolds.removeValue(forKey: key) else { continue }
+      // 両手同時打の場合、相方エントリも同時に片付ける(二重判定防止)
+      if let partnerId = hold.partnerTouchId {
+        activeHolds.removeValue(forKey: partnerId)
+      }
       // 尾判定
       let diffMs = Int(abs(hold.expectedReleaseTime - now) * 1000)
       let result: JudgeResult
