@@ -62,6 +62,47 @@ public actor ChartStorage {
     try fileManager.removeItem(at: url)
   }
 
+  /// 保存済み譜面のサマリ一覧を作成日降順で返す。
+  ///
+  /// Phase 3 は各ファイルを Chart 全体としてパースしてサマリに変換する簡素実装。
+  /// 譜面数が増えたら `notes` を読み飛ばす軽量パースに置き換える。
+  public func list() throws -> [ChartSummary] {
+    try ensureDirectory()
+    let urls = try fileManager.contentsOfDirectory(
+      at: baseURL,
+      includingPropertiesForKeys: nil,
+      options: [.skipsHiddenFiles]
+    ).filter { $0.pathExtension == "json" }
+
+    var summaries: [ChartSummary] = []
+    for url in urls {
+      do {
+        let data = try Data(contentsOf: url)
+        let chart = try JSONDecoder().decode(Chart.self, from: data)
+        summaries.append(ChartSummary(
+          id: chart.id,
+          name: chart.name,
+          region: chart.region,
+          createdAt: chart.createdAt,
+          durationMs: chart.durationMs
+        ))
+      } catch {
+        // 破損ファイルはログを吐いてスキップ(Phase 6 で quarantine 実装)
+        print("[ChartStorage] Failed to parse \(url.lastPathComponent): \(error)")
+      }
+    }
+    summaries.sort { $0.createdAt > $1.createdAt }
+    return summaries
+  }
+
+  /// 初回起動時のデモ譜面シード。既に何らかの譜面が保存済みなら何もしない。
+  public func seedIfEmpty(_ chart: Chart) throws {
+    try ensureDirectory()
+    let existing = try list()
+    guard existing.isEmpty else { return }
+    try save(chart)
+  }
+
   private func fileURL(for id: String) -> URL {
     baseURL.appendingPathComponent("\(id).json")
   }

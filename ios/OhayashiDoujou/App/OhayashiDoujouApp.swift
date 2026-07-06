@@ -4,9 +4,10 @@ import SwiftUI
 @main
 struct OhayashiDoujouApp: App {
   init() {
-    // 譜面保存ディレクトリを初回起動時に用意しておく。
+    // 譜面保存ディレクトリの初期化 + 初回起動時のデモ譜面シード。
     Task.detached {
       try? await ChartStorage.shared.ensureDirectory()
+      try? await ChartStorage.shared.seedIfEmpty(DemoChart.phase2Demo)
     }
   }
 

@@ -2,54 +2,111 @@ import SwiftUI
 
 /// アプリのルートビュー。
 ///
-/// Phase 2 では「プレイ画面 → リザルト画面」の 2 状態を持つ。
-/// Phase 3 以降で ChartLibraryView / TitleView などが加わる想定。
+/// Phase 3 では以下 5 画面のルーティングハブとして機能する:
+/// - ライブラリ(root)
+/// - プレイ → リザルト
+/// - 録音 → 編集
+///
+/// Phase 6 でタイトル / メニュー画面を root に追加予定。
 struct ContentView: View {
-  enum Screen {
-    case playing
-    case result(ScoreState)
+  enum Route: Equatable {
+    case library
+    case playing(Chart)
+    case result(Chart, ScoreState)
+    case recording
+    case editing(Chart)
   }
 
-  @State private var screen: Screen = .playing
+  @State private var route: Route = .library
   @State private var playRunID: UUID = UUID()
-
-  private let chart: Chart = DemoChart.phase2Demo
 
   var body: some View {
     ZStack {
-      switch screen {
-      case .playing:
+      switch route {
+      case .library:
+        ChartLibraryView(
+          onPlay: { chart in
+            playRunID = UUID()
+            withAnimation(.easeInOut(duration: 0.2)) {
+              route = .playing(chart)
+            }
+          },
+          onRecord: {
+            withAnimation(.easeInOut(duration: 0.2)) {
+              route = .recording
+            }
+          }
+        )
+        .transition(.opacity)
+
+      case .playing(let chart):
         PlayView(
           chart: chart,
           onFinished: { finalScore in
             withAnimation(.easeInOut(duration: 0.25)) {
-              screen = .result(finalScore)
+              route = .result(chart, finalScore)
             }
           },
           onQuit: {
-            // Phase 3 以降で ChartLibrary に戻る。Phase 2 ではリザルト画面に遷移して代替。
-            withAnimation(.easeInOut(duration: 0.25)) {
-              screen = .result(ScoreState())
+            withAnimation(.easeInOut(duration: 0.2)) {
+              route = .library
             }
           }
         )
         .id(playRunID)
+        .transition(.opacity)
 
-      case .result(let score):
+      case .result(let chart, let score):
         ResultView(
           chart: chart,
           score: score,
           onRetry: {
             playRunID = UUID()
             withAnimation(.easeInOut(duration: 0.25)) {
-              screen = .playing
+              route = .playing(chart)
             }
           },
           onDismiss: {
-            // Phase 3 以降で ChartLibrary へ。Phase 2 ではリトライと同じ挙動で代替。
-            playRunID = UUID()
             withAnimation(.easeInOut(duration: 0.25)) {
-              screen = .playing
+              route = .library
+            }
+          }
+        )
+        .transition(.opacity)
+
+      case .recording:
+        RecordingView(
+          onStopped: { draft in
+            withAnimation(.easeInOut(duration: 0.2)) {
+              route = .editing(draft)
+            }
+          },
+          onCancel: {
+            withAnimation(.easeInOut(duration: 0.2)) {
+              route = .library
+            }
+          }
+        )
+        .transition(.opacity)
+
+      case .editing(let chart):
+        ChartEditView(
+          chart: chart,
+          onSave: { edited in
+            Task {
+              // 実際の永続化 ID を確定させる(ドラフト UUID から譜面名ベースにするか、
+              // 現状は同じ UUID を維持する簡素な運用)
+              try? await ChartStorage.shared.save(edited)
+              await MainActor.run {
+                withAnimation(.easeInOut(duration: 0.25)) {
+                  route = .library
+                }
+              }
+            }
+          },
+          onDiscard: {
+            withAnimation(.easeInOut(duration: 0.2)) {
+              route = .library
             }
           }
         )
