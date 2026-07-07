@@ -520,6 +520,22 @@ final class PlayScene: SKScene {
     note.node?.alpha = 0.4
 
     let expected = note.targetTime + note.durationSec
+
+    // 尾を残り時間で縮ませる。頭ノードの子として rect(y: 0 → tailLength) で
+    // 描かれているため、yScale を 1 → 0 に補間すれば下端(頭)固定で上端が
+    // 徐々に頭へ降りてくる、標準的な音ゲーのホールド演出になる。
+    if let tail = note.tail, note.durationSec > 0 {
+      tail.removeAllActions()
+      let remaining = max(0, expected - tapTime)
+      if remaining > 0 {
+        let shrink = SKAction.scaleY(to: 0, duration: remaining)
+        shrink.timingMode = .linear
+        tail.run(shrink)
+      } else {
+        tail.yScale = 0
+      }
+    }
+
     let anchorId = ObjectIdentifier(touch)
 
     // アンカー側のエントリ
