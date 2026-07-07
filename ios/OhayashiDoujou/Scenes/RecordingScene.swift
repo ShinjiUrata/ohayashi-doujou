@@ -19,6 +19,9 @@ final class RecordingScene: SKScene {
   private static let bothPairWindowSec: TimeInterval = 0.05
   /// これ以上押し続けたらホールドとして記録する閾値。
   private static let holdThresholdMs: Int = 500
+  /// 太鼓の描画パラメータ(タップ判定でも同じ値を参照するため定数化)。
+  private let drumRadius: CGFloat = 140
+  private let drumCenterY: CGFloat = 40
 
   // MARK: - Public API
   var onNoteRecorded: (@MainActor (Note) -> Void)?
@@ -134,9 +137,8 @@ final class RecordingScene: SKScene {
 
   private func layoutDrumSplit() {
     let width = size.width
-    let drumRadius: CGFloat = 140
     let cx = width / 2
-    let cy: CGFloat = 40
+    let cy: CGFloat = drumCenterY
 
     // 太鼓本体
     let drum = SKShapeNode(circleOfRadius: drumRadius)
@@ -216,7 +218,7 @@ final class RecordingScene: SKScene {
       // startedAt との差分がそのまま経過秒になり、コールバック遅延に強い。
       let touchNow = touch.timestamp - startedAt
       let position = touch.location(in: self)
-      let zone = tapZone(forX: position.x)
+      let zone = tapZone(at: position)
       let half: CenterHalf?
       if zone == .center {
         half = position.x < size.width / 2 ? .left : .right
@@ -310,11 +312,19 @@ final class RecordingScene: SKScene {
     }
   }
 
-  private func tapZone(forX x: CGFloat) -> NoteType.Zone {
+  private func tapZone(at point: CGPoint) -> NoteType.Zone {
+    // 太鼓の円の内部なら中央(ドン)扱い。カッのゾーンにわずかにはみ出す
+    // 太鼓の円弧を実物の判定境界として尊重する。
+    let cx = size.width / 2
+    let dx = point.x - cx
+    let dy = point.y - drumCenterY
+    if dx * dx + dy * dy <= drumRadius * drumRadius {
+      return .center
+    }
     let width = size.width
-    if x < width * 0.3 {
+    if point.x < width * 0.3 {
       return .leftKa
-    } else if x <= width * 0.7 {
+    } else if point.x <= width * 0.7 {
       return .center
     } else {
       return .rightKa

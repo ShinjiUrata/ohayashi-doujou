@@ -18,6 +18,8 @@ final class PlayScene: SKScene {
   private let hitLineY: CGFloat = 220
   private let laneCount: Int = 4
   private let fallDuration: TimeInterval = 2.5
+  private let drumRadius: CGFloat = 140
+  private let drumCenterY: CGFloat = -20
 
   // MARK: - Judgment constants(暫定、Phase 6 で試遊調整)
   private static let goodWindowMs: Int = 200
@@ -176,12 +178,11 @@ final class PlayScene: SKScene {
   }
 
   private func layoutDrum() {
-    let drumRadius: CGFloat = 140
     let drum = SKShapeNode(circleOfRadius: drumRadius)
     drum.fillColor = SKColor(red: 0xc8 / 255.0, green: 0x21 / 255.0, blue: 0x1d / 255.0, alpha: 1)
     drum.strokeColor = SKColor(red: 0x4a / 255.0, green: 0x26 / 255.0, blue: 0x18 / 255.0, alpha: 1)
     drum.lineWidth = 4
-    drum.position = CGPoint(x: size.width / 2, y: -20)
+    drum.position = CGPoint(x: size.width / 2, y: drumCenterY)
     drum.zPosition = 1
     addChild(drum)
 
@@ -335,7 +336,7 @@ final class PlayScene: SKScene {
     var newEntries: [RecentTouch] = []
     for touch in touches {
       let location = touch.location(in: self)
-      let zone = tapZone(forX: location.x)
+      let zone = tapZone(at: location)
       let half: CenterHalf?
       if zone == .center {
         half = location.x < size.width / 2 ? .left : .right
@@ -380,11 +381,21 @@ final class PlayScene: SKScene {
     finishHolds(for: touches, cancelled: true)
   }
 
-  private func tapZone(forX x: CGFloat) -> NoteType.Zone {
+  private func tapZone(at point: CGPoint) -> NoteType.Zone {
+    // 太鼓の円の内部なら中央(ドン)扱いにする。太鼓の視覚境界が斜めに
+    // 走っているため、単純な x 座標のバーティカル境界だと「円の中なのに
+    // ka 判定」になる帯ができてしまうため、円内優先で判定する。
+    let cx = size.width / 2
+    let dx = point.x - cx
+    let dy = point.y - drumCenterY
+    if dx * dx + dy * dy <= drumRadius * drumRadius {
+      return .center
+    }
+    // 円の外側は x 座標ベース(落下ノーツエリア含む)
     let width = size.width
-    if x < width * 0.25 {
+    if point.x < width * 0.25 {
       return .leftKa
-    } else if x <= width * 0.75 {
+    } else if point.x <= width * 0.75 {
       return .center
     } else {
       return .rightKa
