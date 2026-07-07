@@ -48,7 +48,8 @@ final class RecordingScene: SKScene {
   private var consumedPartners: Set<ObjectIdentifier> = []
 
   // MARK: - Scene lifecycle
-  private var didStart = false
+  private var didLayout = false
+  private(set) var isCapturing = false
 
   override func didMove(to view: SKView) {
     view.isMultipleTouchEnabled = true
@@ -56,12 +57,19 @@ final class RecordingScene: SKScene {
     backgroundColor = SKColor(red: 0x14 / 255.0, green: 0x12 / 255.0, blue: 0x1d / 255.0, alpha: 1)
     scaleMode = .resizeFill
 
-    // 初回のみレイアウトと時刻基準を確定させる(SwiftUI 側の再描画で didMove が
-    // 複数回呼ばれてもタイムスタンプが壊れないようにする)
-    guard !didStart else { return }
+    // レイアウトは初回のみ(SwiftUI 側の再描画で didMove が
+    // 複数回呼ばれてもノードが重複しないようにする)
+    guard !didLayout else { return }
     layoutStatic()
+    didLayout = true
+  }
+
+  /// カウントダウン終了後に SwiftUI 側から呼び出す。
+  /// この呼び出しから録音開始 (打点の記録・効果音・触覚が有効化) される。
+  func beginCapture() {
+    guard !isCapturing else { return }
     startedAt = CACurrentMediaTime()
-    didStart = true
+    isCapturing = true
   }
 
   override func willMove(from view: SKView) {
@@ -211,6 +219,9 @@ final class RecordingScene: SKScene {
   // MARK: - Touch handling
 
   override func touchesBegan(_ touches: Set<UITouch>, with event: UIEvent?) {
+    // カウントダウン中 (isCapturing = false) は完全に無視。
+    // 効果音 / 触覚 / ripple / 記録すべて発火しない。
+    guard isCapturing else { return }
     var newlyRegistered: [ObjectIdentifier] = []
     for touch in touches {
       // touch.timestamp は iOS がタッチ発生を実際に検出した時刻。
@@ -268,10 +279,12 @@ final class RecordingScene: SKScene {
   }
 
   override func touchesEnded(_ touches: Set<UITouch>, with event: UIEvent?) {
+    guard isCapturing else { return }
     finalizeTouches(touches, cancelled: false)
   }
 
   override func touchesCancelled(_ touches: Set<UITouch>, with event: UIEvent?) {
+    guard isCapturing else { return }
     finalizeTouches(touches, cancelled: true)
   }
 
@@ -378,7 +391,9 @@ final class RecordingScene: SKScene {
 
   /// 現在の録音状態から Chart を組み立てる。停止ボタン押下時に呼び出す。
   func makeChartDraft() -> Chart {
-    let elapsedMs = Int((CACurrentMediaTime() - startedAt) * 1000)
+    let elapsedMs: Int = isCapturing
+      ? Int((CACurrentMediaTime() - startedAt) * 1000)
+      : 0
     let now = Date()
     // 空メタデータのドラフト(編集画面で入力する)
     return Chart(

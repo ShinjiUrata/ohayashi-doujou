@@ -3,11 +3,19 @@ import SpriteKit
 
 /// 録音画面(SwiftUI)。
 ///
-/// - 録音中は REC バッジと経過時間を表示
-/// - 停止 → 録音した Chart を編集画面へ渡す
+/// フェーズ:
+/// - `.ready`: 中央に「録音開始」ボタン、まだタップは記録されない
+/// - `.countdown(n)`: 中央に大きな数字 (3 → 2 → 1) を 1 秒ごとに表示
+/// - `.recording`: REC バッジ + タイマー、実際の録音中
 struct RecordingView: View {
   var onStopped: (Chart) -> Void
   var onCancel: () -> Void
+
+  enum Phase: Equatable {
+    case ready
+    case countdown(Int)
+    case recording
+  }
 
   @State private var scene: RecordingScene = {
     let s = RecordingScene(size: CGSize(width: 390, height: 780))
@@ -15,9 +23,11 @@ struct RecordingView: View {
     return s
   }()
 
+  @State private var phase: Phase = .ready
   @State private var elapsedMs: Int = 0
   @State private var recentSymbols: [Note] = []
   @State private var timerTask: Task<Void, Never>?
+  @State private var countdownTask: Task<Void, Never>?
 
   private let gold = Color(red: 0xf4 / 255.0, green: 0xc9 / 255.0, blue: 0x5d / 255.0)
   private let cream = Color(red: 0xf5 / 255.0, green: 0xea / 255.0, blue: 0xd0 / 255.0)
@@ -36,6 +46,8 @@ struct RecordingView: View {
         recentSymbolsRow
         Spacer()
       }
+
+      centerOverlay
     }
     .statusBarHidden(true)
     .onAppear {
@@ -44,25 +56,23 @@ struct RecordingView: View {
       scene.onNoteRecorded = { note in
         Task { @MainActor in
           recentSymbols.append(note)
-          // 画面幅を安全に収まる件数(iPhone 標準幅で 10 バッジは余裕)
           if recentSymbols.count > 10 { recentSymbols.removeFirst() }
         }
       }
-      startTimer()
     }
     .onDisappear {
       timerTask?.cancel()
+      countdownTask?.cancel()
     }
   }
 
   // MARK: - Header
 
+  @ViewBuilder
   private var header: some View {
     HStack(spacing: 12) {
-      Button(action: {
-        timerTask?.cancel()
-        onCancel()
-      }) {
+      // 中断ボタンは常に表示
+      Button(action: cancel) {
         Image(systemName: "xmark")
           .font(.system(size: 14, weight: .bold))
           .foregroundStyle(gold.opacity(0.7))
@@ -71,6 +81,26 @@ struct RecordingView: View {
           .clipShape(Circle())
       }
 
+      if case .recording = phase {
+        recordingHeaderContents
+      } else {
+        Spacer()
+        Text(phase == .ready ? "録音準備" : "")
+          .font(.system(size: 12))
+          .tracking(2)
+          .foregroundStyle(cream.opacity(0.5))
+        Spacer()
+        // 右側の空きを X ボタンと対称にするためのダミー
+        Color.clear.frame(width: 32, height: 32)
+      }
+    }
+    .padding(.horizontal, 16)
+    .padding(.top, 12)
+    .padding(.bottom, 6)
+  }
+
+  private var recordingHeaderContents: some View {
+    Group {
       HStack(spacing: 6) {
         Circle()
           .fill(rec)
@@ -93,11 +123,7 @@ struct RecordingView: View {
 
       Spacer()
 
-      Button(action: {
-        timerTask?.cancel()
-        let chart = scene.makeChartDraft()
-        onStopped(chart)
-      }) {
+      Button(action: stop) {
         Text("■ 停止")
           .font(.system(size: 11, weight: .bold))
           .tracking(2)
@@ -112,15 +138,11 @@ struct RecordingView: View {
           .clipShape(RoundedRectangle(cornerRadius: 20))
       }
     }
-    .padding(.horizontal, 16)
-    .padding(.top, 12)
-    .padding(.bottom, 6)
   }
 
+  // MARK: - Recent Symbols
+
   private var recentSymbolsRow: some View {
-    // HStack を明示的に左寄せで maxWidth: .infinity に固定することで、
-    // バッジ本数が増えても親の VStack 内で中央寄せに引きずられて左にドリフト
-    // することを防ぐ。ForEach 上限 (10) と併せて overflow も回避。
     HStack(spacing: 4) {
       ForEach(Array(recentSymbols.enumerated()), id: \.offset) { _, note in
         symbolBadge(for: note)
@@ -161,7 +183,82 @@ struct RecordingView: View {
       )
   }
 
-  // MARK: - Timer
+  // MARK: - Center overlay
+
+  @ViewBuilder
+  private var centerOverlay: some View {
+    switch phase {
+    case .ready:
+      Button(action: startCountdown) {
+        VStack(spacing: 10) {
+          Image(systemName: "circle.fill")
+            .font(.system(size: 32))
+            .foregroundStyle(rec)
+            .shadow(color: rec.opacity(0.7), radius: 10)
+          Text("録音開始")
+            .font(.system(size: 18, weight: .bold))
+            .tracking(4)
+            .foregroundStyle(cream)
+        }
+        .frame(width: 180, height: 180)
+        .background(Color.black.opacity(0.65))
+        .clipShape(Circle())
+        .overlay(
+          Circle()
+            .stroke(rec.opacity(0.6), lineWidth: 2)
+        )
+        .shadow(color: rec.opacity(0.4), radius: 16)
+      }
+      .buttonStyle(.plain)
+
+    case .countdown(let n):
+      Text("\(n)")
+        .font(.system(size: 140, weight: .bold, design: .rounded))
+        .foregroundStyle(gold)
+        .shadow(color: gold.opacity(0.6), radius: 24)
+        .transition(.asymmetric(
+          insertion: .scale(scale: 0.4).combined(with: .opacity),
+          removal: .scale(scale: 1.6).combined(with: .opacity)
+        ))
+        .id("count-\(n)")
+
+    case .recording:
+      EmptyView()
+    }
+  }
+
+  // MARK: - Actions
+
+  private func startCountdown() {
+    countdownTask?.cancel()
+    countdownTask = Task { @MainActor in
+      for n in [3, 2, 1] {
+        withAnimation(.spring(response: 0.35, dampingFraction: 0.65)) {
+          phase = .countdown(n)
+        }
+        try? await Task.sleep(nanoseconds: 1_000_000_000)
+        if Task.isCancelled { return }
+      }
+      withAnimation(.easeInOut(duration: 0.2)) {
+        phase = .recording
+      }
+      scene.beginCapture()
+      startTimer()
+    }
+  }
+
+  private func stop() {
+    timerTask?.cancel()
+    countdownTask?.cancel()
+    let chart = scene.makeChartDraft()
+    onStopped(chart)
+  }
+
+  private func cancel() {
+    timerTask?.cancel()
+    countdownTask?.cancel()
+    onCancel()
+  }
 
   private func startTimer() {
     timerTask?.cancel()
@@ -169,7 +266,7 @@ struct RecordingView: View {
     timerTask = Task { @MainActor in
       while !Task.isCancelled {
         elapsedMs = Int(Date().timeIntervalSince(start) * 1000)
-        try? await Task.sleep(nanoseconds: 100_000_000)  // 100ms
+        try? await Task.sleep(nanoseconds: 100_000_000)
       }
     }
   }
