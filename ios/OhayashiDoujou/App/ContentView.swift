@@ -2,10 +2,11 @@ import SwiftUI
 
 /// アプリのルートビュー。
 ///
-/// Phase 3 では以下 5 画面のルーティングハブとして機能する:
+/// Phase 3 では以下のルーティングハブとして機能する:
 /// - ライブラリ(root)
-/// - プレイ → リザルト
-/// - 録音 → 編集
+/// - プレイ → リザルト → ライブラリ
+/// - 録音 → 編集 → 保存 → ライブラリ
+/// - 編集からの試遊: 編集 → 試遊プレイ → 試遊リザルト → 編集
 ///
 /// Phase 6 でタイトル / メニュー画面を root に追加予定。
 struct ContentView: View {
@@ -15,6 +16,10 @@ struct ContentView: View {
     case result(Chart, ScoreState)
     case recording
     case editing(Chart)
+    /// 編集画面からの試遊プレイ。終了時は編集画面へ戻る。
+    case previewingDraft(Chart)
+    /// 試遊のリザルト画面。「もう一度」で試遊再突入、「戻る」で編集へ戻る。
+    case previewResult(Chart, ScoreState)
   }
 
   @State private var route: Route = .library
@@ -94,8 +99,6 @@ struct ContentView: View {
           chart: chart,
           onSave: { edited in
             Task {
-              // 実際の永続化 ID を確定させる(ドラフト UUID から譜面名ベースにするか、
-              // 現状は同じ UUID を維持する簡素な運用)
               try? await ChartStorage.shared.save(edited)
               await MainActor.run {
                 withAnimation(.easeInOut(duration: 0.25)) {
@@ -104,9 +107,52 @@ struct ContentView: View {
               }
             }
           },
+          onPreview: { draft in
+            playRunID = UUID()
+            withAnimation(.easeInOut(duration: 0.25)) {
+              route = .previewingDraft(draft)
+            }
+          },
           onDiscard: {
             withAnimation(.easeInOut(duration: 0.2)) {
               route = .library
+            }
+          }
+        )
+        .transition(.opacity)
+
+      case .previewingDraft(let draft):
+        PlayView(
+          chart: draft,
+          onFinished: { finalScore in
+            withAnimation(.easeInOut(duration: 0.25)) {
+              route = .previewResult(draft, finalScore)
+            }
+          },
+          onQuit: {
+            // 試遊中の中断は編集画面に戻る(録音した内容を失わない)
+            withAnimation(.easeInOut(duration: 0.2)) {
+              route = .editing(draft)
+            }
+          }
+        )
+        .id(playRunID)
+        .transition(.opacity)
+
+      case .previewResult(let draft, let score):
+        ResultView(
+          chart: draft,
+          score: score,
+          onRetry: {
+            playRunID = UUID()
+            withAnimation(.easeInOut(duration: 0.25)) {
+              route = .previewingDraft(draft)
+            }
+          },
+          onDismiss: {
+            // 試遊のリザルトから戻ると編集画面へ復帰
+            withAnimation(.easeInOut(duration: 0.25)) {
+              route = .editing(draft)
             }
           }
         )

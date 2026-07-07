@@ -14,11 +14,18 @@ import SwiftUI
 struct ChartEditView: View {
   @State private var chart: Chart
   var onSave: (Chart) -> Void
+  var onPreview: (Chart) -> Void
   var onDiscard: () -> Void
 
-  init(chart: Chart, onSave: @escaping (Chart) -> Void, onDiscard: @escaping () -> Void) {
+  init(
+    chart: Chart,
+    onSave: @escaping (Chart) -> Void,
+    onPreview: @escaping (Chart) -> Void,
+    onDiscard: @escaping () -> Void
+  ) {
     self._chart = State(initialValue: chart)
     self.onSave = onSave
+    self.onPreview = onPreview
     self.onDiscard = onDiscard
   }
 
@@ -244,8 +251,30 @@ struct ChartEditView: View {
       Rectangle().fill(Color.white.opacity(0.05)).frame(height: 1)
       HStack(spacing: 8) {
         Button(action: {
-          // Phase 3 では試遊機能を保存後のライブラリ経由に譲る (Phase 4 で直接遷移対応)
-          save()
+          onPreview(trimmed())
+        }) {
+          HStack(spacing: 6) {
+            Image(systemName: "play.fill")
+              .font(.system(size: 10))
+            Text("試遊")
+              .font(.system(size: 14, weight: .bold))
+              .tracking(2)
+          }
+          .foregroundStyle(gold)
+          .frame(maxWidth: .infinity)
+          .padding(.vertical, 14)
+          .background(Color(red: 0x26 / 255.0, green: 0x22 / 255.0, blue: 0x3a / 255.0))
+          .overlay(
+            RoundedRectangle(cornerRadius: 12)
+              .stroke(gold.opacity(0.35), lineWidth: 1)
+          )
+          .clipShape(RoundedRectangle(cornerRadius: 12))
+        }
+        .disabled(chart.notes.isEmpty)
+        .opacity(chart.notes.isEmpty ? 0.4 : 1.0)
+
+        Button(action: {
+          onSave(trimmed())
         }) {
           Text("保存")
             .font(.system(size: 14, weight: .bold))
@@ -274,11 +303,11 @@ struct ChartEditView: View {
     !chart.name.trimmingCharacters(in: .whitespaces).isEmpty
   }
 
-  private func save() {
-    var trimmed = chart
-    trimmed.name = chart.name.trimmingCharacters(in: .whitespaces)
-    trimmed.region = chart.region.trimmingCharacters(in: .whitespaces)
-    onSave(trimmed)
+  private func trimmed() -> Chart {
+    var t = chart
+    t.name = chart.name.trimmingCharacters(in: .whitespaces)
+    t.region = chart.region.trimmingCharacters(in: .whitespaces)
+    return t
   }
 
   // MARK: - Helpers
@@ -299,6 +328,7 @@ struct ChartEditView: View {
   ChartEditView(
     chart: DemoChart.phase2Demo,
     onSave: { _ in },
+    onPreview: { _ in },
     onDiscard: {}
   )
   .preferredColorScheme(.dark)
