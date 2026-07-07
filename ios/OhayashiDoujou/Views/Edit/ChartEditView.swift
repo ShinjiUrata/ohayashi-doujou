@@ -15,17 +15,20 @@ struct ChartEditView: View {
   @State private var chart: Chart
   var onSave: (Chart) -> Void
   var onPreview: (Chart) -> Void
+  var onPublish: (Chart) -> Void
   var onDiscard: () -> Void
 
   init(
     chart: Chart,
     onSave: @escaping (Chart) -> Void,
     onPreview: @escaping (Chart) -> Void,
+    onPublish: @escaping (Chart) -> Void,
     onDiscard: @escaping () -> Void
   ) {
     self._chart = State(initialValue: chart)
     self.onSave = onSave
     self.onPreview = onPreview
+    self.onPublish = onPublish
     self.onDiscard = onDiscard
   }
 
@@ -249,54 +252,95 @@ struct ChartEditView: View {
   private var footer: some View {
     VStack(spacing: 0) {
       Rectangle().fill(Color.white.opacity(0.05)).frame(height: 1)
-      HStack(spacing: 8) {
-        Button(action: {
-          onPreview(trimmed())
-        }) {
-          HStack(spacing: 6) {
-            Image(systemName: "play.fill")
-              .font(.system(size: 10))
-            Text("試遊")
-              .font(.system(size: 14, weight: .bold))
-              .tracking(2)
-          }
-          .foregroundStyle(gold)
-          .frame(maxWidth: .infinity)
-          .padding(.vertical, 14)
-          .background(Color(red: 0x26 / 255.0, green: 0x22 / 255.0, blue: 0x3a / 255.0))
-          .overlay(
-            RoundedRectangle(cornerRadius: 12)
-              .stroke(gold.opacity(0.35), lineWidth: 1)
-          )
-          .clipShape(RoundedRectangle(cornerRadius: 12))
-        }
-        .disabled(chart.notes.isEmpty)
-        .opacity(chart.notes.isEmpty ? 0.4 : 1.0)
-
-        Button(action: {
-          onSave(trimmed())
-        }) {
-          Text("保存")
-            .font(.system(size: 14, weight: .bold))
-            .tracking(2)
-            .foregroundStyle(cream)
+      VStack(spacing: 8) {
+        HStack(spacing: 8) {
+          Button(action: {
+            onPreview(trimmed())
+          }) {
+            HStack(spacing: 6) {
+              Image(systemName: "play.fill")
+                .font(.system(size: 10))
+              Text("試遊")
+                .font(.system(size: 14, weight: .bold))
+                .tracking(2)
+            }
+            .foregroundStyle(gold)
             .frame(maxWidth: .infinity)
             .padding(.vertical, 14)
-            .background(panel)
+            .background(Color(red: 0x26 / 255.0, green: 0x22 / 255.0, blue: 0x3a / 255.0))
             .overlay(
               RoundedRectangle(cornerRadius: 12)
                 .stroke(gold.opacity(0.35), lineWidth: 1)
             )
             .clipShape(RoundedRectangle(cornerRadius: 12))
+          }
+          .disabled(chart.notes.isEmpty)
+          .opacity(chart.notes.isEmpty ? 0.4 : 1.0)
+
+          Button(action: {
+            onSave(trimmed())
+          }) {
+            Text("保存")
+              .font(.system(size: 14, weight: .bold))
+              .tracking(2)
+              .foregroundStyle(cream)
+              .frame(maxWidth: .infinity)
+              .padding(.vertical, 14)
+              .background(panel)
+              .overlay(
+                RoundedRectangle(cornerRadius: 12)
+                  .stroke(gold.opacity(0.35), lineWidth: 1)
+              )
+              .clipShape(RoundedRectangle(cornerRadius: 12))
+          }
+          .disabled(!isSaveable)
+          .opacity(isSaveable ? 1.0 : 0.4)
         }
-        .disabled(!isSaveable)
-        .opacity(isSaveable ? 1.0 : 0.4)
+
+        Button(action: {
+          onPublish(trimmed())
+        }) {
+          HStack(spacing: 6) {
+            Image(systemName: "arrow.up.circle.fill")
+              .font(.system(size: 12))
+            Text("この譜面を公開する")
+              .font(.system(size: 14, weight: .bold))
+              .tracking(2)
+            Text("¥1,000")
+              .font(.system(size: 11, weight: .semibold, design: .monospaced))
+              .opacity(0.85)
+          }
+          .foregroundStyle(.white)
+          .frame(maxWidth: .infinity)
+          .padding(.vertical, 14)
+          .background(
+            LinearGradient(
+              colors: [
+                Color(red: 0x5f / 255.0, green: 0xb8 / 255.0, blue: 0xea / 255.0),
+                Color(red: 0x4e / 255.0, green: 0xa7 / 255.0, blue: 0xd9 / 255.0),
+              ],
+              startPoint: .top,
+              endPoint: .bottom
+            )
+          )
+          .clipShape(RoundedRectangle(cornerRadius: 12))
+          .shadow(
+            color: Color(red: 0x4e / 255.0, green: 0xa7 / 255.0, blue: 0xd9 / 255.0).opacity(0.35),
+            radius: 8
+          )
+        }
+        .disabled(!isPublishable)
+        .opacity(isPublishable ? 1.0 : 0.4)
       }
       .padding(.horizontal, 16)
       .padding(.top, 12)
       .padding(.bottom, 20)
       .background(Color.black.opacity(0.3))
     }
+  }
+
+  private var isPublishable: Bool {
+    isSaveable && !chart.notes.isEmpty
   }
 
   private var isSaveable: Bool {
@@ -329,6 +373,7 @@ struct ChartEditView: View {
     chart: DemoChart.phase2Demo,
     onSave: { _ in },
     onPreview: { _ in },
+    onPublish: { _ in },
     onDiscard: {}
   )
   .preferredColorScheme(.dark)

@@ -22,6 +22,8 @@ struct ContentView: View {
     case previewResult(Chart, ScoreState)
     /// 譜面検索 / DL 画面。ID 入力 → GCS 取得 → ライブラリへ戻る。
     case downloading
+    /// 譜面公開画面。編集画面から遷移、公開成功でライブラリへ。
+    case publishing(Chart)
   }
 
   @State private var route: Route = .library
@@ -120,6 +122,11 @@ struct ContentView: View {
               route = .previewingDraft(draft)
             }
           },
+          onPublish: { draft in
+            withAnimation(.easeInOut(duration: 0.25)) {
+              route = .publishing(draft)
+            }
+          },
           onDiscard: {
             withAnimation(.easeInOut(duration: 0.2)) {
               route = .library
@@ -174,6 +181,24 @@ struct ContentView: View {
           },
           onCancel: {
             withAnimation(.easeInOut(duration: 0.2)) {
+              route = .library
+            }
+          }
+        )
+        .transition(.opacity)
+
+      case .publishing(let chart):
+        ChartPublishView(
+          chart: chart,
+          onDismiss: {
+            // 公開せず戻る場合は編集画面に復帰(入力内容を保持)
+            withAnimation(.easeInOut(duration: 0.25)) {
+              route = .editing(chart)
+            }
+          },
+          onPublished: { _ in
+            // 公開成功 → ライブラリへ復帰
+            withAnimation(.easeInOut(duration: 0.25)) {
               route = .library
             }
           }
