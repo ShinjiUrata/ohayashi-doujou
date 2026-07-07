@@ -20,6 +20,8 @@ struct ContentView: View {
     case previewingDraft(Chart)
     /// 試遊のリザルト画面。「もう一度」で試遊再突入、「戻る」で編集へ戻る。
     case previewResult(Chart, ScoreState)
+    /// 譜面検索 / DL 画面。ID 入力 → GCS 取得 → ライブラリへ戻る。
+    case downloading
   }
 
   @State private var route: Route = .library
@@ -39,6 +41,11 @@ struct ContentView: View {
           onRecord: {
             withAnimation(.easeInOut(duration: 0.2)) {
               route = .recording
+            }
+          },
+          onDownload: {
+            withAnimation(.easeInOut(duration: 0.2)) {
+              route = .downloading
             }
           }
         )
@@ -153,6 +160,21 @@ struct ContentView: View {
             // 試遊のリザルトから戻ると編集画面へ復帰
             withAnimation(.easeInOut(duration: 0.25)) {
               route = .editing(draft)
+            }
+          }
+        )
+        .transition(.opacity)
+
+      case .downloading:
+        ChartDownloadView(
+          onDownloaded: { _ in
+            withAnimation(.easeInOut(duration: 0.25)) {
+              route = .library
+            }
+          },
+          onCancel: {
+            withAnimation(.easeInOut(duration: 0.2)) {
+              route = .library
             }
           }
         )

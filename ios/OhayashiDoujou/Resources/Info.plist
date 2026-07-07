@@ -48,5 +48,9 @@
 	<true/>
 	<key>UIStatusBarStyle</key>
 	<string>UIStatusBarStyleLightContent</string>
+	<key>APIBaseURL</key>
+	<string>$(API_BASE_URL)</string>
+	<key>ChartsBaseURL</key>
+	<string>$(CHARTS_BASE_URL)</string>
 </dict>
 </plist>

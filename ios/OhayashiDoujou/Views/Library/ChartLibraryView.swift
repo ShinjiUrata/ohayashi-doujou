@@ -13,6 +13,7 @@ import SwiftUI
 struct ChartLibraryView: View {
   var onPlay: (Chart) -> Void
   var onRecord: () -> Void
+  var onDownload: () -> Void
 
   @State private var summaries: [ChartSummary] = []
   @State private var isLoading = true
@@ -53,7 +54,24 @@ struct ChartLibraryView: View {
           .foregroundStyle(gold)
       }
       Spacer()
-      Spacer().frame(width: 32)
+      Button(action: onDownload) {
+        HStack(spacing: 4) {
+          Image(systemName: "plus")
+            .font(.system(size: 10, weight: .bold))
+          Text("IDで入手")
+            .font(.system(size: 11, weight: .semibold))
+            .tracking(1)
+        }
+        .foregroundStyle(gold)
+        .padding(.horizontal, 10)
+        .padding(.vertical, 5)
+        .background(gold.opacity(0.1))
+        .overlay(
+          RoundedRectangle(cornerRadius: 12)
+            .stroke(gold.opacity(0.35), lineWidth: 1)
+        )
+        .clipShape(RoundedRectangle(cornerRadius: 12))
+      }
     }
     .padding(.horizontal, 20)
     .padding(.top, 12)
@@ -244,7 +262,8 @@ struct ChartLibraryView: View {
 #Preview {
   ChartLibraryView(
     onPlay: { _ in },
-    onRecord: {}
+    onRecord: {},
+    onDownload: {}
   )
   .preferredColorScheme(.dark)
 }
