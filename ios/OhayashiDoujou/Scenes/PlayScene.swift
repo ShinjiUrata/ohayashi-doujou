@@ -238,6 +238,30 @@ final class PlayScene: SKScene {
       isDon = true;  isBoth = true
     }
 
+    // 落下軌道の計算。
+    // targetTime >= fallDuration: 通常通り上端 (size.height + 40) から
+    //   spawnDelay 秒待って、fallDuration 秒かけて hit line まで落下。
+    // targetTime <  fallDuration: シーン開始時点で既に画面の途中まで
+    //   落ちてきている状態にする。これをしないと、targetTime < fallDuration
+    //   のノーツが全て spawnDelay = 0 にクランプされ、シーン開始と同時に
+    //   同じ位置 (上端) から同じ速度で落ちて軌道が重なってしまう。
+    let spawnY = size.height + 40
+    let fallDistance = spawnY - hitLineY
+    let fallSpeedPerSec = fallDistance / fallDuration
+    let startY: CGFloat
+    let spawnDelay: TimeInterval
+    let actualFallDuration: TimeInterval
+    if targetTime >= fallDuration {
+      startY = spawnY
+      spawnDelay = targetTime - fallDuration
+      actualFallDuration = fallDuration
+    } else {
+      let clampedTarget = max(0, targetTime)
+      startY = hitLineY + fallSpeedPerSec * CGFloat(clampedTarget)
+      spawnDelay = 0
+      actualFallDuration = clampedTarget
+    }
+
     let baseRadius: CGFloat = isDon ? 18 : 14
     let radius: CGFloat = isBoth ? baseRadius + 6 : baseRadius
 
@@ -250,7 +274,7 @@ final class PlayScene: SKScene {
     }
     node.strokeColor = SKColor.white.withAlphaComponent(isBoth ? 0.85 : 0.3)
     node.lineWidth = isBoth ? 3 : 1
-    node.position = CGPoint(x: x, y: size.height + 40)
+    node.position = CGPoint(x: x, y: startY)
 
     if isBoth {
       let glow = SKShapeNode(circleOfRadius: radius + 6)
@@ -273,8 +297,7 @@ final class PlayScene: SKScene {
     var tailNode: SKShapeNode?
     if durationSec > 0 {
       // 尾の長さは落下速度と duration の積
-      let pixelsPerSec = (size.height + 40 - hitLineY) / fallDuration
-      let tailLength = pixelsPerSec * durationSec
+      let tailLength = fallSpeedPerSec * CGFloat(durationSec)
       let tail = SKShapeNode(rect: CGRect(x: -6, y: 0, width: 12, height: tailLength))
       tail.fillColor = node.fillColor.withAlphaComponent(0.35)
       tail.strokeColor = .clear
@@ -297,9 +320,8 @@ final class PlayScene: SKScene {
     )
     pendingNotes.append(pending)
 
-    let spawnDelay = max(0, targetTime - fallDuration)
     let wait = SKAction.wait(forDuration: spawnDelay)
-    let fall = SKAction.moveTo(y: hitLineY, duration: fallDuration)
+    let fall = SKAction.moveTo(y: hitLineY, duration: actualFallDuration)
     let passThrough = SKAction.moveBy(x: 0, y: -60, duration: Self.missGraceSec)
     let cleanup = SKAction.run { [weak self, id] in
       self?.expireAsMiss(id: id)
