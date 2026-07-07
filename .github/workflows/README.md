@@ -29,12 +29,26 @@ Terraform で管理されている(`terraform/github_actions.tf`):
 
 ## GitHub 側で必要な設定
 
-### 1. Environment: `production`(prod デプロイの手動承認)
+### 1. Environment: `production`(デプロイ履歴のタグ付け)
 
-Settings → Environments → `production` を作成:
-- **Required reviewers**: `ShinjiUrata`(または任意)を追加
-- これで `main` への push で `api-prod-cd` は Approve 待ちになる
-- Deployment branches → `main` のみに制限しておく
+`production` Environment は Terraform 側からの API 呼び出しで既に作成済み。
+GitHub UI 上でデプロイ履歴が「production」タグで追跡される。
+
+**制約(GitHub Free / Private リポジトリ)**:
+- **Required reviewers**: 有料プラン(Pro / Team / Enterprise)専用機能のため使えない
+- **Wait timer**: 同上
+- **Deployment branch protection rule**: 同上
+- **Classic branch protection rule (`main`)**: 同上
+
+そのため MVP 段階の prod デプロイは以下の運用ディシプリンで守る:
+- `main` への直接 push は避け、`dev` → `main` の PR 経由でマージ
+- PR で自分で diff レビュー(セルフレビュー)後にマージ
+- 万が一の問題は Cloud Run の revision rollback で対応
+  (`terraform_and_deployment.md` §17 Runbook)
+
+**将来的な選択肢**:
+- GitHub Pro プラン(月額 $4/user)に upgrade → 上記の保護機能を全て有効化
+- または、公開リポジトリ化(公開だと Free でも保護機能フル利用可能)
 
 ### 2. Repository Secrets
 
