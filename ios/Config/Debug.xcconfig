@@ -4,9 +4,10 @@
 
 PRODUCT_BUNDLE_IDENTIFIER = com.zembrem.ohayashidoujou.dev
 
-// Phase 4 で下記に実際の Cloud Run / GCS URL を設定
-// API_BASE_URL = https:/$()/api-<dev-hash>.asia-northeast1.run.app
-// CHARTS_BASE_URL = https:/$()/storage.googleapis.com/ohayashi-charts-dev
+// Cloud Run の URL(独自ドメイン不採用、Cloud Run 発行のデフォルト URL)。
+// xcconfig ではスラッシュ 2 個連続がコメント扱いされるので $() で挟んで回避。
+API_BASE_URL = https:/$()/api-y24cifx6uq-an.a.run.app
+CHARTS_BASE_URL = https:/$()/storage.googleapis.com/ohayashi-charts-dev
 
 // Debug ビルド向けフラグ
 SWIFT_ACTIVE_COMPILATION_CONDITIONS = $(inherited) DEBUG

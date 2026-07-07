@@ -11,8 +11,8 @@ resource "google_logging_project_sink" "default_exclude_noise" {
   description = "Cloud Run の HTTP 200 (severity < ERROR) を除外して無料枠を守る"
   destination = "logging.googleapis.com/projects/${var.project_id}/locations/global/buckets/_Default"
 
-  # デフォルトの _Default sink を上書きする形
-  unique_writer_identity = false
+  # _Default sink は Google が project-owned な writer SA を持つ形で作るため true
+  unique_writer_identity = true
 
   exclusions {
     name        = "http200-noise"
