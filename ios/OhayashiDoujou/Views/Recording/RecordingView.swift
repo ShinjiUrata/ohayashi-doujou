@@ -44,7 +44,8 @@ struct RecordingView: View {
       scene.onNoteRecorded = { note in
         Task { @MainActor in
           recentSymbols.append(note)
-          if recentSymbols.count > 16 { recentSymbols.removeFirst() }
+          // 画面幅を安全に収まる件数(iPhone 標準幅で 10 バッジは余裕)
+          if recentSymbols.count > 10 { recentSymbols.removeFirst() }
         }
       }
       startTimer()
@@ -117,12 +118,15 @@ struct RecordingView: View {
   }
 
   private var recentSymbolsRow: some View {
+    // HStack を明示的に左寄せで maxWidth: .infinity に固定することで、
+    // バッジ本数が増えても親の VStack 内で中央寄せに引きずられて左にドリフト
+    // することを防ぐ。ForEach 上限 (10) と併せて overflow も回避。
     HStack(spacing: 4) {
       ForEach(Array(recentSymbols.enumerated()), id: \.offset) { _, note in
         symbolBadge(for: note)
       }
-      Spacer()
     }
+    .frame(maxWidth: .infinity, alignment: .leading)
     .padding(.horizontal, 16)
     .frame(height: 30)
   }

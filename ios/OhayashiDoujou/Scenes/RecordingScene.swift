@@ -45,14 +45,20 @@ final class RecordingScene: SKScene {
   private var consumedPartners: Set<ObjectIdentifier> = []
 
   // MARK: - Scene lifecycle
+  private var didStart = false
+
   override func didMove(to view: SKView) {
     view.isMultipleTouchEnabled = true
     view.ignoresSiblingOrder = true
     backgroundColor = SKColor(red: 0x14 / 255.0, green: 0x12 / 255.0, blue: 0x1d / 255.0, alpha: 1)
     scaleMode = .resizeFill
 
+    // 初回のみレイアウトと時刻基準を確定させる(SwiftUI 側の再描画で didMove が
+    // 複数回呼ばれてもタイムスタンプが壊れないようにする)
+    guard !didStart else { return }
     layoutStatic()
     startedAt = CACurrentMediaTime()
+    didStart = true
   }
 
   override func willMove(from view: SKView) {
@@ -203,10 +209,12 @@ final class RecordingScene: SKScene {
   // MARK: - Touch handling
 
   override func touchesBegan(_ touches: Set<UITouch>, with event: UIEvent?) {
-    let now = CACurrentMediaTime() - startedAt
-
     var newlyRegistered: [ObjectIdentifier] = []
     for touch in touches {
+      // touch.timestamp は iOS がタッチ発生を実際に検出した時刻。
+      // CACurrentMediaTime() と同じ「システム起動からの秒数」基準なので
+      // startedAt との差分がそのまま経過秒になり、コールバック遅延に強い。
+      let touchNow = touch.timestamp - startedAt
       let position = touch.location(in: self)
       let zone = tapZone(forX: position.x)
       let half: CenterHalf?
@@ -218,7 +226,7 @@ final class RecordingScene: SKScene {
       let id = ObjectIdentifier(touch)
       pendingTouches[id] = PendingTouch(
         id: id,
-        startTime: now,
+        startTime: touchNow,
         position: position,
         zone: zone,
         centerHalf: half
@@ -234,12 +242,11 @@ final class RecordingScene: SKScene {
       spawnRipple(at: position, isDon: zone == .center)
     }
 
-    // 両手同時打の相方を探す
+    // 両手同時打の相方を探す(newlyRegistered した各タッチの startTime を基準に判定)
     for id in newlyRegistered {
       guard let pending = pendingTouches[id] else { continue }
       guard pending.zone == .center, let myHalf = pending.centerHalf else { continue }
       guard partnerMap[id] == nil else { continue }
-      // 別の中央タッチで、反対半分、まだ相方なし、50ms 以内
       let partnerId = pendingTouches
         .filter { (otherId, other) in
           otherId != id &&
@@ -247,7 +254,7 @@ final class RecordingScene: SKScene {
           other.zone == .center &&
           other.centerHalf != nil &&
           other.centerHalf != myHalf &&
-          abs(now - other.startTime) <= Self.bothPairWindowSec
+          abs(pending.startTime - other.startTime) <= Self.bothPairWindowSec
         }
         .keys
         .first
@@ -267,7 +274,6 @@ final class RecordingScene: SKScene {
   }
 
   private func finalizeTouches(_ touches: Set<UITouch>, cancelled: Bool) {
-    let now = CACurrentMediaTime() - startedAt
     for touch in touches {
       let id = ObjectIdentifier(touch)
       // 相方によって既に処理済みなら、この release ではノート追加しない
@@ -282,15 +288,15 @@ final class RecordingScene: SKScene {
         continue
       }
 
-      let durationSec = now - pending.startTime
+      // release 時刻も touch.timestamp を使う(コールバック遅延の影響を除外)
+      let releaseNow = touch.timestamp - startedAt
+      let durationSec = releaseNow - pending.startTime
       let durationMs = Int(durationSec * 1000)
 
       let noteType: NoteType
       if let partnerId = partnerMap.removeValue(forKey: id) {
-        // 両手同時打として合成、相方側の release を無効化
         noteType = .don_both
         consumedPartners.insert(partnerId)
-        // 相方エントリの partnerMap 側も掃除
         partnerMap.removeValue(forKey: partnerId)
       } else {
         noteType = singleNoteType(pending: pending)
