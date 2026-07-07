@@ -1,0 +1,70 @@
+name: api-prod-cd
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "backend/**"
+      - ".github/workflows/api-prod-cd.yml"
+  workflow_dispatch:
+
+concurrency:
+  group: api-prod-cd
+  cancel-in-progress: false
+
+env:
+  PROJECT_ID: ohayashi-doujou-prod
+  REGION: asia-northeast1
+  SERVICE_NAME: api
+  REPO_NAME: api
+
+jobs:
+  deploy:
+    # main への push が prod。事故防止のため environment 経由の approval を挟む。
+    # (GitHub Settings → Environments → production で reviewers 設定)
+    environment: production
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      id-token: write
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Authenticate to GCP via WIF
+        uses: google-github-actions/auth@v2
+        with:
+          workload_identity_provider: projects/182257939236/locations/global/workloadIdentityPools/github/providers/github-actions
+          service_account: github-actions@ohayashi-doujou-prod.iam.gserviceaccount.com
+
+      - name: Setup gcloud
+        uses: google-github-actions/setup-gcloud@v2
+        with:
+          project_id: ${{ env.PROJECT_ID }}
+
+      - name: Configure Docker for Artifact Registry
+        run: gcloud auth configure-docker ${{ env.REGION }}-docker.pkg.dev --quiet
+
+      - name: Build & push image
+        working-directory: backend
+        run: |
+          IMAGE=${{ env.REGION }}-docker.pkg.dev/${{ env.PROJECT_ID }}/${{ env.REPO_NAME }}/api:${{ github.sha }}
+          echo "IMAGE=$IMAGE" >> $GITHUB_ENV
+          docker build -t "$IMAGE" .
+          docker push "$IMAGE"
+
+      - name: Deploy to Cloud Run
+        run: |
+          gcloud run deploy ${{ env.SERVICE_NAME }} \
+            --image "$IMAGE" \
+            --region ${{ env.REGION }} \
+            --project ${{ env.PROJECT_ID }} \
+            --quiet
+
+      - name: Smoke test
+        run: |
+          URL=$(gcloud run services describe ${{ env.SERVICE_NAME }} \
+            --region ${{ env.REGION }} \
+            --project ${{ env.PROJECT_ID }} \
+            --format='value(status.url)')
+          echo "Deployed to: $URL"
+          curl -sf "$URL/" | tee /dev/stderr | grep -q '"ok":true'

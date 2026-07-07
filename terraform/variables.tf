@@ -28,6 +28,12 @@ variable "alert_email" {
   type        = string
 }
 
+variable "github_repository" {
+  description = "GitHub Actions Workload Identity Federation で許可するリポジトリ (owner/name)"
+  type        = string
+  default     = "ShinjiUrata/ohayashi-doujou"
+}
+
 # =============================================================================
 # Cloud Run チューニング (dev/prod で値を切替)
 # =============================================================================
