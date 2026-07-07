@@ -37,11 +37,13 @@ jobs:
         working-directory: ios
         run: |
           set -o pipefail
+          # OS 版は runner の Xcode に合わせて latest。runner の Xcode バージョンが
+          # 変わっても壊れないよう platform+name のみ指定して最新の iPhone 17 Pro
+          # シミュレータを自動選択させる。
           xcodebuild \
             -project OhayashiDoujou.xcodeproj \
             -scheme OhayashiDoujou \
             -sdk iphonesimulator \
-            -destination 'platform=iOS Simulator,name=iPhone 17 Pro,OS=26.0' \
+            -destination 'platform=iOS Simulator,name=iPhone 17 Pro,OS=latest' \
             -configuration Debug \
-            test \
-            | xcpretty --color --report junit
+            test
