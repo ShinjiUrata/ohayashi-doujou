@@ -1,0 +1,23 @@
+# dev 環境用 tfvars サンプル。
+# 実際のファイルは terraform.tfvars (dev) / env-prod.tfvars (prod) で、
+# どちらも .gitignore 済み。
+
+project_id     = "ohayashi-doujou-dev"
+project_number = "REPLACE_WITH_PROJECT_NUMBER"
+region         = "asia-northeast1"
+environment    = "dev"
+
+alert_email = "urata.1321@gmail.com"
+
+# Cloud Run チューニング
+cloudrun_min_instances = 0
+cloudrun_max_instances = 5
+cloudrun_cpu           = "1"
+cloudrun_memory        = "512Mi"
+
+# コスト保護(dev は緩め、prod は厳しめに)
+budget_amounts_yen           = [200, 500, 1000]
+gcs_request_warning_per_hour = 500
+gcs_request_critical_per_hour = 5000
+log_bytes_daily_warning      = 536870912   # 0.5 GB
+log_bytes_monthly_critical   = 10737418240 # 10 GB
