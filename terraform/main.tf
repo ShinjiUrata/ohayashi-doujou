@@ -34,4 +34,8 @@ locals {
 
   # サービスアカウント
   cloudrun_service_account = "cloudrun-charts@${var.project_id}.iam.gserviceaccount.com"
+
+  # iOS ビルドの Bundle ID と揃える(dev は .dev サフィックス付き)。
+  # ここが JWS 検証時の bundleId チェックの正解値になる。
+  apple_bundle_id = var.environment == "prod" ? "com.zembrem.ohayashidoujou" : "com.zembrem.ohayashidoujou.dev"
 }

@@ -47,7 +47,7 @@ resource "google_cloud_run_v2_service" "api" {
       }
       env {
         name  = "APPLE_BUNDLE_ID"
-        value = "com.zembrem.ohayashidoujou"
+        value = local.apple_bundle_id
       }
       env {
         name  = "APPLE_PRODUCT_ID"

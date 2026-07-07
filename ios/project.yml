@@ -41,6 +41,7 @@ targets:
       - path: OhayashiDoujou/Resources/Assets.xcassets
       - path: OhayashiDoujou/Resources/don.wav
       - path: OhayashiDoujou/Resources/ka.wav
+      - path: OhayashiDoujou/Resources/StoreKitConfig.storekit
     settings:
       base:
         INFOPLIST_FILE: OhayashiDoujou/Resources/Info.plist
@@ -53,6 +54,10 @@ targets:
       testTargets:
         - OhayashiDoujouTests
       gatherCoverageData: true
+      # Debug ビルドで実 App Store を叩かず、ローカル定義のプロダクトで
+      # StoreKit をテストできるようにする。Sandbox テスターや実端末で
+      # E2E する場合はここを OFF にする。
+      storeKitConfiguration: OhayashiDoujou/Resources/StoreKitConfig.storekit
 
   OhayashiDoujouTests:
     type: bundle.unit-test

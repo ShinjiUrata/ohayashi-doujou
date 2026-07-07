@@ -28,6 +28,7 @@ struct ChartPublishView: View {
 
   @State private var publishId: String = ""
   @State private var phase: Phase = .input
+  @State private var displayPrice: String = "¥1,000"
 
   private let gold = Color(red: 0xf4 / 255.0, green: 0xc9 / 255.0, blue: 0x5d / 255.0)
   private let goldDim = Color(red: 0xb8 / 255.0, green: 0x93 / 255.0, blue: 0x5a / 255.0)
@@ -47,6 +48,12 @@ struct ChartPublishView: View {
       }
     }
     .foregroundStyle(cream)
+    .task {
+      // 商品情報をプリロードして価格をロケール適用表示に差し替える
+      if let price = await StoreKitManager.shared.displayPrice() {
+        displayPrice = price
+      }
+    }
   }
 
   private var header: some View {
@@ -248,7 +255,7 @@ struct ChartPublishView: View {
           .foregroundStyle(cream.opacity(0.7))
       }
       Spacer()
-      Text("¥1,000")
+      Text(displayPrice)
         .font(.system(size: 20, weight: .bold, design: .monospaced))
         .foregroundStyle(gold)
         .shadow(color: gold.opacity(0.4), radius: 6)
@@ -279,7 +286,7 @@ struct ChartPublishView: View {
           Text("この譜面を公開する")
             .font(.system(size: 16, weight: .bold))
             .tracking(2)
-          Text("¥1,000 で即時アップロード")
+          Text("\(displayPrice) で即時アップロード")
             .font(.system(size: 10))
             .opacity(0.85)
         }
@@ -308,7 +315,7 @@ struct ChartPublishView: View {
   private var caveat: some View {
     VStack(spacing: 6) {
       Text("※ 購入は返金・キャンセル不可(即時消費)")
-      Text("※ Phase 4 現在は課金スタブ、Phase 5 で StoreKit 2 決済を統合")
+      Text("※ Consumable IAP、公開時に即時課金")
     }
     .font(.system(size: 9))
     .foregroundStyle(cream.opacity(0.5))
@@ -462,20 +469,47 @@ struct ChartPublishView: View {
     toPublish.id = id
 
     Task {
+      // 1) StoreKit 2 で決済ダイアログを開く。JWS を取り出す。
+      let pending: StoreKitManager.PendingPurchase
       do {
-        // Phase 4 現在: JWS は backend スタブが常に成功で返すダミー文字列。
-        // Phase 5 で StoreKit 2 の実 JWS(product.purchase → verification.jwsRepresentation)に差し替える。
+        pending = try await StoreKitManager.shared.purchase()
+      } catch StoreKitManager.PurchaseError.userCancelled {
+        // ユーザーキャンセルは静かに ID 確認済み状態に戻す
+        await MainActor.run { phase = .available }
+        return
+      } catch let purchaseError as StoreKitManager.PurchaseError {
+        await MainActor.run {
+          phase = .publishError(
+            purchaseError.errorDescription ?? "購入に失敗しました。"
+          )
+        }
+        return
+      } catch {
+        await MainActor.run {
+          phase = .publishError("購入に失敗しました。時間をおいて再試行してください。")
+        }
+        return
+      }
+
+      // 2) backend に JWS + 譜面を投げる。
+      do {
         let confirmedId = try await APIClient.shared.publish(
-          signedTransaction: "phase4-stub-jws",
+          signedTransaction: pending.jws,
           chart: toPublish
         )
-        // 公開成功した譜面をローカルにも保存(id を確定版に差し替えた形で)
+
+        // 3) publish 成功 → StoreKit の transaction を finish
+        //    (失敗時は finish しない、次回起動の Transaction.updates で再試行機会)
+        await StoreKitManager.shared.finish(pending)
+
         toPublish.id = confirmedId
         try? await ChartStorage.shared.save(toPublish)
+
         await MainActor.run {
           phase = .success(confirmedId)
         }
       } catch let error as APIError {
+        // publish 失敗 → transaction は finish しないまま残す
         await MainActor.run {
           phase = .publishError(error.localizedDescription)
         }

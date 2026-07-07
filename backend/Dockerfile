@@ -34,6 +34,8 @@ ENV PORT=8080
 COPY --from=deps /app/node_modules ./node_modules
 COPY --from=builder /app/dist ./dist
 COPY package.json ./
+# Apple Root CA-G3 を bundle 同梱(JWS 検証で使う)
+COPY certs ./certs
 
 # ノンルートユーザーで実行
 RUN adduser -D -u 10001 app

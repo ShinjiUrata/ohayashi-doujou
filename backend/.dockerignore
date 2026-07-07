@@ -8,3 +8,5 @@ tests
 .env.*
 *.log
 .DS_Store
+# certs/ は明示的に含める(除外しない)
+!certs/
