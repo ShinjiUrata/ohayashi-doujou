@@ -2,15 +2,15 @@ import SwiftUI
 
 /// アプリのルートビュー。
 ///
-/// Phase 3 では以下のルーティングハブとして機能する:
-/// - ライブラリ(root)
-/// - プレイ → リザルト → ライブラリ
-/// - 録音 → 編集 → 保存 → ライブラリ
+/// ルーティングハブ:
+/// - メインメニュー(root)
+/// - メニュー → ライブラリ → プレイ → リザルト → ライブラリ
+/// - メニュー → 録音 → 編集 → 保存 → ライブラリ
 /// - 編集からの試遊: 編集 → 試遊プレイ → 試遊リザルト → 編集
-///
-/// Phase 6 でタイトル / メニュー画面を root に追加予定。
+/// - メニュー → 譜面DL → ライブラリ
 struct ContentView: View {
   enum Route: Equatable {
+    case mainMenu
     case library
     case playing(Chart)
     case result(Chart, ScoreState)
@@ -26,12 +26,32 @@ struct ContentView: View {
     case publishing(Chart)
   }
 
-  @State private var route: Route = .library
+  @State private var route: Route = .mainMenu
   @State private var playRunID: UUID = UUID()
 
   var body: some View {
     ZStack {
       switch route {
+      case .mainMenu:
+        MainMenuView(
+          onSelectLibrary: {
+            withAnimation(.easeInOut(duration: 0.25)) {
+              route = .library
+            }
+          },
+          onRecord: {
+            withAnimation(.easeInOut(duration: 0.25)) {
+              route = .recording
+            }
+          },
+          onDownload: {
+            withAnimation(.easeInOut(duration: 0.25)) {
+              route = .downloading
+            }
+          }
+        )
+        .transition(.opacity)
+
       case .library:
         ChartLibraryView(
           onPlay: { chart in
@@ -48,6 +68,11 @@ struct ContentView: View {
           onDownload: {
             withAnimation(.easeInOut(duration: 0.2)) {
               route = .downloading
+            }
+          },
+          onBack: {
+            withAnimation(.easeInOut(duration: 0.2)) {
+              route = .mainMenu
             }
           }
         )

@@ -1,6 +1,6 @@
 import SwiftUI
 
-/// 保存済み譜面一覧(アプリのルート画面)。
+/// 保存済み譜面一覧。
 ///
 /// Phase 3:
 /// - ローカル譜面のカードリスト表示
@@ -10,10 +10,14 @@ import SwiftUI
 ///
 /// Phase 4 以降:
 /// - 「IDで入手」ボタンで検索/DL 画面へ
+///
+/// Phase 6-A:
+/// - メインメニューから遷移するサブ画面になり、左上に戻るボタン
 struct ChartLibraryView: View {
   var onPlay: (Chart) -> Void
   var onRecord: () -> Void
   var onDownload: () -> Void
+  var onBack: () -> Void
 
   @State private var summaries: [ChartSummary] = []
   @State private var isLoading = true
@@ -46,14 +50,28 @@ struct ChartLibraryView: View {
 
   private var header: some View {
     HStack {
-      Spacer().frame(width: 32)
-      VStack(spacing: 2) {
-        Text("♪ 譜面ライブラリ")
-          .font(.system(size: 15, weight: .bold))
-          .tracking(2)
-          .foregroundStyle(gold)
+      Button(action: onBack) {
+        HStack(spacing: 4) {
+          Image(systemName: "chevron.left")
+            .font(.system(size: 12, weight: .bold))
+          Text("メニュー")
+            .font(.system(size: 11, weight: .semibold))
+            .tracking(1)
+        }
+        .foregroundStyle(cream.opacity(0.7))
+        .padding(.horizontal, 8)
+        .padding(.vertical, 5)
       }
+
       Spacer()
+
+      Text("♪ 譜面ライブラリ")
+        .font(.system(size: 15, weight: .bold))
+        .tracking(2)
+        .foregroundStyle(gold)
+
+      Spacer()
+
       Button(action: onDownload) {
         HStack(spacing: 4) {
           Image(systemName: "plus")
@@ -73,7 +91,7 @@ struct ChartLibraryView: View {
         .clipShape(RoundedRectangle(cornerRadius: 12))
       }
     }
-    .padding(.horizontal, 20)
+    .padding(.horizontal, 16)
     .padding(.top, 12)
     .padding(.bottom, 8)
     .background(
@@ -263,7 +281,8 @@ struct ChartLibraryView: View {
   ChartLibraryView(
     onPlay: { _ in },
     onRecord: {},
-    onDownload: {}
+    onDownload: {},
+    onBack: {}
   )
   .preferredColorScheme(.dark)
 }
