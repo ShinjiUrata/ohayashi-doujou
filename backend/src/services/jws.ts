@@ -33,8 +33,28 @@ function loadRootCerts(): Buffer[] {
   return files.map((f) => fs.readFileSync(path.join(CERTS_DIR, f)));
 }
 
+// @apple/app-store-server-library は Environment.PRODUCTION を選ぶと
+// appAppleId (数値) を必須とする。App Store Connect でのアプリ登録が完了して
+// APPLE_APP_APPLE_ID env が設定されるまでの間は、SANDBOX モードに強制フォール
+// バックしてコンテナを起動可能な状態に保つ。
+//
+// App Store 未公開の間は Production 環境の JWS は事実上発生しないため、
+// SANDBOX モードで Sandbox JWS のみ受け入れるのが安全側の運用となる。
+const canUseProduction =
+  config.environment === "prod" && config.appleAppAppleId !== undefined;
+
 const environment: Environment =
-  config.environment === "prod" ? Environment.PRODUCTION : Environment.SANDBOX;
+  canUseProduction ? Environment.PRODUCTION : Environment.SANDBOX;
+
+if (config.environment === "prod" && !canUseProduction) {
+  console.log(
+    JSON.stringify({
+      severity: "WARNING",
+      message:
+        "APPLE_APP_APPLE_ID 未設定のため、prod 環境でも JWS 検証を SANDBOX モードで初期化します。App Store Connect でのアプリ登録完了後に APPLE_APP_APPLE_ID を設定してください。",
+    }),
+  );
+}
 
 // SignedDataVerifier のコンストラクタ:
 // (rootCertificates, enableOnlineChecks, environment, bundleId, appAppleId?)
@@ -43,7 +63,7 @@ const verifier: SignedDataVerifier = new SignedDataVerifier(
   false, // OCSP / CRL のオンラインチェックは無効(オフライン検証で十分)
   environment,
   config.appleBundleId,
-  undefined, // App Apple ID (Phase 6+ で使う可能性あり)
+  canUseProduction ? config.appleAppAppleId : undefined,
 );
 
 export interface VerifiedTransaction {
