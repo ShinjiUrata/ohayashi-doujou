@@ -56,7 +56,7 @@ Settings → Secrets and variables → Actions:
 
 | Secret 名 | 内容 |
 |---|---|
-| `ALERT_EMAIL` | Terraform の `alert_email` 変数。監視通知先。`kamohigashi.festival@gmail.com` を想定 |
+| `ALERT_EMAIL` | Terraform の `alert_email` 変数。監視通知先(運用担当者のメールアドレス)|
 
 その他の秘密は WIF 経由で不要。
 

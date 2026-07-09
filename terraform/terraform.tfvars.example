@@ -7,7 +7,7 @@ project_number = "REPLACE_WITH_PROJECT_NUMBER"
 region         = "asia-northeast1"
 environment    = "dev"
 
-alert_email = "urata.1321@gmail.com"
+alert_email = "your-alert-email@example.com"
 
 # Cloud Run チューニング
 cloudrun_min_instances = 0
