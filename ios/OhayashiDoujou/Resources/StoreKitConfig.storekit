@@ -1,0 +1,40 @@
+{
+  "identifier" : "OHAYASHI-DOUJOU-STOREKIT-1",
+  "nonRenewingSubscriptions" : [],
+  "products" : [
+    {
+      "displayPrice" : "1000",
+      "familyShareable" : false,
+      "internalID" : "OHAYASHI-CHART-PUBLISH-SINGLE",
+      "localizations" : [
+        {
+          "description" : "1曲分の譜面をサーバーに公開して、他のプレイヤーがダウンロードできるようにします。",
+          "displayName" : "譜面を公開する",
+          "locale" : "ja"
+        },
+        {
+          "description" : "Publish one custom rhythm chart to the server so other players can download it.",
+          "displayName" : "Publish a Chart",
+          "locale" : "en_US"
+        }
+      ],
+      "productID" : "rhythm.chart.publish.single",
+      "referenceName" : "譜面公開 (1曲)",
+      "type" : "Consumable"
+    }
+  ],
+  "settings" : {
+    "_askToBuyEnabled" : false,
+    "_billingIssuesEnabled" : false,
+    "_disableDialogs" : false,
+    "_failTransactionsEnabled" : false,
+    "_locale" : "ja_JP",
+    "_storefront" : "JPN",
+    "_storeKitErrors" : []
+  },
+  "subscriptionGroups" : [],
+  "version" : {
+    "major" : 3,
+    "minor" : 0
+  }
+}

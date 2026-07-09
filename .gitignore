@@ -69,6 +69,11 @@ application_default_credentials.json
 .project
 .settings/
 
+# ============ 開発ドキュメント(個人開発、ローカルのみ管理)============
+# 実装ノート・画面案・法務文書ドラフト・Apple Developer 登録用資料 等
+# 個人情報や過渡的な設計メモを含むため、Public 化しない。
+dev_documents/
+
 # ============ その他 ============
 *.tmp
 *.bak

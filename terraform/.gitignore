@@ -1,0 +1,21 @@
+# tfstate はリモート GCS に置くのでローカルには残さない
+*.tfstate
+*.tfstate.*
+*.tfstate.backup
+
+# 環境ごとの変数値 (機密情報を含む可能性あり)
+terraform.tfvars
+env-*.tfvars
+# example ファイルだけ git 管理
+!terraform.tfvars.example
+
+# provider cache
+.terraform/
+.terraform.tfstate.lock.info
+
+# crash log
+crash.log
+crash.*.log
+
+# planned state
+*.tfplan
