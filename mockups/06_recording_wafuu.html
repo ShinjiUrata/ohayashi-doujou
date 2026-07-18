@@ -1,0 +1,332 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>お囃子道場 — 録音</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Noto+Serif+JP:wght@500;700&family=Zen+Kaku+Gothic+New:wght@400;500;700&family=Bebas+Neue&family=Klee+One:wght@400;600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="assets/wafuu.css">
+<style>
+  /* 録音 固有 */
+  .rec-header {
+    padding: 58px 16px 12px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 10px;
+    border-bottom: 1px solid var(--line);
+    background:
+      linear-gradient(180deg,
+        rgba(200, 33, 29, 0.08) 0%,
+        transparent 100%);
+  }
+  .rec-indicator {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 6px 12px;
+    background: linear-gradient(180deg, #f6e9c9 0%, #ead7a4 100%);
+    border: 1.5px solid var(--wood-deep);
+    border-radius: 20px;
+    font-family: "Bebas Neue", sans-serif;
+    font-size: 11px;
+    letter-spacing: 3px;
+    color: var(--sumi);
+  }
+  .rec-indicator .dot {
+    width: 9px;
+    height: 9px;
+    border-radius: 50%;
+    background: var(--red);
+    box-shadow: 0 0 8px rgba(200, 33, 29, 0.6);
+    animation: pulse 1.2s infinite;
+  }
+  @keyframes pulse {
+    0%, 100% { opacity: 1; transform: scale(1); }
+    50% { opacity: 0.4; transform: scale(0.85); }
+  }
+  .rec-timer {
+    font-family: "Bebas Neue", sans-serif;
+    font-size: 28px;
+    color: var(--sumi);
+    letter-spacing: 3px;
+  }
+  .rec-cancel {
+    background: none;
+    border: none;
+    color: var(--sumi-soft);
+    font-size: 11px;
+    letter-spacing: 2px;
+    cursor: pointer;
+    padding: 6px 8px;
+  }
+
+  .rec-hint {
+    padding: 20px 24px;
+    text-align: center;
+  }
+  .rec-hint .lg {
+    font-family: "Noto Serif JP", serif;
+    font-size: 15px;
+    font-weight: 700;
+    color: var(--sumi);
+    letter-spacing: 3px;
+    margin-bottom: 4px;
+  }
+  .rec-hint .sm {
+    font-family: "Klee One", serif;
+    font-size: 11px;
+    color: var(--sumi-soft);
+    letter-spacing: 2px;
+    line-height: 1.6;
+  }
+
+  /* 太鼓を左右分割 */
+  .rec-taiko-area {
+    position: absolute;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    height: 360px;
+    overflow: hidden;
+    background:
+      linear-gradient(180deg,
+        transparent 0%,
+        rgba(74, 108, 58, 0.08) 40%,
+        rgba(74, 108, 58, 0.20) 100%);
+  }
+  .rec-taiko-area::before {
+    content: "";
+    position: absolute;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    height: 8px;
+    background: linear-gradient(180deg, var(--moss) 0%, var(--moss-mid) 100%);
+    box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.15);
+    z-index: 5;
+  }
+  .rec-taiko-area::after {
+    content: "";
+    position: absolute;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    height: 8px;
+    background: repeating-linear-gradient(90deg,
+      rgba(0, 0, 0, 0.22) 0 2px, transparent 2px 6px);
+    z-index: 6;
+  }
+
+  .rec-taiko-wrap {
+    position: absolute;
+    left: 50%;
+    bottom: -90px;
+    transform: translateX(-50%);
+    width: 340px;
+    height: 340px;
+  }
+
+  /* 左右分割の視覚(clip-path で半分) */
+  .rec-taiko-half {
+    position: absolute;
+    inset: 0;
+  }
+  .rec-taiko-half.left {
+    clip-path: polygon(0 0, 50% 0, 50% 100%, 0 100%);
+  }
+  .rec-taiko-half.right {
+    clip-path: polygon(50% 0, 100% 0, 100% 100%, 50% 100%);
+  }
+
+  /* 中央の分割線(縦棒) */
+  .rec-taiko-divider {
+    position: absolute;
+    top: 0;
+    bottom: 0;
+    left: 50%;
+    width: 2px;
+    background: linear-gradient(180deg,
+      transparent 0%, var(--wood-deep) 10%, var(--wood-deep) 90%, transparent 100%);
+    z-index: 7;
+    transform: translateX(-50%);
+  }
+
+  /* 左右のヒントテキスト(太鼓上部) */
+  .rec-half-label {
+    position: absolute;
+    top: 42%;
+    font-family: "Noto Serif JP", serif;
+    font-size: 22px;
+    font-weight: 700;
+    color: rgba(43, 26, 14, 0.35);
+    letter-spacing: 4px;
+    z-index: 8;
+    pointer-events: none;
+  }
+  .rec-half-label.left { left: 24%; }
+  .rec-half-label.right { right: 24%; }
+
+  .rec-ext-hint {
+    position: absolute;
+    top: 30%;
+    width: 60px;
+    text-align: center;
+    z-index: 8;
+    color: var(--blue-dim);
+    font-family: "Noto Serif JP", serif;
+    font-size: 11px;
+    letter-spacing: 2px;
+    pointer-events: none;
+  }
+  .rec-ext-hint.left { left: 5%; }
+  .rec-ext-hint.right { right: 5%; }
+
+  /* 記録済みノーツ列(タイムライン、上部) */
+  .rec-timeline {
+    position: absolute;
+    left: 0;
+    right: 0;
+    top: 175px;
+    height: 30px;
+    padding: 0 16px;
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    overflow-x: auto;
+  }
+  .rec-tl-note {
+    width: 16px;
+    height: 16px;
+    border-radius: 50%;
+    flex-shrink: 0;
+  }
+  .rec-tl-note.don { background: var(--red); box-shadow: 0 0 0 1px var(--red-dim); }
+  .rec-tl-note.ka { background: var(--blue); width: 12px; height: 12px; box-shadow: 0 0 0 1px var(--blue-dim); }
+  .rec-tl-note.both { width: 22px; height: 22px; background: var(--red); box-shadow: 0 0 0 1.5px var(--gold), 0 0 0 2.5px var(--red-dim); }
+</style>
+</head>
+<body>
+
+<div class="stage">
+  <div>
+    <div class="stage-title">お囃子道場 — 録音モード</div>
+    <div class="stage-subtitle">WAFUU MODERN · RECORDING</div>
+  </div>
+
+  <div class="phone"><div class="screen"><div class="screen-inner">
+
+    <div class="rec-header">
+      <div class="rec-indicator">
+        <span class="dot"></span>
+        REC
+      </div>
+      <div class="rec-timer">00:12</div>
+      <button class="rec-cancel">中止</button>
+    </div>
+
+    <div class="rec-hint">
+      <div class="lg">太鼓を叩いてください</div>
+      <div class="sm">左半分 = 左ドン / 右半分 = 右ドン / 外側 = カッ</div>
+    </div>
+
+    <!-- 記録済みノーツのタイムライン -->
+    <div class="rec-timeline">
+      <div class="rec-tl-note don"></div>
+      <div class="rec-tl-note ka"></div>
+      <div class="rec-tl-note don"></div>
+      <div class="rec-tl-note both"></div>
+      <div class="rec-tl-note ka"></div>
+      <div class="rec-tl-note don"></div>
+      <div class="rec-tl-note don"></div>
+      <div class="rec-tl-note ka"></div>
+      <div class="rec-tl-note don"></div>
+      <div class="rec-tl-note don"></div>
+    </div>
+
+    <!-- 左右分割された太鼓 -->
+    <div class="rec-taiko-area">
+      <div class="rec-ext-hint left">左カ</div>
+      <div class="rec-ext-hint right">右カ</div>
+      <div class="rec-half-label left">左ド</div>
+      <div class="rec-half-label right">右ド</div>
+
+      <div class="rec-taiko-wrap">
+        <svg class="rec-taiko-half left taiko-svg" viewBox="0 0 320 320" xmlns="http://www.w3.org/2000/svg" style="width: 100%; height: 100%; position: absolute;">
+          <circle cx="160" cy="160" r="156" fill="#c8a976"/>
+          <circle cx="160" cy="160" r="140" fill="#8b6a3c"/>
+          <circle cx="160" cy="160" r="137" fill="#f5edd8"/>
+          <g fill="#2b1a0e">
+            <circle cx="160.00" cy="12.00" r="3"/>
+            <circle cx="148.59" cy="17.47" r="3"/>
+            <circle cx="127.20" cy="19.34" r="3"/>
+            <circle cx="106.34" cy="25.28" r="3"/>
+            <circle cx="86.63" cy="35.13" r="3"/>
+            <circle cx="68.68" cy="48.61" r="3"/>
+            <circle cx="53.02" cy="65.37" r="3"/>
+            <circle cx="40.15" cy="84.94" r="3"/>
+            <circle cx="30.48" cy="106.78" r="3"/>
+            <circle cx="24.36" cy="130.30" r="3"/>
+            <circle cx="22.00" cy="154.87" r="3"/>
+            <circle cx="23.48" cy="179.80" r="3"/>
+            <circle cx="28.75" cy="204.42" r="3"/>
+            <circle cx="37.69" cy="228.02" r="3"/>
+            <circle cx="50.05" cy="249.97" r="3"/>
+            <circle cx="65.51" cy="269.68" r="3"/>
+            <circle cx="83.61" cy="286.63" r="3"/>
+            <circle cx="103.88" cy="300.39" r="3"/>
+            <circle cx="125.77" cy="310.54" r="3"/>
+            <circle cx="148.70" cy="316.68" r="3"/>
+          </g>
+        </svg>
+        <svg class="rec-taiko-half right taiko-svg" viewBox="0 0 320 320" xmlns="http://www.w3.org/2000/svg" style="width: 100%; height: 100%; position: absolute;">
+          <circle cx="160" cy="160" r="156" fill="#c8a976"/>
+          <circle cx="160" cy="160" r="140" fill="#8b6a3c"/>
+          <circle cx="160" cy="160" r="137" fill="#f5edd8"/>
+          <g fill="#2b1a0e">
+            <circle cx="160.00" cy="12.00" r="3"/>
+            <circle cx="183.19" cy="13.83" r="3"/>
+            <circle cx="205.85" cy="19.28" r="3"/>
+            <circle cx="227.47" cy="28.22" r="3"/>
+            <circle cx="247.55" cy="40.44" r="3"/>
+            <circle cx="265.61" cy="55.68" r="3"/>
+            <circle cx="281.24" cy="73.59" r="3"/>
+            <circle cx="294.05" cy="93.75" r="3"/>
+            <circle cx="303.76" cy="115.64" r="3"/>
+            <circle cx="310.13" cy="138.75" r="3"/>
+            <circle cx="313.00" cy="162.50" r="3"/>
+            <circle cx="312.28" cy="186.34" r="3"/>
+            <circle cx="307.97" cy="209.71" r="3"/>
+            <circle cx="300.16" cy="232.05" r="3"/>
+            <circle cx="289.02" cy="252.83" r="3"/>
+            <circle cx="274.83" cy="271.53" r="3"/>
+            <circle cx="257.92" cy="287.66" r="3"/>
+            <circle cx="238.70" cy="300.79" r="3"/>
+            <circle cx="217.63" cy="310.54" r="3"/>
+            <circle cx="195.23" cy="316.58" r="3"/>
+            <circle cx="172.05" cy="318.68" r="3"/>
+          </g>
+        </svg>
+        <div class="rec-taiko-divider"></div>
+      </div>
+    </div>
+
+  </div></div></div>
+</div>
+
+<div class="legend">
+  <h2>録音モード 設計メモ</h2>
+  <ul>
+    <li>ヘッダ:REC バッジ(パルスアニメ)+ タイマー(<code>Bebas Neue 28px</code>)+ 中止ボタン</li>
+    <li>ヒント文言:上部に「太鼓を叩いてください」+ 説明文</li>
+    <li>記録済みノーツのタイムライン:上部に横スクロール(左端が古い、右端が最新)。ドン=赤、カッ=青(小)、両手ドン=金縁 + 大</li>
+    <li>太鼓は<strong>左右分割</strong>表示。中央に木の分割線(縦棒)</li>
+    <li>左半分に「左ド」、右半分に「右ド」の淡いガイド文字。両外側に「左カ」「右カ」のヒント</li>
+    <li>録音中の視覚的な安心感:REC が常時見えて、タイマーで経過を確認</li>
+  </ul>
+</div>
+
+</body>
+</html>

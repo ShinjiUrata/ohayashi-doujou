@@ -1,0 +1,260 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>お囃子道場 — リザルト</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Noto+Serif+JP:wght@500;700;900&family=Zen+Kaku+Gothic+New:wght@400;500;700&family=Bebas+Neue&family=Klee+One:wght@400;600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="assets/wafuu.css">
+<style>
+  .result-header {
+    padding: 68px 24px 12px;
+    text-align: center;
+  }
+  .result-tag {
+    font-family: "Bebas Neue", sans-serif;
+    font-size: 11px;
+    letter-spacing: 4px;
+    color: var(--gold);
+  }
+  .result-title {
+    font-family: "Noto Serif JP", serif;
+    font-weight: 700;
+    font-size: 17px;
+    color: var(--sumi);
+    letter-spacing: 3px;
+    margin-top: 6px;
+  }
+  .result-region {
+    font-size: 11px;
+    color: var(--sumi-soft);
+    letter-spacing: 2px;
+    margin-top: 3px;
+  }
+
+  .score-hero {
+    padding: 12px 24px 20px;
+    text-align: center;
+    background:
+      linear-gradient(180deg,
+        rgba(184, 147, 90, 0.08) 0%,
+        transparent 100%);
+    border-bottom: 1px solid var(--line);
+  }
+  .rank {
+    display: inline-block;
+    font-family: "Noto Serif JP", serif;
+    font-weight: 900;
+    font-size: 60px;
+    color: var(--red);
+    letter-spacing: 4px;
+    text-shadow:
+      0 2px 0 rgba(200, 33, 29, 0.15),
+      0 4px 12px rgba(200, 33, 29, 0.35);
+    line-height: 1;
+  }
+  .rank-label {
+    display: block;
+    font-family: "Bebas Neue", sans-serif;
+    font-size: 10px;
+    color: var(--sumi-mist);
+    letter-spacing: 4px;
+    margin-top: 4px;
+  }
+  .score-num {
+    font-family: "Bebas Neue", sans-serif;
+    font-size: 48px;
+    color: var(--sumi);
+    letter-spacing: 3px;
+    margin-top: 8px;
+    line-height: 1;
+  }
+  .score-label {
+    font-family: "Bebas Neue", sans-serif;
+    font-size: 10px;
+    color: var(--sumi-mist);
+    letter-spacing: 4px;
+    margin-top: 2px;
+  }
+
+  .judge-breakdown {
+    padding: 20px 24px;
+    display: grid;
+    grid-template-columns: 1fr 1fr 1fr;
+    gap: 10px;
+  }
+  .judge-cell {
+    background: linear-gradient(180deg, var(--wood-light) 0%, var(--wood-mid) 100%);
+    border: 1.5px solid var(--wood-deep);
+    border-radius: 8px 8px 12px 12px;
+    padding: 10px 6px 12px;
+    text-align: center;
+    box-shadow:
+      inset 0 1px 0 rgba(255, 255, 255, 0.4),
+      0 2px 4px rgba(0, 0, 0, 0.15);
+  }
+  .judge-cell .kanji {
+    font-family: "Noto Serif JP", serif;
+    font-size: 13px;
+    font-weight: 700;
+    letter-spacing: 3px;
+    color: var(--sumi);
+  }
+  .judge-cell .count {
+    font-family: "Bebas Neue", sans-serif;
+    font-size: 26px;
+    line-height: 1;
+    margin-top: 4px;
+    letter-spacing: 1px;
+  }
+  .judge-cell.good .count { color: var(--gold); }
+  .judge-cell.ok .count { color: var(--blue-dim); }
+  .judge-cell.miss .count { color: var(--sumi-soft); }
+
+  .stats-row {
+    padding: 8px 24px 16px;
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 10px;
+  }
+  .stat-card {
+    padding: 10px 14px;
+    background: rgba(253, 246, 227, 0.55);
+    border: 1px solid var(--line-strong);
+    border-radius: 6px;
+    text-align: center;
+  }
+  .stat-card .k {
+    font-family: "Bebas Neue", sans-serif;
+    font-size: 9px;
+    letter-spacing: 3px;
+    color: var(--sumi-mist);
+  }
+  .stat-card .v {
+    font-family: "Bebas Neue", sans-serif;
+    font-size: 22px;
+    color: var(--sumi);
+    letter-spacing: 1px;
+    line-height: 1;
+    margin-top: 2px;
+  }
+  .stat-card.combo .v { color: var(--red-dim); }
+
+  .result-actions {
+    padding: 12px 24px 28px;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    margin-top: auto;
+    border-top: 1px solid var(--line);
+    background:
+      linear-gradient(180deg,
+        transparent 0%,
+        rgba(74, 108, 58, 0.08) 100%);
+  }
+  .action-primary {
+    width: 100%;
+    padding: 14px;
+    background: linear-gradient(180deg, var(--red-hi) 0%, var(--red) 60%, var(--red-dim) 100%);
+    color: #fff;
+    border: 1.5px solid var(--red-dim);
+    border-radius: 10px;
+    font-family: "Noto Serif JP", serif;
+    font-size: 15px;
+    font-weight: 700;
+    letter-spacing: 4px;
+    box-shadow:
+      inset 0 1px 0 rgba(255, 255, 255, 0.25),
+      0 4px 10px rgba(200, 33, 29, 0.35);
+    cursor: pointer;
+  }
+  .action-secondary {
+    width: 100%;
+    padding: 12px;
+    background: linear-gradient(180deg, var(--wood-light) 0%, var(--wood-cream) 100%);
+    color: var(--sumi);
+    border: 1.5px solid var(--wood-deep);
+    border-radius: 10px;
+    font-family: "Noto Serif JP", serif;
+    font-size: 14px;
+    letter-spacing: 3px;
+    cursor: pointer;
+    box-shadow:
+      inset 0 1px 0 rgba(255, 255, 255, 0.4),
+      0 2px 4px rgba(0, 0, 0, 0.15);
+  }
+</style>
+</head>
+<body>
+
+<div class="stage">
+  <div>
+    <div class="stage-title">お囃子道場 — リザルト</div>
+    <div class="stage-subtitle">WAFUU MODERN · RESULT</div>
+  </div>
+
+  <div class="phone"><div class="screen"><div class="screen-inner">
+
+    <div class="result-header">
+      <div class="result-tag">CLEAR</div>
+      <div class="result-title">獅子舞 入り囃子</div>
+      <div class="result-region">下田町 / SHIMODA</div>
+    </div>
+
+    <div class="score-hero">
+      <div class="rank">甲</div>
+      <div class="rank-label">RANK</div>
+      <div class="score-num">2 450</div>
+      <div class="score-label">TOTAL SCORE</div>
+    </div>
+
+    <div class="judge-breakdown">
+      <div class="judge-cell good">
+        <div class="kanji">良</div>
+        <div class="count">42</div>
+      </div>
+      <div class="judge-cell ok">
+        <div class="kanji">可</div>
+        <div class="count">8</div>
+      </div>
+      <div class="judge-cell miss">
+        <div class="kanji">不可</div>
+        <div class="count">3</div>
+      </div>
+    </div>
+
+    <div class="stats-row">
+      <div class="stat-card combo">
+        <div class="k">MAX COMBO</div>
+        <div class="v">28</div>
+      </div>
+      <div class="stat-card">
+        <div class="k">ACCURACY</div>
+        <div class="v">92%</div>
+      </div>
+    </div>
+
+    <div class="result-actions">
+      <button class="action-primary">もう一度</button>
+      <button class="action-secondary">ライブラリへ戻る</button>
+    </div>
+
+  </div></div></div>
+</div>
+
+<div class="legend">
+  <h2>リザルト 設計メモ</h2>
+  <ul>
+    <li>「CLEAR」タグ + 曲名 + 地域(ヘッダ)。CLEAR/FAIL の状態表示</li>
+    <li>ランク:漢字 1 文字(甲・乙・丙・丁 or 良・可・不可)を巨大に、朱で強調(<code>Noto Serif JP 900 60px</code>)</li>
+    <li>スコア:<code>Bebas Neue 48px</code>、桁区切りは半角スペース</li>
+    <li>判定内訳:良 / 可 / 不可 を木札風 3 カラム。数字は種別色(良=金、可=青、不可=淡墨)</li>
+    <li>MAX COMBO と ACCURACY は 2 カラムの小カード</li>
+    <li>底部に主 CTA「もう一度」(赤)、副 CTA「ライブラリへ戻る」(木札)</li>
+  </ul>
+</div>
+
+</body>
+</html>

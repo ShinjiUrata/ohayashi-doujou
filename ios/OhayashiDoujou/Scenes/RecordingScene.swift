@@ -54,7 +54,9 @@ final class RecordingScene: SKScene {
   override func didMove(to view: SKView) {
     view.isMultipleTouchEnabled = true
     view.ignoresSiblingOrder = true
-    backgroundColor = SKColor(red: 0x14 / 255.0, green: 0x12 / 255.0, blue: 0x1d / 255.0, alpha: 1)
+    view.allowsTransparency = true
+    // 和風 UI: 背景は SwiftUI 側の WafuuBackground を透過して表示する
+    backgroundColor = .clear
     scaleMode = .resizeFill
 
     // レイアウトは初回のみ(SwiftUI 側の再描画で didMove が

@@ -7,6 +7,8 @@ import SpriteKit
 /// - `.ready`: 中央に「録音開始」ボタン、まだタップは記録されない
 /// - `.countdown(n)`: 中央に大きな数字 (3 → 2 → 1) を 1 秒ごとに表示
 /// - `.recording`: REC バッジ + タイマー、実際の録音中
+///
+/// mockup: `mockups/06_recording_wafuu.html`
 struct RecordingView: View {
   var onStopped: (Chart) -> Void
   var onCancel: () -> Void
@@ -29,17 +31,13 @@ struct RecordingView: View {
   @State private var timerTask: Task<Void, Never>?
   @State private var countdownTask: Task<Void, Never>?
 
-  private let gold = Color(red: 0xf4 / 255.0, green: 0xc9 / 255.0, blue: 0x5d / 255.0)
-  private let cream = Color(red: 0xf5 / 255.0, green: 0xea / 255.0, blue: 0xd0 / 255.0)
-  private let rec = Color(red: 0xff / 255.0, green: 0x3b / 255.0, blue: 0x3b / 255.0)
-
   var body: some View {
     ZStack {
-      Color(red: 0x14 / 255.0, green: 0x12 / 255.0, blue: 0x1d / 255.0)
-        .ignoresSafeArea()
+      WafuuBackground()
 
-      SpriteView(scene: scene, options: [.ignoresSiblingOrder])
+      SpriteView(scene: scene, options: [.ignoresSiblingOrder, .allowsTransparency])
         .ignoresSafeArea()
+        .background(Color.clear)
 
       VStack(spacing: 0) {
         header
@@ -70,15 +68,13 @@ struct RecordingView: View {
 
   @ViewBuilder
   private var header: some View {
-    HStack(spacing: 12) {
-      // 中断ボタンは常に表示
+    HStack(spacing: 10) {
+      // 中断ボタン
       Button(action: cancel) {
-        Image(systemName: "xmark")
-          .font(.system(size: 14, weight: .bold))
-          .foregroundStyle(gold.opacity(0.7))
+        Text("×")
+          .font(.system(size: 22, weight: .bold))
+          .foregroundStyle(WafuuUI.sumiSoft)
           .frame(width: 32, height: 32)
-          .background(Color.black.opacity(0.3))
-          .clipShape(Circle())
       }
 
       if case .recording = phase {
@@ -86,56 +82,68 @@ struct RecordingView: View {
       } else {
         Spacer()
         Text(phase == .ready ? "録音準備" : "")
-          .font(.system(size: 12))
+          .font(WafuuUI.gothic(12))
           .tracking(2)
-          .foregroundStyle(cream.opacity(0.5))
+          .foregroundStyle(WafuuUI.sumiSoft)
         Spacer()
-        // 右側の空きを X ボタンと対称にするためのダミー
         Color.clear.frame(width: 32, height: 32)
       }
     }
     .padding(.horizontal, 16)
-    .padding(.top, 12)
+    .padding(.top, 14)
     .padding(.bottom, 6)
+    .background(
+      LinearGradient(
+        colors: [WafuuUI.don.opacity(0.08), .clear],
+        startPoint: .top,
+        endPoint: .bottom
+      )
+    )
+    .overlay(
+      Rectangle()
+        .fill(WafuuUI.sumi.opacity(0.12))
+        .frame(height: 1),
+      alignment: .bottom
+    )
   }
 
   private var recordingHeaderContents: some View {
     Group {
-      HStack(spacing: 6) {
+      HStack(spacing: 8) {
         Circle()
-          .fill(rec)
-          .frame(width: 10, height: 10)
-          .shadow(color: rec, radius: 6)
-          .opacity(elapsedMs % 1200 < 600 ? 1.0 : 0.35)
+          .fill(WafuuUI.don)
+          .frame(width: 9, height: 9)
+          .shadow(color: WafuuUI.don, radius: 3)
+          .opacity(elapsedMs % 1200 < 600 ? 1.0 : 0.4)
         Text("REC")
-          .font(.system(size: 13, weight: .bold))
-          .tracking(2)
-          .foregroundStyle(rec)
+          .font(WafuuUI.num(11, weight: .semibold))
+          .tracking(3)
+          .foregroundStyle(WafuuUI.sumi)
       }
+      .padding(.horizontal, 12)
+      .padding(.vertical, 6)
+      .background(WafuuUI.cardBackground)
+      .overlay(
+        Capsule().stroke(WafuuUI.woodDeep, lineWidth: 1.5)
+      )
+      .clipShape(Capsule())
 
       Spacer()
 
       Text(formatTimer(elapsedMs))
-        .font(.system(size: 20, weight: .bold, design: .monospaced))
-        .tracking(3)
-        .foregroundStyle(gold)
-        .shadow(color: gold.opacity(0.4), radius: 6)
+        .font(WafuuUI.num(24, weight: .medium))
+        .tracking(2)
+        .foregroundStyle(WafuuUI.sumi)
 
       Spacer()
 
       Button(action: stop) {
-        Text("■ 停止")
-          .font(.system(size: 11, weight: .bold))
+        Text("停止")
+          .font(WafuuUI.gothic(11, weight: .semibold))
           .tracking(2)
-          .foregroundStyle(rec)
+          .foregroundStyle(WafuuUI.sumiSoft)
           .padding(.horizontal, 12)
           .padding(.vertical, 6)
-          .background(rec.opacity(0.12))
-          .overlay(
-            RoundedRectangle(cornerRadius: 20)
-              .stroke(rec.opacity(0.4), lineWidth: 1)
-          )
-          .clipShape(RoundedRectangle(cornerRadius: 20))
       }
     }
   }
@@ -147,6 +155,7 @@ struct RecordingView: View {
       ForEach(Array(recentSymbols.enumerated()), id: \.offset) { _, note in
         symbolBadge(for: note)
       }
+      Spacer()
     }
     .frame(maxWidth: .infinity, alignment: .leading)
     .padding(.horizontal, 16)
@@ -154,31 +163,26 @@ struct RecordingView: View {
   }
 
   private func symbolBadge(for note: Note) -> some View {
-    let text: String
-    let color: Color
-    let size: CGFloat
+    let (color, size): (Color, CGFloat)
     switch note.type {
-    case .don_l:
-      text = "左"; color = Color(red: 0xff / 255.0, green: 0x6b / 255.0, blue: 0x6b / 255.0); size = 22
-    case .don_r:
-      text = "右"; color = Color(red: 0xff / 255.0, green: 0x6b / 255.0, blue: 0x6b / 255.0); size = 22
+    case .don_l, .don_r:
+      color = WafuuUI.don
+      size = 16
     case .don_both:
-      text = "両"; color = Color(red: 0xff / 255.0, green: 0x6b / 255.0, blue: 0x6b / 255.0); size = 24
-    case .ka_l:
-      text = "左"; color = Color(red: 0x8f / 255.0, green: 0xd1 / 255.0, blue: 0xf4 / 255.0); size = 18
-    case .ka_r:
-      text = "右"; color = Color(red: 0x8f / 255.0, green: 0xd1 / 255.0, blue: 0xf4 / 255.0); size = 18
+      color = WafuuUI.don
+      size = 22
+    case .ka_l, .ka_r:
+      color = WafuuUI.ka
+      size = 12
     }
-    return Text(text)
-      .font(.system(size: 9, weight: .bold))
-      .foregroundStyle(.white)
+    return Circle()
+      .fill(color)
       .frame(width: size, height: size)
-      .background(color)
-      .clipShape(Circle())
       .overlay(
         Circle().stroke(
-          note.isHold ? gold : .clear,
-          lineWidth: note.isHold ? 2 : 0
+          note.type == .don_both ? WafuuUI.gold :
+            (note.isHold ? WafuuUI.gold : color.opacity(0.7)),
+          lineWidth: note.type == .don_both ? 1.5 : (note.isHold ? 2 : 1)
         )
       )
   }
@@ -191,31 +195,31 @@ struct RecordingView: View {
     case .ready:
       Button(action: startCountdown) {
         VStack(spacing: 10) {
-          Image(systemName: "circle.fill")
-            .font(.system(size: 32))
-            .foregroundStyle(rec)
-            .shadow(color: rec.opacity(0.7), radius: 10)
+          Circle()
+            .fill(WafuuUI.don)
+            .frame(width: 32, height: 32)
+            .shadow(color: WafuuUI.don.opacity(0.5), radius: 8)
           Text("録音開始")
-            .font(.system(size: 18, weight: .bold))
+            .font(WafuuUI.serif(18, weight: .bold))
             .tracking(4)
-            .foregroundStyle(cream)
+            .foregroundStyle(WafuuUI.sumi)
         }
         .frame(width: 180, height: 180)
-        .background(Color.black.opacity(0.65))
+        .background(WafuuUI.paper.opacity(0.9))
         .clipShape(Circle())
         .overlay(
           Circle()
-            .stroke(rec.opacity(0.6), lineWidth: 2)
+            .stroke(WafuuUI.donDim, lineWidth: 2)
         )
-        .shadow(color: rec.opacity(0.4), radius: 16)
+        .shadow(color: WafuuUI.don.opacity(0.3), radius: 12, x: 0, y: 4)
       }
       .buttonStyle(.plain)
 
     case .countdown(let n):
       Text("\(n)")
-        .font(.system(size: 140, weight: .bold, design: .rounded))
-        .foregroundStyle(gold)
-        .shadow(color: gold.opacity(0.6), radius: 24)
+        .font(WafuuUI.serif(140, weight: .black))
+        .foregroundStyle(WafuuUI.don)
+        .shadow(color: WafuuUI.don.opacity(0.35), radius: 16, x: 0, y: 6)
         .transition(.asymmetric(
           insertion: .scale(scale: 0.4).combined(with: .opacity),
           removal: .scale(scale: 1.6).combined(with: .opacity)

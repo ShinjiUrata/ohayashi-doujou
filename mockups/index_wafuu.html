@@ -1,0 +1,225 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>お囃子道場 — 和風モダン UI 全画面インデックス</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Noto+Serif+JP:wght@500;700;900&family=Bebas+Neue&family=Zen+Kaku+Gothic+New:wght@400;500;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="assets/wafuu.css">
+<style>
+  body { padding: 40px 20px 60px; }
+  .hero {
+    max-width: 1200px;
+    margin: 0 auto 40px;
+    text-align: center;
+  }
+  .hero h1 {
+    color: var(--gold-soft);
+    font-family: "Noto Serif JP", serif;
+    font-weight: 900;
+    font-size: 34px;
+    letter-spacing: 10px;
+    padding-left: 10px;
+    text-shadow: 0 4px 20px rgba(0, 0, 0, 0.7);
+    margin: 0 0 8px;
+  }
+  .hero .subtitle {
+    color: #b8a479;
+    font-family: "Bebas Neue", sans-serif;
+    font-size: 14px;
+    letter-spacing: 8px;
+  }
+  .hero .lead {
+    color: #b8a479;
+    max-width: 600px;
+    margin: 24px auto 0;
+    line-height: 1.8;
+    font-size: 13px;
+  }
+
+  .grid {
+    max-width: 1200px;
+    margin: 0 auto;
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+    gap: 24px;
+  }
+  .card {
+    background: #1e1a15;
+    border: 1px solid #4a3826;
+    border-radius: 12px;
+    overflow: hidden;
+    box-shadow: 0 10px 24px rgba(0, 0, 0, 0.4);
+    text-decoration: none;
+    color: inherit;
+    display: flex;
+    flex-direction: column;
+    transition: transform 0.15s ease, box-shadow 0.15s ease;
+  }
+  .card:hover {
+    transform: translateY(-4px);
+    box-shadow: 0 16px 32px rgba(0, 0, 0, 0.55);
+  }
+  .card iframe {
+    width: 100%;
+    height: 280px;
+    border: none;
+    background: var(--wood-cream);
+    transform: scale(0.33);
+    transform-origin: top left;
+    width: 303%;
+    height: 850px;
+    pointer-events: none;
+  }
+  .card .preview {
+    position: relative;
+    height: 280px;
+    overflow: hidden;
+    background: linear-gradient(180deg, #2a2119 0%, #14100c 100%);
+    display: flex;
+    align-items: flex-start;
+    justify-content: center;
+  }
+  .card .info {
+    padding: 14px 18px 18px;
+  }
+  .card .num {
+    font-family: "Bebas Neue", sans-serif;
+    font-size: 11px;
+    color: var(--gold);
+    letter-spacing: 3px;
+  }
+  .card .title {
+    font-family: "Noto Serif JP", serif;
+    font-weight: 700;
+    font-size: 17px;
+    color: var(--gold-soft);
+    letter-spacing: 3px;
+    margin-top: 3px;
+  }
+  .card .desc {
+    color: #8a7a5a;
+    font-size: 11px;
+    margin-top: 6px;
+    letter-spacing: 1px;
+    line-height: 1.5;
+  }
+  .card .status {
+    display: inline-block;
+    margin-top: 8px;
+    padding: 2px 8px;
+    background: rgba(74, 108, 58, 0.25);
+    border: 1px solid var(--moss);
+    color: var(--moss-soft);
+    font-family: "Bebas Neue", sans-serif;
+    font-size: 9px;
+    letter-spacing: 2px;
+    border-radius: 3px;
+  }
+  .card .status.confirmed {
+    background: rgba(184, 147, 90, 0.25);
+    border-color: var(--gold);
+    color: var(--gold-soft);
+  }
+</style>
+</head>
+<body style="background: radial-gradient(ellipse at top, #302820 0%, #14100c 80%);">
+
+<div class="hero">
+  <h1>お囃子道場</h1>
+  <div class="subtitle">WAFUU MODERN UI · ALL SCREENS</div>
+  <div class="lead">
+    和風モダン(v2 中間版)のリデザイン全画面インデックス。
+    確定版のプレイ画面のトーン(木・和紙・注連縄・畳の縁 + Noto Serif JP + Bebas Neue)
+    を踏襲して 8 画面を展開。
+  </div>
+</div>
+
+<div class="grid">
+
+  <a class="card" href="01_title_menu_wafuu.html" target="_blank">
+    <div class="preview"><iframe src="01_title_menu_wafuu.html" scrolling="no"></iframe></div>
+    <div class="info">
+      <div class="num">01</div>
+      <div class="title">タイトル / メニュー</div>
+      <div class="desc">アプリのルート。3 つの入口を提示。</div>
+      <span class="status">MOCKUP</span>
+    </div>
+  </a>
+
+  <a class="card" href="02_library_wafuu.html" target="_blank">
+    <div class="preview"><iframe src="02_library_wafuu.html" scrolling="no"></iframe></div>
+    <div class="info">
+      <div class="num">02</div>
+      <div class="title">譜面ライブラリ</div>
+      <div class="desc">保存済み譜面の一覧、録音・DL 導線。</div>
+      <span class="status">MOCKUP</span>
+    </div>
+  </a>
+
+  <a class="card" href="03_download_wafuu.html" target="_blank">
+    <div class="preview"><iframe src="03_download_wafuu.html" scrolling="no"></iframe></div>
+    <div class="info">
+      <div class="num">03</div>
+      <div class="title">譜面ダウンロード</div>
+      <div class="desc">ID 入力で公開譜面を取得。</div>
+      <span class="status">MOCKUP</span>
+    </div>
+  </a>
+
+  <a class="card" href="play_wafuu_modern.html" target="_blank">
+    <div class="preview"><iframe src="play_wafuu_modern.html" scrolling="no"></iframe></div>
+    <div class="info">
+      <div class="num">04</div>
+      <div class="title">プレイ</div>
+      <div class="desc">和風モダン UI の確定版ベース。</div>
+      <span class="status confirmed">CONFIRMED</span>
+    </div>
+  </a>
+
+  <a class="card" href="05_result_wafuu.html" target="_blank">
+    <div class="preview"><iframe src="05_result_wafuu.html" scrolling="no"></iframe></div>
+    <div class="info">
+      <div class="num">05</div>
+      <div class="title">リザルト</div>
+      <div class="desc">スコア・ランク・判定内訳を表示。</div>
+      <span class="status">MOCKUP</span>
+    </div>
+  </a>
+
+  <a class="card" href="06_recording_wafuu.html" target="_blank">
+    <div class="preview"><iframe src="06_recording_wafuu.html" scrolling="no"></iframe></div>
+    <div class="info">
+      <div class="num">06</div>
+      <div class="title">録音</div>
+      <div class="desc">左右分割の太鼓 + REC バッジ + タイムライン。</div>
+      <span class="status">MOCKUP</span>
+    </div>
+  </a>
+
+  <a class="card" href="07_edit_wafuu.html" target="_blank">
+    <div class="preview"><iframe src="07_edit_wafuu.html" scrolling="no"></iframe></div>
+    <div class="info">
+      <div class="num">07</div>
+      <div class="title">譜面編集</div>
+      <div class="desc">曲名・地域・タイムライン編集・難易度。</div>
+      <span class="status">MOCKUP</span>
+    </div>
+  </a>
+
+  <a class="card" href="08_publish_wafuu.html" target="_blank">
+    <div class="preview"><iframe src="08_publish_wafuu.html" scrolling="no"></iframe></div>
+    <div class="info">
+      <div class="num">08</div>
+      <div class="title">譜面公開(IAP)</div>
+      <div class="desc">対象譜面 · ID 確認 · ¥1,000 課金。</div>
+      <span class="status">MOCKUP</span>
+    </div>
+  </a>
+
+</div>
+
+</body>
+</html>

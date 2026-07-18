@@ -3,10 +3,11 @@ import SpriteKit
 
 /// プレイ画面。
 ///
-/// Phase 2:
 /// - `Chart` を受け取って再生
-/// - ヘッダにスコア + コンボ表示
+/// - ヘッダに曲名バナー + SCORE + COMBO 掛け札
 /// - `PlayScene` からの終了コールバックで onFinished を呼ぶ
+///
+/// mockup: `mockups/play_wafuu_modern.html`
 struct PlayView: View {
   let chart: Chart
   var onFinished: (ScoreState) -> Void
@@ -19,23 +20,18 @@ struct PlayView: View {
     return s
   }()
 
-  private let gold = Color(red: 0xf4 / 255.0, green: 0xc9 / 255.0, blue: 0x5d / 255.0)
-  private let cream = Color(red: 0xf5 / 255.0, green: 0xea / 255.0, blue: 0xd0 / 255.0)
-
   var body: some View {
     ZStack {
-      Color(red: 0x14 / 255.0, green: 0x12 / 255.0, blue: 0x1d / 255.0)
-        .ignoresSafeArea()
+      WafuuBackground()
 
-      SpriteView(scene: scene, options: [.ignoresSiblingOrder])
+      SpriteView(scene: scene, options: [.ignoresSiblingOrder, .allowsTransparency])
         .ignoresSafeArea()
+        .background(Color.clear)
 
       VStack {
         header
         Spacer()
       }
-      .padding(.horizontal, 20)
-      .padding(.top, 8)
     }
     .statusBarHidden(true)
     .onAppear {
@@ -47,44 +43,90 @@ struct PlayView: View {
   }
 
   private var header: some View {
-    HStack(alignment: .top) {
+    HStack(alignment: .center, spacing: 10) {
       Button(action: onQuit) {
-        Image(systemName: "xmark")
-          .font(.system(size: 14, weight: .bold))
-          .foregroundStyle(gold.opacity(0.7))
+        Text("×")
+          .font(.system(size: 22, weight: .bold))
+          .foregroundStyle(WafuuUI.sumiSoft)
           .frame(width: 32, height: 32)
-          .background(Color.black.opacity(0.3))
-          .clipShape(Circle())
       }
 
-      VStack(alignment: .leading, spacing: 2) {
-        Text("♪ お囃子の練習")
-          .font(.system(size: 13, weight: .semibold))
-          .tracking(2)
-          .foregroundStyle(gold)
-        Text("\(chart.name) / \(chart.region)")
-          .font(.system(size: 10))
-          .foregroundStyle(cream.opacity(0.6))
-      }
-      .padding(.leading, 4)
-
-      Spacer()
-
-      VStack(alignment: .trailing, spacing: 2) {
+      // SCORE 掛け札
+      WoodPlate(width: 68) {
+        Text("SCORE")
+          .font(WafuuUI.num(8, weight: .semibold))
+          .tracking(3)
+          .foregroundStyle(WafuuUI.sumiMist)
         Text(formattedScore(score.totalScore))
-          .font(.system(size: 20, weight: .bold, design: .monospaced))
-          .foregroundStyle(gold)
-        HStack(spacing: 6) {
-          Text("COMBO")
-            .font(.system(size: 9))
-            .tracking(1)
-            .foregroundStyle(cream.opacity(0.6))
-          Text("\(score.combo)")
-            .font(.system(size: 14, weight: .bold, design: .monospaced))
-            .foregroundStyle(gold)
-        }
+          .font(WafuuUI.num(18, weight: .medium))
+          .tracking(1)
+          .foregroundStyle(WafuuUI.sumi)
+          .lineLimit(1)
+          .minimumScaleFactor(0.6)
+      }
+
+      // 曲名バナー
+      VStack(spacing: 2) {
+        Text("NOW PLAYING")
+          .font(WafuuUI.num(8, weight: .semibold))
+          .tracking(3)
+          .foregroundStyle(WafuuUI.sumiMist)
+        Text(chart.name.isEmpty ? "無題" : chart.name)
+          .font(WafuuUI.serif(14, weight: .bold))
+          .tracking(2)
+          .foregroundStyle(WafuuUI.sumi)
+          .lineLimit(1)
+          .minimumScaleFactor(0.7)
+        Text(chart.region.isEmpty ? "—" : chart.region)
+          .font(WafuuUI.gothic(9))
+          .tracking(1)
+          .foregroundStyle(WafuuUI.sumiSoft)
+      }
+      .padding(.horizontal, 10)
+      .padding(.vertical, 6)
+      .frame(maxWidth: .infinity)
+      .background(
+        LinearGradient(
+          colors: [Color(hex: 0xF6E9C9), Color(hex: 0xEAD7A4)],
+          startPoint: .top,
+          endPoint: .bottom
+        )
+      )
+      .overlay(
+        RoundedRectangle(cornerRadius: 5)
+          .stroke(WafuuUI.woodDeep, lineWidth: 1.5)
+      )
+      .clipShape(RoundedRectangle(cornerRadius: 5))
+      .shadow(color: .black.opacity(0.15), radius: 1.5, x: 0, y: 2)
+
+      // COMBO 掛け札
+      WoodPlate(width: 68) {
+        Text("COMBO")
+          .font(WafuuUI.num(8, weight: .semibold))
+          .tracking(3)
+          .foregroundStyle(WafuuUI.sumiMist)
+        Text("\(score.combo)")
+          .font(WafuuUI.num(18, weight: .medium))
+          .tracking(1)
+          .foregroundStyle(WafuuUI.donDim)
       }
     }
+    .padding(.horizontal, 12)
+    .padding(.top, 12)
+    .padding(.bottom, 8)
+    .background(
+      LinearGradient(
+        colors: [WafuuUI.moss.opacity(0.06), .clear],
+        startPoint: .top,
+        endPoint: .bottom
+      )
+    )
+    .overlay(
+      Rectangle()
+        .fill(WafuuUI.sumi.opacity(0.12))
+        .frame(height: 1),
+      alignment: .bottom
+    )
   }
 
   private func wireScene() {

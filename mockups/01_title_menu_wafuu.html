@@ -1,0 +1,252 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>お囃子道場 — タイトル / メインメニュー</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Noto+Serif+JP:wght@500;700;900&family=Zen+Kaku+Gothic+New:wght@400;500;700&family=Bebas+Neue&family=Klee+One:wght@400;600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="assets/wafuu.css">
+<style>
+  /* タイトル / メインメニュー 固有 */
+  .title-hero {
+    padding: 76px 24px 20px;
+    text-align: center;
+  }
+  .title-tagline {
+    font-family: "Klee One", serif;
+    font-size: 11px;
+    color: var(--sumi-mist);
+    letter-spacing: 4px;
+    margin-bottom: 12px;
+  }
+  .title-main {
+    font-family: "Noto Serif JP", serif;
+    font-weight: 900;
+    font-size: 42px;
+    color: var(--sumi);
+    letter-spacing: 12px;
+    padding-left: 12px;
+    line-height: 1.1;
+    text-shadow: 0 2px 0 rgba(184, 147, 90, 0.15);
+  }
+  .title-romaji {
+    font-family: "Bebas Neue", sans-serif;
+    font-size: 12px;
+    color: var(--gold);
+    letter-spacing: 6px;
+    margin-top: 8px;
+  }
+  .title-hero .gold-hr {
+    max-width: 140px;
+    margin: 14px auto 0;
+  }
+  .title-sub {
+    font-family: "Klee One", serif;
+    font-size: 13px;
+    color: var(--sumi-soft);
+    letter-spacing: 3px;
+    margin-top: 14px;
+  }
+
+  /* デコレーション:提灯風の丸 */
+  .lanterns {
+    display: flex;
+    justify-content: center;
+    gap: 14px;
+    margin: 18px 0 24px;
+  }
+  .lanterns span {
+    width: 8px;
+    height: 12px;
+    background: var(--red);
+    border-radius: 4px;
+    box-shadow:
+      inset 0 -2px 3px rgba(0, 0, 0, 0.3),
+      0 2px 4px rgba(200, 33, 29, 0.35);
+    position: relative;
+  }
+  .lanterns span::before {
+    content: "";
+    position: absolute;
+    top: -3px;
+    left: 50%;
+    transform: translateX(-50%);
+    width: 2px;
+    height: 3px;
+    background: var(--sumi);
+  }
+
+  /* メニュー */
+  .menu {
+    padding: 8px 28px 0;
+    display: flex;
+    flex-direction: column;
+    gap: 14px;
+  }
+  .menu-item {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    padding: 14px 16px;
+    text-decoration: none;
+    color: inherit;
+    text-align: left;
+    background: none;
+    border: none;
+    cursor: pointer;
+    font-family: inherit;
+  }
+  .menu-item.primary {
+    background: linear-gradient(180deg, var(--red-hi) 0%, var(--red) 60%, var(--red-dim) 100%);
+    color: #fff;
+    border: 1.5px solid var(--red-dim);
+    border-radius: 12px;
+    box-shadow:
+      inset 0 1px 0 rgba(255, 255, 255, 0.25),
+      0 4px 12px rgba(200, 33, 29, 0.35);
+  }
+  .menu-item.wood {
+    background: linear-gradient(180deg, #f6e9c9 0%, #ead7a4 100%);
+    border: 1.5px solid var(--wood-deep);
+    border-radius: 12px;
+    box-shadow:
+      inset 0 1px 0 rgba(255, 255, 255, 0.5),
+      0 2px 4px rgba(0, 0, 0, 0.15);
+  }
+  .menu-icon {
+    width: 36px;
+    height: 36px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: rgba(255, 255, 255, 0.2);
+    flex-shrink: 0;
+    color: #fff;
+    font-size: 14px;
+    font-weight: bold;
+  }
+  .menu-item.wood .menu-icon {
+    background: rgba(139, 106, 60, 0.2);
+    color: var(--wood-deep);
+  }
+  .menu-item.wood.blue .menu-icon {
+    color: var(--blue-dim);
+  }
+  .menu-item.wood.gold .menu-icon {
+    background: rgba(184, 147, 90, 0.2);
+    color: var(--wood-deep);
+  }
+  .menu-text .title {
+    font-family: "Noto Serif JP", serif;
+    font-size: 16px;
+    font-weight: 700;
+    letter-spacing: 3px;
+    line-height: 1.2;
+  }
+  .menu-text .desc {
+    font-size: 11px;
+    letter-spacing: 1.5px;
+    opacity: 0.8;
+    margin-top: 3px;
+  }
+  .menu-item.wood .menu-text .desc { color: var(--sumi-soft); }
+  .menu-chev {
+    margin-left: auto;
+    font-family: serif;
+    font-size: 18px;
+    opacity: 0.6;
+  }
+
+  /* フッター */
+  .title-footer {
+    position: absolute;
+    left: 0;
+    right: 0;
+    bottom: 40px;
+    text-align: center;
+    font-family: "Bebas Neue", sans-serif;
+    color: var(--sumi-mist);
+    font-size: 10px;
+    letter-spacing: 2px;
+  }
+  .title-footer .copyright {
+    display: block;
+    margin-top: 3px;
+    font-size: 9px;
+    opacity: 0.6;
+  }
+</style>
+</head>
+<body>
+
+<div class="stage">
+  <div>
+    <div class="stage-title">お囃子道場 — タイトル / メインメニュー</div>
+    <div class="stage-subtitle">WAFUU MODERN · TITLE MENU</div>
+  </div>
+
+  <div class="phone"><div class="screen"><div class="screen-inner">
+
+    <div class="title-hero">
+      <div class="title-tagline">祭りのリズムを、体で覚える</div>
+      <div class="lanterns"><span></span><span></span><span></span></div>
+      <div class="title-main">お囃子道場</div>
+      <div class="title-romaji">OHAYASHI DOUJOU</div>
+      <hr class="gold-hr">
+      <div class="title-sub">道場で、太鼓を叩こう。</div>
+    </div>
+
+    <div class="menu">
+      <button class="menu-item primary">
+        <span class="menu-icon">▶</span>
+        <span class="menu-text">
+          <span class="title">譜面で遊ぶ</span>
+          <span class="desc">保存した譜面を選んでプレイ</span>
+        </span>
+        <span class="menu-chev">›</span>
+      </button>
+
+      <button class="menu-item wood">
+        <span class="menu-icon">●</span>
+        <span class="menu-text">
+          <span class="title">譜面を作る</span>
+          <span class="desc">太鼓を叩いてお手本を録音</span>
+        </span>
+        <span class="menu-chev">›</span>
+      </button>
+
+      <button class="menu-item wood gold">
+        <span class="menu-icon">↓</span>
+        <span class="menu-text">
+          <span class="title">IDで譜面を入手</span>
+          <span class="desc">配布された譜面IDでダウンロード</span>
+        </span>
+        <span class="menu-chev">›</span>
+      </button>
+    </div>
+
+    <div class="title-footer">
+      v0.1.0 (1)
+      <span class="copyright">© 2026 株式会社ZembREM</span>
+    </div>
+
+  </div></div></div>
+</div>
+
+<div class="legend">
+  <h2>タイトル / メインメニュー 設計メモ</h2>
+  <ul>
+    <li>タイトル「お囃子道場」は <code>Noto Serif JP 900</code>(見出しの最重ウェイト)、letter-spacing 12px で余白感を持たせる</li>
+    <li>提灯風の 3 点デコレーション(朱の縦長矩形)でお囃子らしさを軽く演出</li>
+    <li>メイン CTA「譜面で遊ぶ」は朱のグラデーション + 赤縁のプライマリボタン、他 2 つは木札風のセカンダリ</li>
+    <li>メニューアイコンは Unicode 記号(▶ ● ↓)で軽量化。iOS 実装時は SF Symbols または独自の SVG に置き換え可</li>
+    <li>フッター:バージョン + Copyright</li>
+    <li>共通トークンは <code>assets/wafuu.css</code> から供給</li>
+  </ul>
+</div>
+
+</body>
+</html>

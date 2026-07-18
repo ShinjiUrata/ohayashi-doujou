@@ -1,18 +1,16 @@
 import SwiftUI
 
-/// 保存済み譜面一覧。
+/// 保存済み譜面一覧(メニューから遷移するサブ画面)。
 ///
-/// Phase 3:
+/// 機能:
 /// - ローカル譜面のカードリスト表示
 /// - スワイプで削除
 /// - 「録音」ボタン → 新規譜面録音フロー
 /// - タップ → プレイ
-///
-/// Phase 4 以降:
 /// - 「IDで入手」ボタンで検索/DL 画面へ
+/// - 左上に「メニュー」戻るボタン
 ///
-/// Phase 6-A:
-/// - メインメニューから遷移するサブ画面になり、左上に戻るボタン
+/// mockup: `mockups/02_library_wafuu.html`
 struct ChartLibraryView: View {
   var onPlay: (Chart) -> Void
   var onRecord: () -> Void
@@ -22,16 +20,9 @@ struct ChartLibraryView: View {
   @State private var summaries: [ChartSummary] = []
   @State private var isLoading = true
 
-  private let gold = Color(red: 0xf4 / 255.0, green: 0xc9 / 255.0, blue: 0x5d / 255.0)
-  private let goldDim = Color(red: 0xb8 / 255.0, green: 0x93 / 255.0, blue: 0x5a / 255.0)
-  private let cream = Color(red: 0xf5 / 255.0, green: 0xea / 255.0, blue: 0xd0 / 255.0)
-  private let panel = Color(red: 0x1d / 255.0, green: 0x1a / 255.0, blue: 0x2a / 255.0)
-  private let bg = Color(red: 0x14 / 255.0, green: 0x12 / 255.0, blue: 0x1d / 255.0)
-  private let accent = Color(red: 0xc8 / 255.0, green: 0x21 / 255.0, blue: 0x1d / 255.0)
-
   var body: some View {
     ZStack {
-      bg.ignoresSafeArea()
+      WafuuBackground()
 
       VStack(spacing: 0) {
         header
@@ -40,7 +31,6 @@ struct ChartLibraryView: View {
         footer
       }
     }
-    .foregroundStyle(cream)
     .task {
       await refresh()
     }
@@ -49,58 +39,26 @@ struct ChartLibraryView: View {
   // MARK: - Header
 
   private var header: some View {
-    HStack {
-      Button(action: onBack) {
-        HStack(spacing: 4) {
-          Image(systemName: "chevron.left")
-            .font(.system(size: 12, weight: .bold))
-          Text("メニュー")
-            .font(.system(size: 11, weight: .semibold))
-            .tracking(1)
-        }
-        .foregroundStyle(cream.opacity(0.7))
-        .padding(.horizontal, 8)
-        .padding(.vertical, 5)
-      }
-
-      Spacer()
-
-      Text("♪ 譜面ライブラリ")
-        .font(.system(size: 15, weight: .bold))
-        .tracking(2)
-        .foregroundStyle(gold)
-
-      Spacer()
-
+    AppHeader(title: "譜面ライブラリ", onBack: onBack) {
       Button(action: onDownload) {
         HStack(spacing: 4) {
-          Image(systemName: "plus")
+          Text("＋")
             .font(.system(size: 10, weight: .bold))
-          Text("IDで入手")
-            .font(.system(size: 11, weight: .semibold))
-            .tracking(1)
+          Text("DL")
+            .font(WafuuUI.num(11, weight: .semibold))
+            .tracking(2)
         }
-        .foregroundStyle(gold)
+        .foregroundStyle(WafuuUI.gold)
         .padding(.horizontal, 10)
         .padding(.vertical, 5)
-        .background(gold.opacity(0.1))
+        .background(WafuuUI.gold.opacity(0.1))
         .overlay(
           RoundedRectangle(cornerRadius: 12)
-            .stroke(gold.opacity(0.35), lineWidth: 1)
+            .stroke(WafuuUI.gold.opacity(0.4), lineWidth: 1)
         )
         .clipShape(RoundedRectangle(cornerRadius: 12))
       }
     }
-    .padding(.horizontal, 16)
-    .padding(.top, 12)
-    .padding(.bottom, 8)
-    .background(
-      LinearGradient(
-        colors: [accent.opacity(0.15), .clear],
-        startPoint: .top,
-        endPoint: .bottom
-      )
-    )
   }
 
   private var subheader: some View {
@@ -110,15 +68,18 @@ struct ChartLibraryView: View {
       } else if summaries.isEmpty {
         Text("譜面がまだありません")
       } else {
-        Text("保存済み \(summaries.count) 件 / 作成日順")
+        Text("保存済み \(summaries.count) 件")
       }
       Spacer()
+      if !summaries.isEmpty && !isLoading {
+        Text("作成日順 ↓")
+      }
     }
-    .font(.system(size: 10))
-    .tracking(1)
-    .foregroundStyle(cream.opacity(0.5))
+    .font(WafuuUI.num(10, weight: .medium))
+    .tracking(3)
+    .foregroundStyle(WafuuUI.sumiMist)
     .padding(.horizontal, 20)
-    .padding(.bottom, 8)
+    .padding(.vertical, 8)
   }
 
   // MARK: - Content
@@ -134,7 +95,7 @@ struct ChartLibraryView: View {
               chartCard(summary)
             }
           }
-          .padding(.horizontal, 12)
+          .padding(.horizontal, 16)
           .padding(.bottom, 16)
         }
       }
@@ -146,8 +107,8 @@ struct ChartLibraryView: View {
     VStack(spacing: 12) {
       Spacer()
       Text("最初の譜面を録音してみましょう")
-        .font(.system(size: 14))
-        .foregroundStyle(cream.opacity(0.6))
+        .font(WafuuUI.serif(14, weight: .regular))
+        .foregroundStyle(WafuuUI.sumiSoft)
       Spacer()
     }
     .frame(maxWidth: .infinity)
@@ -165,30 +126,36 @@ struct ChartLibraryView: View {
         icon(for: summary.name)
         VStack(alignment: .leading, spacing: 4) {
           Text(summary.name)
-            .font(.system(size: 14, weight: .semibold))
-            .foregroundStyle(cream)
+            .font(WafuuUI.serif(15, weight: .bold))
+            .tracking(1)
+            .foregroundStyle(WafuuUI.sumi)
             .lineLimit(1)
           HStack(spacing: 10) {
             Text(summary.region.isEmpty ? "—" : summary.region)
-              .foregroundStyle(goldDim)
+              .foregroundStyle(WafuuUI.gold)
             Text(formatDuration(summary.durationMs))
+              .font(WafuuUI.num(10))
+              .foregroundStyle(WafuuUI.sumiSoft)
             Text(formatDate(summary.createdAt))
+              .font(WafuuUI.num(10))
+              .foregroundStyle(WafuuUI.sumiSoft.opacity(0.7))
           }
-          .font(.system(size: 11))
-          .foregroundStyle(cream.opacity(0.5))
+          .font(WafuuUI.gothic(11))
+          .tracking(1)
         }
         Spacer()
         Text("›")
-          .font(.system(size: 20))
-          .foregroundStyle(gold.opacity(0.4))
+          .font(.system(size: 20, weight: .medium))
+          .foregroundStyle(WafuuUI.gold.opacity(0.5))
       }
       .padding(14)
-      .background(panel)
+      .background(WafuuUI.cardBackground)
       .overlay(
-        RoundedRectangle(cornerRadius: 14)
-          .stroke(gold.opacity(0.15), lineWidth: 1)
+        RoundedRectangle(cornerRadius: 10)
+          .stroke(WafuuUI.woodDeep, lineWidth: 1.5)
       )
-      .clipShape(RoundedRectangle(cornerRadius: 14))
+      .clipShape(RoundedRectangle(cornerRadius: 10))
+      .shadow(color: .black.opacity(0.12), radius: 2, x: 0, y: 2)
     }
     .buttonStyle(.plain)
     .swipeActions(edge: .trailing, allowsFullSwipe: false) {
@@ -206,53 +173,48 @@ struct ChartLibraryView: View {
   private func icon(for name: String) -> some View {
     let firstChar = String(name.prefix(1))
     return Text(firstChar)
-      .font(.system(size: 14, weight: .bold))
+      .font(WafuuUI.serif(15, weight: .bold))
       .foregroundStyle(.white)
       .frame(width: 44, height: 44)
       .background(
         RadialGradient(
-          colors: [Color(red: 1.0, green: 0.42, blue: 0.42), accent, Color(red: 0.42, green: 0.07, blue: 0.06)],
+          colors: [WafuuUI.donHi, WafuuUI.don, WafuuUI.donDim],
           center: UnitPoint(x: 0.35, y: 0.30),
           startRadius: 0,
           endRadius: 40
         )
       )
       .clipShape(Circle())
-      .shadow(color: accent.opacity(0.4), radius: 6)
+      .shadow(color: WafuuUI.don.opacity(0.35), radius: 3, x: 0, y: 2)
   }
 
   // MARK: - Footer
 
   private var footer: some View {
-    HStack(spacing: 12) {
-      Button(action: onRecord) {
-        HStack(spacing: 8) {
-          Image(systemName: "circle.fill")
-            .font(.system(size: 10))
-          Text("録音する")
-            .font(.system(size: 15, weight: .bold))
-            .tracking(2)
-        }
-        .foregroundStyle(.white)
-        .frame(maxWidth: .infinity)
-        .padding(.vertical, 14)
-        .background(
-          LinearGradient(
-            colors: [Color(red: 0xdd / 255.0, green: 0x42 / 255.0, blue: 0x38 / 255.0), accent],
-            startPoint: .top,
-            endPoint: .bottom
-          )
-        )
-        .clipShape(RoundedRectangle(cornerRadius: 14))
-        .shadow(color: accent.opacity(0.4), radius: 8)
+    Button(action: onRecord) {
+      HStack(spacing: 10) {
+        Circle()
+          .fill(.white)
+          .frame(width: 10, height: 10)
+        Text("新しい譜面を録音する")
       }
     }
-    .padding(.horizontal, 20)
-    .padding(.top, 8)
+    .buttonStyle(PrimaryButtonStyleWafuu(fontSize: 15))
+    .padding(.horizontal, 16)
+    .padding(.top, 12)
     .padding(.bottom, 24)
     .background(
-      Color.black.opacity(0.3)
-        .overlay(Rectangle().frame(height: 1).foregroundStyle(cream.opacity(0.05)), alignment: .top)
+      LinearGradient(
+        colors: [.clear, WafuuUI.moss.opacity(0.10)],
+        startPoint: .top,
+        endPoint: .bottom
+      )
+      .overlay(
+        Rectangle()
+          .fill(WafuuUI.sumi.opacity(0.12))
+          .frame(height: 1),
+        alignment: .top
+      )
     )
   }
 
@@ -284,5 +246,4 @@ struct ChartLibraryView: View {
     onDownload: {},
     onBack: {}
   )
-  .preferredColorScheme(.dark)
 }

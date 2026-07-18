@@ -1,0 +1,303 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>お囃子道場 — 譜面公開</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Noto+Serif+JP:wght@500;700;900&family=Zen+Kaku+Gothic+New:wght@400;500;700&family=Bebas+Neue&family=Klee+One:wght@400;600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="assets/wafuu.css">
+<style>
+  .pub-body {
+    flex: 1;
+    padding: 22px 22px 12px;
+    overflow-y: auto;
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+  }
+
+  .pub-hero {
+    text-align: center;
+    padding: 4px 0 8px;
+  }
+  .pub-hero .kanji {
+    font-family: "Noto Serif JP", serif;
+    font-weight: 700;
+    font-size: 22px;
+    letter-spacing: 6px;
+    color: var(--sumi);
+    margin-bottom: 6px;
+  }
+  .pub-hero .desc {
+    font-family: "Klee One", serif;
+    font-size: 12px;
+    color: var(--sumi-soft);
+    letter-spacing: 2px;
+    line-height: 1.6;
+  }
+
+  /* 対象譜面カード */
+  .target {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 12px 14px;
+    background: linear-gradient(180deg, #fbf3dc 0%, #f0e0b0 100%);
+    border: 1.5px solid var(--wood-deep);
+    border-radius: 10px;
+    box-shadow:
+      inset 0 1px 0 rgba(255, 255, 255, 0.45),
+      0 2px 4px rgba(0, 0, 0, 0.12);
+  }
+  .target .icon {
+    width: 46px;
+    height: 46px;
+    border-radius: 50%;
+    background: radial-gradient(circle at 35% 30%, var(--red-hi), var(--red) 55%, var(--red-dim) 100%);
+    color: #fff;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-family: "Noto Serif JP", serif;
+    font-weight: 700;
+    font-size: 17px;
+  }
+  .target .info { flex: 1; min-width: 0; }
+  .target .info .name {
+    font-family: "Noto Serif JP", serif;
+    font-weight: 700;
+    font-size: 15px;
+    color: var(--sumi);
+    letter-spacing: 1px;
+  }
+  .target .info .region {
+    font-size: 11px;
+    color: var(--gold);
+    margin-top: 3px;
+    letter-spacing: 1px;
+  }
+
+  /* ID 入力セクション */
+  .id-section {
+    background: rgba(253, 246, 227, 0.55);
+    border: 1px solid var(--wood-dark);
+    border-radius: 10px;
+    padding: 14px 16px;
+  }
+  .id-section .label {
+    font-family: "Bebas Neue", sans-serif;
+    font-size: 10px;
+    letter-spacing: 3px;
+    color: var(--sumi-mist);
+    margin-bottom: 6px;
+  }
+  .id-input {
+    width: 100%;
+    padding: 12px 14px;
+    background: #fdf6e3;
+    border: 1.5px solid var(--wood-dark);
+    border-radius: 4px;
+    color: var(--sumi);
+    font-family: "Bebas Neue", sans-serif;
+    font-size: 18px;
+    letter-spacing: 3px;
+    text-align: center;
+    outline: none;
+  }
+  .id-status {
+    margin-top: 8px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+    font-size: 11px;
+    letter-spacing: 1px;
+  }
+  .id-status.ok { color: var(--moss); }
+  .id-status.check::before {
+    content: "✓";
+    font-family: "Noto Serif JP", serif;
+    font-weight: 700;
+  }
+
+  /* 価格 & 説明 */
+  .pub-price {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    background: linear-gradient(180deg, var(--wood-light) 0%, var(--wood-mid) 100%);
+    border: 1.5px solid var(--wood-deep);
+    border-radius: 10px;
+    padding: 14px 18px;
+    box-shadow:
+      inset 0 1px 0 rgba(255, 255, 255, 0.4),
+      0 2px 4px rgba(0, 0, 0, 0.15);
+  }
+  .pub-price .k {
+    font-family: "Noto Serif JP", serif;
+    font-weight: 700;
+    font-size: 14px;
+    letter-spacing: 3px;
+    color: var(--sumi);
+  }
+  .pub-price .v {
+    font-family: "Bebas Neue", sans-serif;
+    font-size: 28px;
+    color: var(--red-dim);
+    letter-spacing: 1px;
+    line-height: 1;
+  }
+  .pub-price .v small {
+    font-size: 12px;
+    color: var(--sumi-soft);
+    margin-left: 3px;
+    letter-spacing: 1px;
+  }
+
+  .pub-notes {
+    padding: 12px 14px;
+    background: rgba(43, 26, 14, 0.06);
+    border-left: 3px solid var(--gold);
+    border-radius: 0 6px 6px 0;
+    font-family: "Klee One", serif;
+    font-size: 11px;
+    color: var(--sumi-soft);
+    line-height: 1.7;
+    letter-spacing: 1px;
+  }
+  .pub-notes strong { color: var(--sumi); }
+
+  /* フッター */
+  .pub-footer {
+    padding: 12px 20px 28px;
+    border-top: 1px solid var(--line);
+    background:
+      linear-gradient(180deg,
+        transparent 0%,
+        rgba(74, 108, 58, 0.08) 100%);
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+  }
+  .pub-btn {
+    padding: 15px;
+    background: linear-gradient(180deg, var(--red-hi) 0%, var(--red) 55%, var(--red-dim) 100%);
+    color: #fff;
+    border: 1.5px solid var(--red-dim);
+    border-radius: 10px;
+    font-family: "Noto Serif JP", serif;
+    font-size: 16px;
+    font-weight: 700;
+    letter-spacing: 5px;
+    box-shadow:
+      inset 0 1px 0 rgba(255, 255, 255, 0.25),
+      0 5px 12px rgba(200, 33, 29, 0.4);
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+  }
+  .pub-btn .price {
+    font-family: "Bebas Neue", sans-serif;
+    font-size: 20px;
+    letter-spacing: 2px;
+    background: rgba(255, 255, 255, 0.2);
+    padding: 2px 8px;
+    border-radius: 4px;
+  }
+  .pub-cancel {
+    text-align: center;
+    padding: 8px;
+    background: none;
+    border: none;
+    color: var(--sumi-soft);
+    font-size: 12px;
+    letter-spacing: 2px;
+    cursor: pointer;
+  }
+</style>
+</head>
+<body>
+
+<div class="stage">
+  <div>
+    <div class="stage-title">お囃子道場 — 譜面公開</div>
+    <div class="stage-subtitle">WAFUU MODERN · CHART PUBLISH</div>
+  </div>
+
+  <div class="phone"><div class="screen"><div class="screen-inner">
+
+    <div class="app-header">
+      <button class="back-btn">編集へ戻る</button>
+      <div class="app-title">譜面を公開</div>
+      <div class="header-action"></div>
+    </div>
+
+    <div class="pub-body">
+
+      <div class="pub-hero">
+        <div class="kanji">この譜面を配布する</div>
+        <div class="desc">
+          公開すると、譜面 ID を知る人が<br>
+          ダウンロードして遊べるようになります。
+        </div>
+      </div>
+
+      <div class="target">
+        <div class="icon">獅</div>
+        <div class="info">
+          <div class="name">獅子舞 入り囃子</div>
+          <div class="region">下田町 · 演奏 2:24</div>
+        </div>
+      </div>
+
+      <div class="id-section">
+        <div class="label">CHART ID(公開後は変更不可)</div>
+        <input class="id-input" value="shimoda-2026-irihayashi">
+        <div class="id-status ok check">この ID は使用可能です</div>
+      </div>
+
+      <div class="pub-price">
+        <div class="k">公開料金</div>
+        <div class="v">¥1,000<small>(税込)</small></div>
+      </div>
+
+      <div class="pub-notes">
+        <strong>ご注意</strong><br>
+        · 公開ボタン押下と同時に決済 → 譜面がアップロードされます<br>
+        · 消費型(Consumable)IAP、返金不可<br>
+        · 更新公開はできません(修正時は別 ID で新規公開)
+      </div>
+
+    </div>
+
+    <div class="pub-footer">
+      <button class="pub-btn">
+        公開する
+        <span class="price">¥1,000</span>
+      </button>
+      <button class="pub-cancel">後にする</button>
+    </div>
+
+  </div></div></div>
+</div>
+
+<div class="legend">
+  <h2>譜面公開 設計メモ</h2>
+  <ul>
+    <li>ヘッダ:「編集へ戻る」+ タイトル「譜面を公開」</li>
+    <li>Hero:「この譜面を配布する」の目的を明示、下に詳細説明</li>
+    <li>対象譜面カード:公開対象の譜面名・地域・演奏時間を確認できる</li>
+    <li>ID セクション:CHART ID 入力欄。バックエンドで <code>/check-id</code> 事前確認済み → 使用可能マーク(緑チェック)</li>
+    <li>公開料金:¥1,000 を大きく朱色で表示、税込表記</li>
+    <li>注意事項:即時決済・返金不可・更新公開なし の 3 条件を明記(法的透明性)</li>
+    <li>フッター:主 CTA「公開する ¥1,000」+ 「後にする」の 2 択</li>
+    <li>StoreKit 2 → JWS → backend の実際のフローは iOS 側で管理(この画面は入口)</li>
+  </ul>
+</div>
+
+</body>
+</html>
