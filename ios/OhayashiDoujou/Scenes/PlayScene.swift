@@ -46,6 +46,17 @@ final class PlayScene: SKScene {
   private var recentTouches: [RecentTouch] = []
   private var activeHolds: [ObjectIdentifier: ActiveHold] = [:]
 
+  /// don_both が近時刻に pending だが相方がまだ届いていない中央タッチを
+  /// bothPairWindowSec 待って再判定するためのバッファ。
+  /// 待機中に相方が届いて don_both として消費されれば isConsumed 判定でスキップ、
+  /// 届かなければ judgeSingle に落ちる(orphan タップ扱い)。
+  private var deferredCenterTaps: [DeferredCenterTap] = []
+  private struct DeferredCenterTap {
+    let id: ObjectIdentifier
+    let tapTime: TimeInterval
+    let touch: UITouch
+  }
+
   private struct PendingNote {
     let id: UUID
     let targetTime: TimeInterval
@@ -105,6 +116,7 @@ final class PlayScene: SKScene {
     pendingNotes.removeAll()
     recentTouches.removeAll()
     activeHolds.removeAll()
+    deferredCenterTaps.removeAll()
     removeAllActions()
 
     startTime = CACurrentMediaTime()
@@ -135,6 +147,7 @@ final class PlayScene: SKScene {
     pendingNotes.removeAll()
     recentTouches.removeAll()
     activeHolds.removeAll()
+    deferredCenterTaps.removeAll()
   }
 
   // MARK: - Layout: wafuu elements
@@ -400,13 +413,15 @@ final class PlayScene: SKScene {
     showJudge(.miss)
   }
 
-  // MARK: - Touch handling(既存ロジック維持)
+  // MARK: - Touch handling
 
   override func touchesBegan(_ touches: Set<UITouch>, with event: UIEvent?) {
     let now = CACurrentMediaTime() - startTime
 
+    // 50ms を超えた古いエントリは相方判定の対象外(掃除)
     recentTouches.removeAll { now - $0.time > Self.bothPairWindowSec }
 
+    // 1) 全タッチを recentTouches / newEntries に登録
     var newEntries: [RecentTouch] = []
     for touch in touches {
       let location = touch.location(in: self)
@@ -428,20 +443,85 @@ final class PlayScene: SKScene {
       newEntries.append(entry)
     }
 
+    // 2) 中央タッチ:まず両手同時打の相方を優先チェック、なければ判定を遅延
     for entry in newEntries where entry.zone == .center {
+      // Bug fix 1: 先行 iteration の tryMatchDonBoth で相方として消費済みなら
+      // 二度判定を回避(recentTouches は既に consumed=true)
+      if isConsumed(id: entry.id) { continue }
+
       if tryMatchDonBoth(entry: entry, now: now, touchesBeganWith: touches) {
         continue
       }
-      if let touch = touches.first(where: { ObjectIdentifier($0) == entry.id }) {
-        judgeSingle(tapTime: now, zone: .center, touch: touch)
+
+      // Bug fix 2: don_both が近時刻に pending なのに相方がまだいない場合、
+      // bothPairWindowSec 待って再判定する(相方が別 touchesBegan で来る可能性)。
+      // これをしないと、片手だけ先に届いた両手ドンが誤って don_l/don_r を
+      // 消費したり、判定失敗の「不可」表示を出したりする。
+      if hasDonBothPendingNear(time: now) {
+        if let touch = touches.first(where: { ObjectIdentifier($0) == entry.id }) {
+          scheduleDeferredCenterJudge(id: entry.id, tapTime: now, touch: touch)
+        }
+      } else {
+        if let touch = touches.first(where: { ObjectIdentifier($0) == entry.id }) {
+          judgeSingle(tapTime: now, zone: .center, touch: touch)
+        }
       }
     }
 
+    // 3) 外側ゾーン(カッ)は don_both と無関係なので即座に判定
     for entry in newEntries where entry.zone != .center {
       if let touch = touches.first(where: { ObjectIdentifier($0) == entry.id }) {
         judgeSingle(tapTime: now, zone: entry.zone, touch: touch)
       }
     }
+  }
+
+  private func isConsumed(id: ObjectIdentifier) -> Bool {
+    recentTouches.first(where: { $0.id == id })?.consumed ?? false
+  }
+
+  private func hasDonBothPendingNear(time: TimeInterval) -> Bool {
+    let toleranceSec = TimeInterval(Self.okWindowMs) / 1000.0
+    return pendingNotes.contains { pending in
+      pending.type == .don_both && abs(pending.targetTime - time) <= toleranceSec
+    }
+  }
+
+  private func scheduleDeferredCenterJudge(
+    id: ObjectIdentifier,
+    tapTime: TimeInterval,
+    touch: UITouch
+  ) {
+    deferredCenterTaps.append(DeferredCenterTap(id: id, tapTime: tapTime, touch: touch))
+    // bothPairWindowSec 分だけ待つ(相方の到達を待つ)
+    let touchId = id
+    run(SKAction.sequence([
+      SKAction.wait(forDuration: Self.bothPairWindowSec + 0.005),
+      SKAction.run { [weak self] in
+        self?.resolveDeferredCenterJudge(id: touchId)
+      },
+    ]))
+  }
+
+  private func resolveDeferredCenterJudge(id: ObjectIdentifier) {
+    guard let idx = deferredCenterTaps.firstIndex(where: { $0.id == id }) else { return }
+    let deferred = deferredCenterTaps.remove(at: idx)
+
+    // 待機中に相方の tryMatchDonBoth が成功して、この entry が消費されている場合はスキップ
+    if isConsumed(id: id) { return }
+
+    // 相方到達での don_both マッチをもう一度試みる
+    // (相方が別 touchesBegan で来て、まだ deferred バッファ内なら
+    //  そのまま consumed=false のまま残っているケース)
+    if let entry = recentTouches.first(where: { $0.id == id }) {
+      let dummySet: Set<UITouch> = [deferred.touch]
+      if tryMatchDonBoth(entry: entry, now: deferred.tapTime, touchesBeganWith: dummySet) {
+        return
+      }
+    }
+
+    // 相方来ず。orphan タップとして単発判定に落とす。
+    judgeSingle(tapTime: deferred.tapTime, zone: .center, touch: deferred.touch)
   }
 
   override func touchesEnded(_ touches: Set<UITouch>, with event: UIEvent?) {
