@@ -3,7 +3,7 @@ import Foundation
 
 /// プレイ画面の SpriteKit シーン。
 ///
-/// Phase 2 完成版:
+/// 完成版:
 /// - `Chart` を受け取り、`notes` を時系列でスケジュール
 /// - 3 ゾーン判定 + タイミング判定(良/可/不可)
 /// - **両手同時打**(`don_both`)判定: 中央左右半分に 50ms 以内の 2 タッチで成立
@@ -11,7 +11,11 @@ import Foundation
 /// - スコア / コンボを計算し、コールバックで SwiftUI 側へ通知
 /// - 譜面終了検出 → 完了コールバック
 ///
-/// 実装方針の落とし穴は `implementation_notes/ios_pitfalls.md` §21-22 を参照。
+/// 和風モダン UI(2026-07 確定):
+/// - 太鼓の達人風の太鼓(タン縁 + クリーム皮 + 黒鋲 40 個)
+/// - 判定ライン = 注連縄(金の帯)+ 紙垂
+/// - レーン分けは木の柱(wood-dark 2px)
+/// - ノーツはフラット、文字なし、朱 #FD4720 / 青 #44C2C1
 @MainActor
 final class PlayScene: SKScene {
   // MARK: - Layout constants
@@ -21,16 +25,14 @@ final class PlayScene: SKScene {
   private let drumRadius: CGFloat = 140
   private let drumCenterY: CGFloat = -20
 
-  // MARK: - Judgment constants(暫定、Phase 6 で試遊調整)
+  // MARK: - Judgment constants
   private static let goodWindowMs: Int = 200
   private static let okWindowMs: Int = 400
   private static let holdTailToleranceMs: Int = 150
-  /// 両手同時打の 2 タッチ同時判定ウィンドウ。
   private static let bothPairWindowSec: TimeInterval = 0.05
-  /// ミス確定までの猶予(判定ラインを過ぎてから)。
   private static let missGraceSec: TimeInterval = 0.5
 
-  // MARK: - Public API (SwiftUI 側から設定)
+  // MARK: - Public API
   var onScoreChanged: (@MainActor (ScoreState) -> Void)?
   var onFinished: (@MainActor (ScoreState) -> Void)?
 
@@ -41,18 +43,14 @@ final class PlayScene: SKScene {
   private var pendingNotes: [PendingNote] = []
   private var judgeLabel: SKLabelNode?
 
-  /// 直近のタッチ履歴(両手同時打の相方を探すため)。
-  /// `bothPairWindowSec` を大きく超えたエントリは破棄する。
   private var recentTouches: [RecentTouch] = []
-
-  /// 進行中のホールド(頭が判定済みで、尾のリリース待ち)。
   private var activeHolds: [ObjectIdentifier: ActiveHold] = [:]
 
   private struct PendingNote {
     let id: UUID
     let targetTime: TimeInterval
     let type: NoteType
-    let durationSec: TimeInterval  // 0 = 単発、>0 = ホールド
+    let durationSec: TimeInterval
     weak var node: SKShapeNode?
     weak var tail: SKShapeNode?
   }
@@ -63,7 +61,7 @@ final class PlayScene: SKScene {
     let id: ObjectIdentifier
     let time: TimeInterval
     let zone: NoteType.Zone
-    let centerHalf: CenterHalf?  // zone == .center の時のみ意味を持つ
+    let centerHalf: CenterHalf?
     var consumed: Bool
   }
 
@@ -73,14 +71,29 @@ final class PlayScene: SKScene {
     let expectedReleaseTime: TimeInterval
     weak var headNode: SKShapeNode?
     weak var tailNode: SKShapeNode?
-    /// 両手同時打ホールドの相方タッチ ID(単発ホールドでは nil)。
-    /// どちらかの指が離れた時点で hold を確定させ、もう片方のエントリを掃除するために使う。
     let partnerTouchId: ObjectIdentifier?
   }
 
+  // MARK: - Wafuu Palette (SKColor)
+  private static let wDon      = SKColor(red: 0xFD/255, green: 0x47/255, blue: 0x20/255, alpha: 1)
+  private static let wDonDim   = SKColor(red: 0xB0/255, green: 0x30/255, blue: 0x0F/255, alpha: 1)
+  private static let wKa       = SKColor(red: 0x44/255, green: 0xC2/255, blue: 0xC1/255, alpha: 1)
+  private static let wKaDim    = SKColor(red: 0x26/255, green: 0x87/255, blue: 0x86/255, alpha: 1)
+  private static let wGold     = SKColor(red: 0xB8/255, green: 0x93/255, blue: 0x5A/255, alpha: 1)
+  private static let wGoldHi   = SKColor(red: 0xF0/255, green: 0xD8/255, blue: 0x96/255, alpha: 1)
+  private static let wSilver   = SKColor(red: 0xC9/255, green: 0xD4/255, blue: 0xDC/255, alpha: 1)
+  private static let wSumi     = SKColor(red: 0x2A/255, green: 0x26/255, blue: 0x20/255, alpha: 1)
+  private static let wSumiSoft = SKColor(red: 0x5C/255, green: 0x52/255, blue: 0x48/255, alpha: 1)
+  private static let wWoodMid  = SKColor(red: 0xC8/255, green: 0xA9/255, blue: 0x76/255, alpha: 1)
+  private static let wWoodDark = SKColor(red: 0x8B/255, green: 0x6A/255, blue: 0x3C/255, alpha: 1)
+  private static let wWoodDeep = SKColor(red: 0x5C/255, green: 0x42/255, blue: 0x25/255, alpha: 1)
+  private static let wWoodSumi = SKColor(red: 0x2B/255, green: 0x1A/255, blue: 0x0E/255, alpha: 1)
+  private static let wSkin     = SKColor(red: 0xF5/255, green: 0xED/255, blue: 0xD8/255, alpha: 1)
+  private static let wPaper    = SKColor(red: 0xFD/255, green: 0xF6/255, blue: 0xE3/255, alpha: 1)
+  private static let wMoss     = SKColor(red: 0x4D/255, green: 0x6C/255, blue: 0x3E/255, alpha: 1)
+
   // MARK: - Public entry
 
-  /// 譜面を注入して再生を開始する。
   func load(chart: Chart) {
     self.chart = chart
     self.score = ScoreState()
@@ -106,15 +119,14 @@ final class PlayScene: SKScene {
     view.isMultipleTouchEnabled = true
     view.ignoresSiblingOrder = true
     view.allowsTransparency = true
-    // 和風 UI: 背景は SwiftUI 側の WafuuBackground を透過して表示する。
-    // SpriteView の options に .allowsTransparency 指定済み。
     backgroundColor = .clear
     scaleMode = .resizeFill
 
     layoutBackground()
     layoutLanes()
-    layoutMarkers()
     layoutHitLine()
+    layoutMarkers()
+    layoutTatamiEdge()
     layoutDrum()
   }
 
@@ -125,28 +137,52 @@ final class PlayScene: SKScene {
     activeHolds.removeAll()
   }
 
-  // MARK: - Layout
+  // MARK: - Layout: wafuu elements
 
   private func layoutBackground() {
-    let overlay = SKShapeNode(rect: CGRect(x: 0, y: size.height - 80, width: size.width, height: 80))
-    overlay.fillColor = SKColor(red: 0xc4 / 255.0, green: 0x21 / 255.0, blue: 0x1d / 255.0, alpha: 0.18)
-    overlay.strokeColor = .clear
-    overlay.zPosition = -10
-    addChild(overlay)
+    // SwiftUI 側の WafuuBackground が透過表示されるので背景は空。
+    // 上部に淡い緑のアクセント帯だけ足す(和風の落ち着き)。
+    let accent = SKShapeNode(rect: CGRect(x: 0, y: size.height - 60, width: size.width, height: 60))
+    accent.fillColor = Self.wMoss.withAlphaComponent(0.06)
+    accent.strokeColor = .clear
+    accent.zPosition = -10
+    addChild(accent)
   }
 
   private func layoutLanes() {
+    // レーン境界を木の柱として描画(2px wood-dark)
     let laneWidth = size.width / CGFloat(laneCount)
     for i in 1..<laneCount {
       let x = CGFloat(i) * laneWidth
-      let path = CGMutablePath()
-      path.move(to: CGPoint(x: x, y: 0))
-      path.addLine(to: CGPoint(x: x, y: size.height))
-      let line = SKShapeNode(path: path)
-      line.strokeColor = SKColor(white: 1, alpha: 0.06)
-      line.lineWidth = 1
-      line.zPosition = -5
-      addChild(line)
+      let isCenter = (i == 2)
+      let pillar = SKShapeNode(
+        rect: CGRect(x: x - 1, y: 0, width: 2, height: size.height)
+      )
+      pillar.fillColor = isCenter ? Self.wGold.withAlphaComponent(0.55) : Self.wWoodDark
+      pillar.strokeColor = .clear
+      pillar.zPosition = -5
+      addChild(pillar)
+    }
+  }
+
+  private func layoutHitLine() {
+    // 注連縄(金の帯)
+    let rope = SKShapeNode(
+      rect: CGRect(x: 0, y: hitLineY - 1.5, width: size.width, height: 3)
+    )
+    rope.fillColor = Self.wGold
+    rope.strokeColor = .clear
+    rope.glowWidth = 2
+    rope.zPosition = 4
+    addChild(rope)
+
+    // 紙垂(しで)2 本 — 白い縦の垂れ
+    for x in [size.width * 0.28, size.width * 0.72] {
+      let shide = SKShapeNode(rect: CGRect(x: x - 1.5, y: hitLineY - 12, width: 3, height: 10))
+      shide.fillColor = Self.wPaper
+      shide.strokeColor = .clear
+      shide.zPosition = 5
+      addChild(shide)
     }
   }
 
@@ -157,45 +193,76 @@ final class PlayScene: SKScene {
       let x = (CGFloat(i) + 0.5) * laneWidth
       let type = types[i]
       let isDon = (type == .don_l || type == .don_r)
-      let ring = SKShapeNode(circleOfRadius: 20)
-      ring.strokeColor = isDon
-        ? SKColor(red: 0xe2 / 255.0, green: 0x3b / 255.0, blue: 0x3b / 255.0, alpha: 0.7)
-        : SKColor(red: 0x4e / 255.0, green: 0xa7 / 255.0, blue: 0xd9 / 255.0, alpha: 0.7)
-      ring.fillColor = ring.strokeColor.withAlphaComponent(0.08)
-      ring.lineWidth = 2
-      ring.position = CGPoint(x: x, y: hitLineY)
-      ring.zPosition = 5
-      addChild(ring)
+
+      // 木の丸枠(外側)
+      let outerRing = SKShapeNode(circleOfRadius: 19)
+      outerRing.strokeColor = Self.wWoodDeep
+      outerRing.fillColor = .clear
+      outerRing.lineWidth = 2
+      outerRing.position = CGPoint(x: x, y: hitLineY)
+      outerRing.zPosition = 5
+      addChild(outerRing)
+
+      // 色分け内輪
+      let innerRing = SKShapeNode(circleOfRadius: 11)
+      innerRing.strokeColor = (isDon ? Self.wDonDim : Self.wKaDim).withAlphaComponent(0.55)
+      innerRing.fillColor = .clear
+      innerRing.lineWidth = 1.5
+      innerRing.position = CGPoint(x: x, y: hitLineY)
+      innerRing.zPosition = 6
+      addChild(innerRing)
     }
   }
 
-  private func layoutHitLine() {
-    let line = SKShapeNode(
-      rect: CGRect(x: 0, y: hitLineY - 1, width: size.width, height: 2)
-    )
-    line.fillColor = SKColor(red: 0xf4 / 255.0, green: 0xc9 / 255.0, blue: 0x5d / 255.0, alpha: 1)
-    line.strokeColor = .clear
-    line.glowWidth = 4
-    line.zPosition = 4
-    addChild(line)
+  private func layoutTatamiEdge() {
+    // 太鼓の下、画面最下部に畳の縁を模した深緑の細い帯
+    let edge = SKShapeNode(rect: CGRect(x: 0, y: 0, width: size.width, height: 8))
+    edge.fillColor = Self.wMoss
+    edge.strokeColor = .clear
+    edge.zPosition = 10
+    addChild(edge)
   }
 
   private func layoutDrum() {
-    let drum = SKShapeNode(circleOfRadius: drumRadius)
-    drum.fillColor = SKColor(red: 0xc8 / 255.0, green: 0x21 / 255.0, blue: 0x1d / 255.0, alpha: 1)
-    drum.strokeColor = SKColor(red: 0x4a / 255.0, green: 0x26 / 255.0, blue: 0x18 / 255.0, alpha: 1)
-    drum.lineWidth = 4
-    drum.position = CGPoint(x: size.width / 2, y: drumCenterY)
-    drum.zPosition = 1
-    addChild(drum)
+    let center = CGPoint(x: size.width / 2, y: drumCenterY)
 
-    let mon = SKShapeNode(circleOfRadius: 28)
-    mon.fillColor = SKColor(red: 0xf4 / 255.0, green: 0xc9 / 255.0, blue: 0x5d / 255.0, alpha: 0.15)
-    mon.strokeColor = SKColor(red: 0xf4 / 255.0, green: 0xc9 / 255.0, blue: 0x5d / 255.0, alpha: 0.3)
-    mon.lineWidth = 1
-    mon.position = CGPoint(x: size.width / 2, y: drumRadius / 3)
-    mon.zPosition = 2
-    addChild(mon)
+    // 外側の縁(タン色)
+    let outerRim = SKShapeNode(circleOfRadius: drumRadius)
+    outerRim.fillColor = Self.wWoodMid
+    outerRim.strokeColor = .clear
+    outerRim.position = center
+    outerRim.zPosition = 1
+    addChild(outerRim)
+
+    // 縁と皮の境界(細い濃色線で立体感)
+    let boundary = SKShapeNode(circleOfRadius: drumRadius * 0.897)
+    boundary.fillColor = Self.wWoodDark
+    boundary.strokeColor = .clear
+    boundary.position = center
+    boundary.zPosition = 2
+    addChild(boundary)
+
+    // 皮(クリーム色)
+    let skin = SKShapeNode(circleOfRadius: drumRadius * 0.878)
+    skin.fillColor = Self.wSkin
+    skin.strokeColor = .clear
+    skin.position = center
+    skin.zPosition = 3
+    addChild(skin)
+
+    // 鋲(40 個、9° 間隔で外縁の少し内側に配置)
+    let studRadius: CGFloat = drumRadius * 0.949
+    for i in 0..<40 {
+      let angle = CGFloat(i) * (.pi / 20) - .pi / 2
+      let sx = center.x + cos(angle) * studRadius
+      let sy = center.y + sin(angle) * studRadius
+      let stud = SKShapeNode(circleOfRadius: 2.5)
+      stud.fillColor = Self.wWoodSumi
+      stud.strokeColor = .clear
+      stud.position = CGPoint(x: sx, y: sy)
+      stud.zPosition = 4
+      addChild(stud)
+    }
   }
 
   // MARK: - Note scheduling
@@ -224,30 +291,17 @@ final class PlayScene: SKScene {
     let isBoth: Bool
     switch type {
     case .ka_l:
-      x = 0.5 * laneWidth
-      isDon = false; isBoth = false
+      x = 0.5 * laneWidth; isDon = false; isBoth = false
     case .don_l:
-      x = 1.5 * laneWidth
-      isDon = true;  isBoth = false
+      x = 1.5 * laneWidth; isDon = true;  isBoth = false
     case .don_r:
-      x = 2.5 * laneWidth
-      isDon = true;  isBoth = false
+      x = 2.5 * laneWidth; isDon = true;  isBoth = false
     case .ka_r:
-      x = 3.5 * laneWidth
-      isDon = false; isBoth = false
+      x = 3.5 * laneWidth; isDon = false; isBoth = false
     case .don_both:
-      // 両手打は 2 つのドンレーンのちょうど真ん中(画面中央)に落とす
-      x = size.width / 2
-      isDon = true;  isBoth = true
+      x = size.width / 2;  isDon = true;  isBoth = true
     }
 
-    // 落下軌道の計算。
-    // targetTime >= fallDuration: 通常通り上端 (size.height + 40) から
-    //   spawnDelay 秒待って、fallDuration 秒かけて hit line まで落下。
-    // targetTime <  fallDuration: シーン開始時点で既に画面の途中まで
-    //   落ちてきている状態にする。これをしないと、targetTime < fallDuration
-    //   のノーツが全て spawnDelay = 0 にクランプされ、シーン開始と同時に
-    //   同じ位置 (上端) から同じ速度で落ちて軌道が重なってしまう。
     let spawnY = size.height + 40
     let fallDistance = spawnY - hitLineY
     let fallSpeedPerSec = fallDistance / fallDuration
@@ -265,52 +319,56 @@ final class PlayScene: SKScene {
       actualFallDuration = clampedTarget
     }
 
-    let baseRadius: CGFloat = isDon ? 18 : 14
-    let radius: CGFloat = isBoth ? baseRadius + 6 : baseRadius
+    // ノーツサイズ(和風モダン v2 準拠、フラット + 2 重縁)
+    let baseRadius: CGFloat = isDon ? 20 : 16
+    let radius: CGFloat = isBoth ? 26 : baseRadius
 
+    // 2 重縁を作るため、外側から順に大きさ違いの SKShapeNode をコンテナに追加
+    let container = SKNode()
+    container.position = CGPoint(x: x, y: startY)
+    container.zPosition = isBoth ? 4 : 3
+
+    let mainColor: SKColor = isDon ? Self.wDon : Self.wKa
+    let outerBorder: SKColor = isDon ? Self.wDonDim : Self.wKaDim
+    let innerBorder: SKColor = isDon ? Self.wGold : Self.wSilver
+    let borderWidthOuter: CGFloat = isBoth ? 4 : 3
+    let borderWidthInner: CGFloat = isBoth ? 3 : 2
+
+    // 一番外(濃色の縁)
+    let outerRing = SKShapeNode(circleOfRadius: radius + borderWidthOuter)
+    outerRing.fillColor = outerBorder
+    outerRing.strokeColor = .clear
+    container.addChild(outerRing)
+
+    // 中間(金 or 銀の縁)
+    let midRing = SKShapeNode(circleOfRadius: radius + borderWidthInner)
+    midRing.fillColor = innerBorder
+    midRing.strokeColor = .clear
+    container.addChild(midRing)
+
+    // 本体
     let node = SKShapeNode(circleOfRadius: radius)
-    node.zPosition = 3
-    if isDon {
-      node.fillColor = SKColor(red: 0xe2 / 255.0, green: 0x3b / 255.0, blue: 0x3b / 255.0, alpha: 1)
-    } else {
-      node.fillColor = SKColor(red: 0x4e / 255.0, green: 0xa7 / 255.0, blue: 0xd9 / 255.0, alpha: 1)
-    }
-    node.strokeColor = SKColor.white.withAlphaComponent(isBoth ? 0.85 : 0.3)
-    node.lineWidth = isBoth ? 3 : 1
-    node.position = CGPoint(x: x, y: startY)
+    node.fillColor = mainColor
+    node.strokeColor = .clear
+    container.addChild(node)
 
-    if isBoth {
-      let glow = SKShapeNode(circleOfRadius: radius + 6)
-      glow.fillColor = .clear
-      glow.strokeColor = SKColor.red.withAlphaComponent(0.4)
-      glow.lineWidth = 6
-      glow.glowWidth = 8
-      glow.zPosition = 2
-      node.addChild(glow)
-    }
-
-    let hand = SKLabelNode(fontNamed: "HiraginoSans-W6")
-    hand.text = handLabel(for: type)
-    hand.fontSize = isBoth ? 13 : 11
-    hand.fontColor = .white
-    hand.verticalAlignmentMode = .center
-    node.addChild(hand)
-
-    // ホールドの尾(帯)を描画
+    // ホールドの尾(頭の「上」に伸びる)
     var tailNode: SKShapeNode?
     if durationSec > 0 {
-      // 尾の長さは落下速度と duration の積
       let tailLength = fallSpeedPerSec * CGFloat(durationSec)
-      let tail = SKShapeNode(rect: CGRect(x: -6, y: 0, width: 12, height: tailLength))
-      tail.fillColor = node.fillColor.withAlphaComponent(0.35)
-      tail.strokeColor = .clear
-      tail.zPosition = 2
-      // 尾は頭ノードの子として付けるとフォールスクロールが自然
-      node.addChild(tail)
+      let tailWidth: CGFloat = 12
+      let tail = SKShapeNode(
+        rect: CGRect(x: -tailWidth / 2, y: 0, width: tailWidth, height: tailLength)
+      )
+      tail.fillColor = mainColor.withAlphaComponent(0.5)
+      tail.strokeColor = outerBorder.withAlphaComponent(0.6)
+      tail.lineWidth = 1
+      tail.zPosition = -1
+      container.addChild(tail)
       tailNode = tail
     }
 
-    addChild(node)
+    addChild(container)
 
     let id = UUID()
     let pending = PendingNote(
@@ -323,6 +381,7 @@ final class PlayScene: SKScene {
     )
     pendingNotes.append(pending)
 
+    // container を落下対象にする(全体が一緒に動く)
     let wait = SKAction.wait(forDuration: spawnDelay)
     let fall = SKAction.moveTo(y: hitLineY, duration: actualFallDuration)
     let passThrough = SKAction.moveBy(x: 0, y: -60, duration: Self.missGraceSec)
@@ -330,15 +389,7 @@ final class PlayScene: SKScene {
       self?.expireAsMiss(id: id)
     }
     let remove = SKAction.removeFromParent()
-    node.run(SKAction.sequence([wait, fall, passThrough, cleanup, remove]))
-  }
-
-  private func handLabel(for type: NoteType) -> String {
-    switch type {
-    case .don_l, .ka_l: return "左"
-    case .don_r, .ka_r: return "右"
-    case .don_both:     return "両"
-    }
+    container.run(SKAction.sequence([wait, fall, passThrough, cleanup, remove]))
   }
 
   private func expireAsMiss(id: UUID) {
@@ -349,15 +400,13 @@ final class PlayScene: SKScene {
     showJudge(.miss)
   }
 
-  // MARK: - Touch handling
+  // MARK: - Touch handling(既存ロジック維持)
 
   override func touchesBegan(_ touches: Set<UITouch>, with event: UIEvent?) {
     let now = CACurrentMediaTime() - startTime
 
-    // 古いエントリを掃除(50ms を超えたペア検出は無効)
     recentTouches.removeAll { now - $0.time > Self.bothPairWindowSec }
 
-    // 1) まず全タッチをバッファに登録
     var newEntries: [RecentTouch] = []
     for touch in touches {
       let location = touch.location(in: self)
@@ -379,18 +428,15 @@ final class PlayScene: SKScene {
       newEntries.append(entry)
     }
 
-    // 2) 新規タッチについて、まず両手同時打の相方を優先的にチェック
     for entry in newEntries where entry.zone == .center {
       if tryMatchDonBoth(entry: entry, now: now, touchesBeganWith: touches) {
         continue
       }
-      // don_both マッチしなかった中央タッチは通常判定
       if let touch = touches.first(where: { ObjectIdentifier($0) == entry.id }) {
         judgeSingle(tapTime: now, zone: .center, touch: touch)
       }
     }
 
-    // 3) 外側ゾーンのタッチは常に通常判定
     for entry in newEntries where entry.zone != .center {
       if let touch = touches.first(where: { ObjectIdentifier($0) == entry.id }) {
         judgeSingle(tapTime: now, zone: entry.zone, touch: touch)
@@ -407,16 +453,12 @@ final class PlayScene: SKScene {
   }
 
   private func tapZone(at point: CGPoint) -> NoteType.Zone {
-    // 太鼓の円の内部なら中央(ドン)扱いにする。太鼓の視覚境界が斜めに
-    // 走っているため、単純な x 座標のバーティカル境界だと「円の中なのに
-    // ka 判定」になる帯ができてしまうため、円内優先で判定する。
     let cx = size.width / 2
     let dx = point.x - cx
     let dy = point.y - drumCenterY
     if dx * dx + dy * dy <= drumRadius * drumRadius {
       return .center
     }
-    // 円の外側は x 座標ベース(落下ノーツエリア含む)
     let width = size.width
     if point.x < width * 0.25 {
       return .leftKa
@@ -427,11 +469,8 @@ final class PlayScene: SKScene {
     }
   }
 
-  // MARK: - Judge: two-hand (don_both)
+  // MARK: - Judge: two-hand (既存ロジック維持)
 
-  /// 両手同時打(`don_both`)を判定する。マッチ成功時は true を返す。
-  ///
-  /// 中央ゾーンのタッチが 2 つ(左半分・右半分)、50ms 以内に検出されたとき成立する。
   private func tryMatchDonBoth(
     entry: RecentTouch,
     now: TimeInterval,
@@ -439,7 +478,6 @@ final class PlayScene: SKScene {
   ) -> Bool {
     guard entry.zone == .center, let myHalf = entry.centerHalf else { return false }
 
-    // 判定ウィンドウ内の don_both ノーツを探す
     let toleranceSec = TimeInterval(Self.okWindowMs) / 1000.0
     guard let noteIdx = pendingNotes.firstIndex(where: { pending in
       pending.type == .don_both &&
@@ -448,7 +486,6 @@ final class PlayScene: SKScene {
       return false
     }
 
-    // 直近 50ms 以内で、まだ未消費かつ反対半分の中央タッチを探す
     let pairIdx = recentTouches.lastIndex(where: { other in
       other.id != entry.id &&
       !other.consumed &&
@@ -471,15 +508,14 @@ final class PlayScene: SKScene {
     AudioEngine.shared.play(for: note.type)
     Haptics.shared.fire(for: note.type)
 
-    // ホールド (don_both + duration > 0) の場合は両手同時追跡
     if note.durationSec > 0 {
       if let anchorTouch = touches.first(where: { ObjectIdentifier($0) == entry.id }) {
         let partnerId = recentTouches[pairIdx].id
         registerHold(note: note, touch: anchorTouch, partnerId: partnerId, atTime: now)
       }
     } else {
-      note.node?.removeAllActions()
-      note.node?.removeFromParent()
+      note.node?.parent?.removeAllActions()
+      note.node?.parent?.removeFromParent()
     }
 
     pendingNotes.remove(at: noteIdx)
@@ -489,14 +525,14 @@ final class PlayScene: SKScene {
     return true
   }
 
-  // MARK: - Judge: single tap
+  // MARK: - Judge: single tap(既存ロジック維持)
 
   private func judgeSingle(tapTime: TimeInterval, zone: NoteType.Zone, touch: UITouch) {
     let toleranceSec = TimeInterval(Self.okWindowMs) / 1000.0
 
     let candidateIndex = pendingNotes
       .enumerated()
-      .filter { $0.element.type != .don_both }  // don_both は tryMatchDonBoth 側で扱う
+      .filter { $0.element.type != .don_both }
       .filter { matchesZone(noteZone: $0.element.type.zone, tapZone: zone) }
       .filter { abs($0.element.targetTime - tapTime) <= toleranceSec }
       .min(by: { abs($0.element.targetTime - tapTime) < abs($1.element.targetTime - tapTime) })?
@@ -517,8 +553,8 @@ final class PlayScene: SKScene {
     if note.durationSec > 0 {
       registerHold(note: note, touch: touch, atTime: tapTime)
     } else {
-      note.node?.removeAllActions()
-      note.node?.removeFromParent()
+      note.node?.parent?.removeAllActions()
+      note.node?.parent?.removeFromParent()
     }
 
     pendingNotes.remove(at: idx)
@@ -527,7 +563,7 @@ final class PlayScene: SKScene {
     showJudge(result)
   }
 
-  // MARK: - Hold tracking
+  // MARK: - Hold tracking(既存ロジック維持、node.parent = container を対象に修正)
 
   private func registerHold(
     note: PendingNote,
@@ -535,20 +571,14 @@ final class PlayScene: SKScene {
     partnerId: ObjectIdentifier? = nil,
     atTime tapTime: TimeInterval
   ) {
-    // 落下シーケンスを停止(この時点でシーケンス末尾の cleanup + remove も失われる)
-    note.node?.removeAllActions()
-    // 頭を判定ラインへスナップ(タップ時の位置がバラつくため見た目を安定させる)
-    if let node = note.node {
-      node.position = CGPoint(x: node.position.x, y: hitLineY)
+    note.node?.parent?.removeAllActions()
+    if let container = note.node?.parent {
+      container.position = CGPoint(x: container.position.x, y: hitLineY)
     }
-    // 頭を半透明にしてホールド継続中の視覚フィードバック
-    note.node?.alpha = 0.4
+    note.node?.parent?.alpha = 0.4
 
     let expected = note.targetTime + note.durationSec
 
-    // 尾を残り時間で縮ませる。頭ノードの子として rect(y: 0 → tailLength) で
-    // 描かれているため、yScale を 1 → 0 に補間すれば下端(頭)固定で上端が
-    // 徐々に頭へ降りてくる、標準的な音ゲーのホールド演出になる。
     if let tail = note.tail, note.durationSec > 0 {
       tail.removeAllActions()
       let remaining = max(0, expected - tapTime)
@@ -563,7 +593,6 @@ final class PlayScene: SKScene {
 
     let anchorId = ObjectIdentifier(touch)
 
-    // アンカー側のエントリ
     activeHolds[anchorId] = ActiveHold(
       noteId: note.id,
       type: note.type,
@@ -573,8 +602,6 @@ final class PlayScene: SKScene {
       partnerTouchId: partnerId
     )
 
-    // 両手同時打の場合、パートナー側にも同じ hold を登録
-    // (どちらかが release されたら hold 判定が確定する)
     if let partnerId = partnerId {
       activeHolds[partnerId] = ActiveHold(
         noteId: note.id,
@@ -592,11 +619,9 @@ final class PlayScene: SKScene {
     for touch in touches {
       let key = ObjectIdentifier(touch)
       guard let hold = activeHolds.removeValue(forKey: key) else { continue }
-      // 両手同時打の場合、相方エントリも同時に片付ける(二重判定防止)
       if let partnerId = hold.partnerTouchId {
         activeHolds.removeValue(forKey: partnerId)
       }
-      // 尾判定
       let diffMs = Int(abs(hold.expectedReleaseTime - now) * 1000)
       let result: JudgeResult
       if cancelled {
@@ -604,19 +629,15 @@ final class PlayScene: SKScene {
       } else if diffMs <= Self.holdTailToleranceMs {
         result = .good
       } else if now < hold.expectedReleaseTime {
-        // 早離し
         let earlyMs = Int((hold.expectedReleaseTime - now) * 1000)
         result = earlyMs <= Self.okWindowMs ? .ok : .miss
       } else {
-        // 遅離し(尾ウィンドウを過ぎた、スコアは可扱いで加点)
         result = .ok
       }
 
-      // 頭・尾をまとめて削除(尾は頭の子ノードなので厳密には頭を消せば十分だが、
-      // 安全のため明示的に片付ける)
       hold.tailNode?.removeFromParent()
-      hold.headNode?.removeAllActions()
-      hold.headNode?.removeFromParent()
+      hold.headNode?.parent?.removeAllActions()
+      hold.headNode?.parent?.removeFromParent()
 
       score.record(result)
       onScoreChanged?(score)
@@ -643,18 +664,18 @@ final class PlayScene: SKScene {
     switch result {
     case .good:
       text = "良!"
-      color = SKColor(red: 0xf4 / 255.0, green: 0xc9 / 255.0, blue: 0x5d / 255.0, alpha: 1)
+      color = Self.wGold
     case .ok:
       text = "可"
-      color = SKColor(red: 0x6b / 255.0, green: 0xc9 / 255.0, blue: 0x8a / 255.0, alpha: 1)
+      color = Self.wKaDim
     case .miss:
       text = "不可"
-      color = SKColor(white: 0.6, alpha: 1)
+      color = Self.wSumiSoft
     }
 
-    let label = SKLabelNode(fontNamed: "HiraginoSans-W6")
+    let label = SKLabelNode(fontNamed: "HiraMinProN-W6")
     label.text = text
-    label.fontSize = 28
+    label.fontSize = 30
     label.fontColor = color
     label.position = CGPoint(x: size.width / 2, y: hitLineY + 100)
     label.setScale(0.6)
