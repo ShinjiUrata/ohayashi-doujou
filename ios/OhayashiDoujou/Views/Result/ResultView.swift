@@ -51,13 +51,22 @@ struct ResultView: View {
     .padding(.bottom, 12)
   }
 
+  /// 譜面が生成する判定の総数。
+  /// - 単発ノーツ: 1 判定
+  /// - ホールドノーツ (duration > 0): 頭 + 尾 = 2 判定
+  private var totalJudgments: Int {
+    let holdCount = chart.notes.filter { ($0.duration ?? 0) > 0 }.count
+    return chart.notes.count + holdCount
+  }
+
   private var clearedText: String {
-    let total = chart.notes.count
-    let good = score.good
-    let miss = score.miss
-    if total == 0 { return "PLAY END" }
-    if miss == 0 && good == total { return "PERFECT CLEAR" }
-    if miss == 0 { return "FULL COMBO" }
+    if totalJudgments == 0 { return "PLAY END" }
+    // PERFECT: 判定が全て「良」(可・不可なし)
+    if score.miss == 0 && score.ok == 0 && score.good == totalJudgments {
+      return "PERFECT CLEAR"
+    }
+    // FULL COMBO: 不可なし
+    if score.miss == 0 { return "FULL COMBO" }
     return "CLEAR"
   }
 
@@ -109,7 +118,8 @@ struct ResultView: View {
   }
 
   private var rank: String {
-    let total = max(chart.notes.count, 1)
+    let total = max(totalJudgments, 1)
+    // 良判定の比率でランク(可はランクに加算しない)
     let ratio = Double(score.good) / Double(total)
     switch ratio {
     case 1.0: return "甲"
@@ -171,9 +181,10 @@ struct ResultView: View {
   }
 
   private var accuracyText: String {
-    let total = max(chart.notes.count, 1)
+    guard totalJudgments > 0 else { return "—" }
     let hits = score.good + score.ok
-    let pct = Int(Double(hits) / Double(total) * 100)
+    // ホールドは頭 + 尾 の 2 判定なので分母も 2 倍しないと 100% を超え得る
+    let pct = min(100, Int(Double(hits) / Double(totalJudgments) * 100))
     return "\(pct)%"
   }
 
