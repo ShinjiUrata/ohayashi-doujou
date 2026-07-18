@@ -73,33 +73,20 @@ struct ResultView: View {
   // MARK: - Score hero
 
   private var scoreHero: some View {
-    VStack(spacing: 6) {
-      Text(rank)
-        .font(WafuuUI.serif(60, weight: .black))
-        .tracking(4)
-        .foregroundStyle(WafuuUI.don)
-        .shadow(color: WafuuUI.don.opacity(0.35), radius: 8, x: 0, y: 4)
-        .lineLimit(1)
-
-      Text("RANK")
-        .font(WafuuUI.num(10, weight: .semibold))
-        .tracking(4)
-        .foregroundStyle(WafuuUI.sumiMist)
-
+    VStack(spacing: 8) {
       Text(formattedScore(score.totalScore))
-        .font(WafuuUI.num(48, weight: .medium))
+        .font(WafuuUI.num(64, weight: .medium))
         .tracking(3)
         .foregroundStyle(WafuuUI.sumi)
-        .padding(.top, 8)
-        .minimumScaleFactor(0.6)
+        .minimumScaleFactor(0.5)
         .lineLimit(1)
 
       Text("TOTAL SCORE")
-        .font(WafuuUI.num(10, weight: .semibold))
-        .tracking(4)
+        .font(WafuuUI.num(11, weight: .semibold))
+        .tracking(5)
         .foregroundStyle(WafuuUI.sumiMist)
     }
-    .padding(.vertical, 12)
+    .padding(.vertical, 24)
     .padding(.horizontal, 24)
     .frame(maxWidth: .infinity)
     .background(
@@ -115,18 +102,6 @@ struct ResultView: View {
         .frame(height: 1),
       alignment: .bottom
     )
-  }
-
-  private var rank: String {
-    let total = max(totalJudgments, 1)
-    // 良判定の比率でランク(可はランクに加算しない)
-    let ratio = Double(score.good) / Double(total)
-    switch ratio {
-    case 1.0: return "甲"
-    case 0.8...: return "乙"
-    case 0.5...: return "丙"
-    default: return "丁"
-    }
   }
 
   // MARK: - Judge breakdown
