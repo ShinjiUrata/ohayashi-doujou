@@ -4,6 +4,7 @@ import SpriteKit
 /// プレイ画面。
 ///
 /// - `Chart` を受け取って再生
+/// - **開始前に 3-2-1 カウントダウン**を表示、終わってから `PlayScene` に load
 /// - ヘッダに曲名バナー + SCORE + COMBO 掛け札
 /// - `PlayScene` からの終了コールバックで onFinished を呼ぶ
 ///
@@ -13,12 +14,20 @@ struct PlayView: View {
   var onFinished: (ScoreState) -> Void
   var onQuit: () -> Void
 
+  enum Phase: Equatable {
+    case countdown(Int)
+    case playing
+  }
+
   @State private var score = ScoreState()
   @State private var scene: PlayScene = {
     let s = PlayScene(size: CGSize(width: 390, height: 780))
     s.scaleMode = .resizeFill
     return s
   }()
+
+  @State private var phase: Phase = .countdown(3)
+  @State private var countdownTask: Task<Void, Never>?
 
   var body: some View {
     ZStack {
@@ -32,15 +41,63 @@ struct PlayView: View {
         header
         Spacer()
       }
+
+      countdownOverlay
     }
     .statusBarHidden(true)
     .onAppear {
       AudioEngine.shared.start()
       Haptics.shared.prepare()
       wireScene()
+      startCountdown()
+    }
+    .onDisappear {
+      countdownTask?.cancel()
+    }
+  }
+
+  // MARK: - Countdown overlay
+
+  @ViewBuilder
+  private var countdownOverlay: some View {
+    switch phase {
+    case .countdown(let n):
+      Text("\(n)")
+        .font(WafuuUI.serif(140, weight: .black))
+        .foregroundStyle(WafuuUI.don)
+        .shadow(color: WafuuUI.don.opacity(0.35), radius: 16, x: 0, y: 6)
+        .transition(.asymmetric(
+          insertion: .scale(scale: 0.4).combined(with: .opacity),
+          removal: .scale(scale: 1.6).combined(with: .opacity)
+        ))
+        .id("count-\(n)")
+    case .playing:
+      EmptyView()
+    }
+  }
+
+  // MARK: - Countdown logic
+
+  private func startCountdown() {
+    countdownTask?.cancel()
+    countdownTask = Task { @MainActor in
+      for n in [3, 2, 1] {
+        withAnimation(.spring(response: 0.35, dampingFraction: 0.65)) {
+          phase = .countdown(n)
+        }
+        try? await Task.sleep(nanoseconds: 1_000_000_000)
+        if Task.isCancelled { return }
+      }
+      withAnimation(.easeInOut(duration: 0.2)) {
+        phase = .playing
+      }
+      // カウントダウン完了後に譜面をロード → PlayScene が startTime を CACurrentMediaTime() で
+      // 記録し、ノーツのスケジューリングを開始する
       scene.load(chart: chart)
     }
   }
+
+  // MARK: - Header
 
   private var header: some View {
     HStack(alignment: .center, spacing: 10) {
