@@ -161,15 +161,25 @@ final class PlayScene: SKScene {
 
   // MARK: - Pause / Resume(自動再生モード用)
 
-  /// シーン全体を一時停止する(SKAction・アニメーション・音のスケジュールすべて)。
+  /// 編集モードでの一時停止フラグ(SKNode.isPaused とは別管理)。
+  /// SKNode.isPaused = true にすると環境によってはタッチ配信が止まる
+  /// 副作用があるため、scene.speed = 0 で SKAction を止めつつ、
+  /// タッチ配信は維持する方針をとる。
+  private(set) var isEditingPaused: Bool = false
+
+  /// シーン全体を一時停止する(SKAction 進行を止める)。
+  /// isPaused は使わず speed = 0 でアクションだけ止め、touchesBegan は
+  /// 引き続き配信される状態に保つ(編集タップを受けるため)。
   func pauseGame() {
-    isPaused = true
+    isEditingPaused = true
+    self.speed = 0
   }
 
   /// シーン全体を再開する。
   func resumeGame() {
     hideAdjustmentEditor()
-    isPaused = false
+    isEditingPaused = false
+    self.speed = 1
   }
 
   // MARK: - AutoPlay editing mode(停止中のノーツ位置調整)
@@ -294,19 +304,22 @@ final class PlayScene: SKScene {
     label.position = CGPoint(x: 24 * side, y: 0)
     overlay.addChild(label)
 
-    // 選択中ノーツを軽く光らせる(視認性)
+    // 選択中ノーツを不透明・少し拡大して視認性を上げる
+    // (scene.speed = 0 で動作中のため、SKAction ではなく即時値変更で反映)
     container.alpha = 1.0
-    let pulse = SKAction.sequence([
-      SKAction.scale(to: 1.15, duration: 0.15),
-      SKAction.scale(to: 1.0, duration: 0.15),
-    ])
-    container.run(pulse)
+    container.setScale(1.15)
 
     addChild(overlay)
     editorOverlay = overlay
   }
 
   private func hideAdjustmentEditor() {
+    // 選択中ノーツの拡大を元に戻す
+    if let idx = selectedOriginalIndex {
+      for pending in pendingNotes where pending.originalIndex == idx {
+        pending.node?.parent?.setScale(1.0)
+      }
+    }
     editorOverlay?.removeFromParent()
     editorOverlay = nil
     selectedOriginalIndex = nil
@@ -709,7 +722,7 @@ final class PlayScene: SKScene {
   override func touchesBegan(_ touches: Set<UITouch>, with event: UIEvent?) {
     if mode == .autoPlay {
       // 自動再生モード: 停止中のみ編集タップを受け付ける(再生中は無視)
-      if isPaused, let touch = touches.first {
+      if isEditingPaused, let touch = touches.first {
         handleEditingTap(at: touch.location(in: self))
       }
       return
