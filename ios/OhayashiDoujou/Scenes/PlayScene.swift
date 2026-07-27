@@ -181,6 +181,11 @@ final class PlayScene: SKScene {
   /// 選択中のノーツに表示する ▲▼ 編集 UI コンテナ。
   private var editorOverlay: SKNode?
 
+  /// ▲▼ ボタンのタップ半径(overlay 原点からの相対座標)。
+  private static let arrowButtonRadius: CGFloat = 30
+  /// ▲▼ ボタンの縦オフセット(overlay 原点から ±方向)。
+  private static let arrowButtonOffsetY: CGFloat = 30
+
   /// 停止中に PlayView から呼ばれる想定の外部 API。
   /// adjustments 適用済みの Chart を返す。
   func currentAdjustedChart() -> Chart? {
@@ -201,26 +206,22 @@ final class PlayScene: SKScene {
   /// - どこにもヒットしなければ選択解除
   private func handleEditingTap(at location: CGPoint) {
     // 1) 既存 overlay 上の ▲▼ タップを優先チェック
-    //    SpriteKit 標準の nodes(at:) でシーン内の該当ノードを取得し、
-    //    node と ancestor の name を辿って arrow_up/down を探す。
-    if editorOverlay != nil {
-      let hits = nodes(at: location)
-      for hit in hits {
-        var cur: SKNode? = hit
-        while let n = cur {
-          if let name = n.name {
-            switch name {
-            case "arrow_up":
-              adjustSelectedNote(deltaMs: 100)  // +0.1s = 後ろへ
-              return
-            case "arrow_down":
-              adjustSelectedNote(deltaMs: -100) // -0.1s = 前へ
-              return
-            default: break
-            }
-          }
-          cur = n.parent
-        }
+    //    SpriteKit の nodes(at:) は SKScene.isPaused = true の状態で
+    //    信頼性が低い(タイミングによっては空配列が返る)ため、
+    //    距離ベースの判定で確実にヒットさせる。
+    if let overlay = editorOverlay {
+      let dx = location.x - overlay.position.x
+      let dyUp = location.y - (overlay.position.y + Self.arrowButtonOffsetY)
+      let distUp = sqrt(dx * dx + dyUp * dyUp)
+      if distUp <= Self.arrowButtonRadius {
+        adjustSelectedNote(deltaMs: 100)  // +0.1s = 後ろへ
+        return
+      }
+      let dyDown = location.y - (overlay.position.y - Self.arrowButtonOffsetY)
+      let distDown = sqrt(dx * dx + dyDown * dyDown)
+      if distDown <= Self.arrowButtonRadius {
+        adjustSelectedNote(deltaMs: -100) // -0.1s = 前へ
+        return
       }
     }
 
@@ -270,14 +271,14 @@ final class PlayScene: SKScene {
       y: container.position.y
     )
 
-    // ▲(上三角): 0.1s 遅らせる
-    let up = makeArrowButton(text: "🔼", name: "arrow_up")
-    up.position = CGPoint(x: 0, y: 28)
+    // 上ボタン: 0.1s 遅らせる(上向き三角)
+    let up = makeArrowButton(pointsUp: true)
+    up.position = CGPoint(x: 0, y: Self.arrowButtonOffsetY)
     overlay.addChild(up)
 
-    // ▼(下三角): 0.1s 早める
-    let down = makeArrowButton(text: "🔽", name: "arrow_down")
-    down.position = CGPoint(x: 0, y: -28)
+    // 下ボタン: 0.1s 早める(下向き三角)
+    let down = makeArrowButton(pointsUp: false)
+    down.position = CGPoint(x: 0, y: -Self.arrowButtonOffsetY)
     overlay.addChild(down)
 
     // 累積調整量ラベル(▲と▼の間、右側 or 左側)
@@ -311,33 +312,49 @@ final class PlayScene: SKScene {
     selectedOriginalIndex = nil
   }
 
-  private func makeArrowButton(text: String, name: String) -> SKNode {
-    // 見た目の円(直径 48)
+  /// ▲ or ▼ の丸ボタンを SKShapeNode で構築。
+  /// タップ判定は handleEditingTap 側の距離計算で行うため、name / hitArea は不要。
+  private func makeArrowButton(pointsUp: Bool) -> SKNode {
+    let container = SKNode()
+
+    // 背景の丸(直径 48)
     let bg = SKShapeNode(circleOfRadius: 24)
     bg.fillColor = Self.wPaper
     bg.strokeColor = Self.wWoodDeep
     bg.lineWidth = 1.5
-    bg.name = name
     bg.zPosition = 0
+    container.addChild(bg)
 
-    let label = SKLabelNode(text: text)
-    label.fontSize = 26
-    label.verticalAlignmentMode = .center
-    label.horizontalAlignmentMode = .center
-    label.name = name
-    label.zPosition = 1
-    bg.addChild(label)
+    // 三角形(上向き or 下向き)を SKShapeNode の path で描く
+    let triangle = SKShapeNode(path: trianglePath(pointsUp: pointsUp))
+    triangle.fillColor = Self.wSumi
+    triangle.strokeColor = Self.wSumi
+    triangle.lineWidth = 1
+    triangle.zPosition = 1
+    container.addChild(triangle)
 
-    // 押しやすくするための透明な hit area(直径 60)。
-    // nodes(at:) は透明ノードでもフレームで拾ってくれる。
-    let hitArea = SKShapeNode(circleOfRadius: 30)
-    hitArea.fillColor = .clear
-    hitArea.strokeColor = .clear
-    hitArea.name = name
-    hitArea.zPosition = 2
-    bg.addChild(hitArea)
+    return container
+  }
 
-    return bg
+  /// 中心 (0,0) に配置される、辺 20 の正三角形パス。
+  private func trianglePath(pointsUp: Bool) -> CGPath {
+    let path = CGMutablePath()
+    let side: CGFloat = 20
+    let h = side * (sqrt(3) / 2)  // 高さ
+    // 重心を (0,0) にする調整オフセット(重心 = 頂点から高さの 1/3 下)
+    let offsetY = -h / 3
+
+    if pointsUp {
+      path.move(to: CGPoint(x: 0, y: h * 2 / 3 + offsetY))               // 頂点(上)
+      path.addLine(to: CGPoint(x: -side / 2, y: -h / 3 + offsetY))       // 左下
+      path.addLine(to: CGPoint(x: side / 2, y: -h / 3 + offsetY))        // 右下
+    } else {
+      path.move(to: CGPoint(x: 0, y: -h * 2 / 3 - offsetY))              // 頂点(下)
+      path.addLine(to: CGPoint(x: -side / 2, y: h / 3 - offsetY))        // 左上
+      path.addLine(to: CGPoint(x: side / 2, y: h / 3 - offsetY))         // 右上
+    }
+    path.closeSubpath()
+    return path
   }
 
   private func adjustSelectedNote(deltaMs: Int) {
