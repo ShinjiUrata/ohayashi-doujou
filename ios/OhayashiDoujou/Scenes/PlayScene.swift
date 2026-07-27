@@ -440,12 +440,44 @@ final class PlayScene: SKScene {
     // container を落下対象にする(全体が一緒に動く)
     let wait = SKAction.wait(forDuration: spawnDelay)
     let fall = SKAction.moveTo(y: hitLineY, duration: actualFallDuration)
-    let passThrough = SKAction.moveBy(x: 0, y: -60, duration: Self.missGraceSec)
-    let cleanup = SKAction.run { [weak self, id] in
-      self?.expireAsMiss(id: id)
-    }
     let remove = SKAction.removeFromParent()
-    container.run(SKAction.sequence([wait, fall, passThrough, cleanup, remove]))
+
+    if mode == .autoPlay {
+      // 自動再生モード: タッチ判定なし
+      // - 単発ノーツ: 判定ラインまで落下 → そのまま画面外へ通過 → 削除
+      // - ホールドノーツ: 判定ラインに到達したら「押されている」演出に切り替え
+      //   * 頭は hit line に固定
+      //   * 尾は durationSec で 0 にスケール(interactive の registerHold と同じ演出)
+      //   * durationSec 経過後、まとめて削除
+      var actions: [SKAction] = [wait, fall]
+      if durationSec > 0, let tail = tailNode {
+        let dur = durationSec
+        actions.append(SKAction.run { [weak container, weak tail] in
+          // 頭を半透明にしてホールド継続中の視覚フィードバック
+          container?.alpha = 0.4
+          // 尾を残り時間で縮ませる(頭固定、尾が上から下へ縮む)
+          if let tail {
+            let shrink = SKAction.scaleY(to: 0, duration: dur)
+            shrink.timingMode = .linear
+            tail.run(shrink)
+          }
+        })
+        actions.append(SKAction.wait(forDuration: dur))
+      } else {
+        // 非ホールドはそのまま画面外へ通過
+        let passThrough = SKAction.moveBy(x: 0, y: -60, duration: Self.missGraceSec)
+        actions.append(passThrough)
+      }
+      actions.append(remove)
+      container.run(SKAction.sequence(actions))
+    } else {
+      // interactive モード: 既存動作(タッチされなければ miss として cleanup)
+      let passThrough = SKAction.moveBy(x: 0, y: -60, duration: Self.missGraceSec)
+      let cleanup = SKAction.run { [weak self, id] in
+        self?.expireAsMiss(id: id)
+      }
+      container.run(SKAction.sequence([wait, fall, passThrough, cleanup, remove]))
+    }
   }
 
   private func expireAsMiss(id: UUID) {
