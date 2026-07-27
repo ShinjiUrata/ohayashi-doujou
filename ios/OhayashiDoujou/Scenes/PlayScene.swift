@@ -444,7 +444,8 @@ final class PlayScene: SKScene {
 
     if mode == .autoPlay {
       // 自動再生モード: タッチ判定なし
-      // - 単発ノーツ: 判定ラインまで落下 → そのまま画面外へ通過 → 削除
+      // - 単発ノーツ: 判定ラインに到達したら即座に削除(interactive で
+      //   タップされた瞬間に消えるのと同じ挙動)
       // - ホールドノーツ: 判定ラインに到達したら「押されている」演出に切り替え
       //   * 頭は hit line に固定
       //   * 尾は durationSec で 0 にスケール(interactive の registerHold と同じ演出)
@@ -463,11 +464,8 @@ final class PlayScene: SKScene {
           }
         })
         actions.append(SKAction.wait(forDuration: dur))
-      } else {
-        // 非ホールドはそのまま画面外へ通過
-        let passThrough = SKAction.moveBy(x: 0, y: -60, duration: Self.missGraceSec)
-        actions.append(passThrough)
       }
+      // 単発は wait/fall の直後、ホールドは wait/fall + shrink 完了直後に削除
       actions.append(remove)
       container.run(SKAction.sequence(actions))
     } else {
