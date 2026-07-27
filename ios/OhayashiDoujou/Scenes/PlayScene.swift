@@ -119,35 +119,61 @@ final class PlayScene: SKScene {
   // MARK: - Public entry
 
   func load(chart: Chart) {
+    loadInternal(chart: chart, atSec: 0)
+    // 新規ロード時は再生状態にリセット
+    isEditingPaused = false
+    self.speed = 1
+    pausedAtSec = nil
+    onScoreChanged?(score)
+  }
+
+  /// 現在再生中の chart を、指定時刻から再度ロード(seek 用途)。
+  /// 再生/停止状態は維持する。
+  func seek(toSec: TimeInterval) {
+    guard let chart = self.chart else { return }
+    let clamped = max(0, min(toSec, TimeInterval(chart.durationMs) / 1000.0))
+    loadInternal(chart: chart, atSec: clamped)
+    if isEditingPaused {
+      pausedAtSec = clamped
+    }
+  }
+
+  /// 内部ロード実装。scene の状態を一旦全部クリアして atSec の時点から
+  /// スケジューリングし直す。isEditingPaused と speed には手を付けない。
+  private func loadInternal(chart: Chart, atSec offsetSec: TimeInterval) {
     self.chart = chart
     self.score = ScoreState()
     for pending in pendingNotes {
-      pending.node?.removeAllActions()
-      pending.node?.removeFromParent()
-      pending.tail?.removeFromParent()
+      pending.node?.parent?.removeFromParent()
     }
     pendingNotes.removeAll()
     recentTouches.removeAll()
     activeHolds.removeAll()
     deferredCenterTaps.removeAll()
+    hideAdjustmentEditor()
     removeAllActions()
 
-    startTime = CACurrentMediaTime()
-    scheduleNotes(from: chart)
-    scheduleFinish(after: TimeInterval(chart.durationMs) / 1000 + Self.missGraceSec)
+    // 再生時間トラッキング用の base をリセット
+    basePlaybackSec = offsetSec
+    basePlaybackWallTime = CACurrentMediaTime()
+
+    // SKAction の startTime は「offsetSec だけ過去に開始した」と見なす
+    startTime = CACurrentMediaTime() - offsetSec
+    scheduleNotes(from: chart, offsetSec: offsetSec)
+    scheduleFinish(after: TimeInterval(chart.durationMs) / 1000.0 - offsetSec + Self.missGraceSec)
 
     if mode == .autoPlay {
-      scheduleAutoPlayAudio(from: chart)
+      scheduleAutoPlayAudio(from: chart, offsetSec: offsetSec)
     }
-
-    onScoreChanged?(score)
   }
 
   /// 自動再生モード時の音の再生スケジュール。
-  /// 各ノーツの target 時刻に、種別に応じた効果音を鳴らす。
-  private func scheduleAutoPlayAudio(from chart: Chart) {
+  /// 各ノーツの target 時刻から offsetSec を差し引いた時点で再生。
+  /// 既に過去のノーツ(effectiveTargetSec < 0)はスキップする。
+  private func scheduleAutoPlayAudio(from chart: Chart, offsetSec: TimeInterval = 0) {
     for note in chart.notes {
-      let targetSec = TimeInterval(note.t) / 1000.0
+      let targetSec = TimeInterval(note.t) / 1000.0 - offsetSec
+      guard targetSec >= 0 else { continue }
       let type = note.type
       let wait = SKAction.wait(forDuration: targetSec)
       let play = SKAction.run {
@@ -167,16 +193,46 @@ final class PlayScene: SKScene {
   /// タッチ配信は維持する方針をとる。
   private(set) var isEditingPaused: Bool = false
 
+  // MARK: - Playback time tracking(再生位置を SwiftUI 側に返すため)
+
+  /// 直近ロード / seek の起点となる仮想時刻(秒)。ここから開始して再生。
+  private var basePlaybackSec: TimeInterval = 0
+  /// 上記 base を設定した wall-clock 時刻(CACurrentMediaTime())。
+  private var basePlaybackWallTime: TimeInterval = 0
+  /// 一時停止中の再生時刻スナップ。nil = 再生中。
+  private var pausedAtSec: TimeInterval? = nil
+
+  /// 現在の仮想再生時刻(秒)。
+  func currentPlaybackTimeSec() -> TimeInterval {
+    if let paused = pausedAtSec { return paused }
+    return basePlaybackSec + (CACurrentMediaTime() - basePlaybackWallTime)
+  }
+
+  /// 譜面の総時間(秒)。
+  func durationSec() -> TimeInterval {
+    guard let chart else { return 0 }
+    return TimeInterval(chart.durationMs) / 1000.0
+  }
+
   /// シーン全体を一時停止する(SKAction 進行を止める)。
   /// isPaused は使わず speed = 0 でアクションだけ止め、touchesBegan は
   /// 引き続き配信される状態に保つ(編集タップを受けるため)。
   func pauseGame() {
+    guard !isEditingPaused else { return }
+    pausedAtSec = currentPlaybackTimeSec()
     isEditingPaused = true
     self.speed = 0
   }
 
   /// シーン全体を再開する。
   func resumeGame() {
+    guard isEditingPaused else { return }
+    // 一時停止していた時刻から再開する。base を今の wall-clock に合わせる。
+    if let paused = pausedAtSec {
+      basePlaybackSec = paused
+      basePlaybackWallTime = CACurrentMediaTime()
+      pausedAtSec = nil
+    }
     hideAdjustmentEditor()
     isEditingPaused = false
     self.speed = 1
@@ -543,12 +599,17 @@ final class PlayScene: SKScene {
 
   // MARK: - Note scheduling
 
-  private func scheduleNotes(from chart: Chart) {
+  private func scheduleNotes(from chart: Chart, offsetSec: TimeInterval = 0) {
     for (idx, note) in chart.notes.enumerated() {
-      let targetSec = TimeInterval(note.t) / 1000.0
+      let originalTargetSec = TimeInterval(note.t) / 1000.0
+      let effectiveTargetSec = originalTargetSec - offsetSec
       let durationSec = TimeInterval(note.duration ?? 0) / 1000.0
+      // 既に終端まで過ぎたノーツはスキップ
+      // (ホールドなら target + duration が過去、単発なら target が過去)
+      let endSec = effectiveTargetSec + durationSec
+      if endSec < -Self.missGraceSec { continue }
       spawnNote(
-        targetTime: targetSec,
+        targetTime: effectiveTargetSec,
         type: note.type,
         durationSec: durationSec,
         originalIndex: idx

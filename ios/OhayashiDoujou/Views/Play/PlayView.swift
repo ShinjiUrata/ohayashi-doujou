@@ -41,6 +41,12 @@ struct PlayView: View {
   /// 自動再生モード時の再生/停止トグル状態。
   @State private var isPaused: Bool = false
 
+  /// 自動再生モード時のシークバー表示・操作用状態。
+  /// SwiftUI Slider は Double バインディングが必要。
+  @State private var sliderSec: Double = 0
+  @State private var isSliderDragging: Bool = false
+  @State private var playbackTimerTask: Task<Void, Never>?
+
   var body: some View {
     ZStack {
       WafuuBackground()
@@ -75,6 +81,7 @@ struct PlayView: View {
     }
     .onDisappear {
       countdownTask?.cancel()
+      playbackTimerTask?.cancel()
     }
   }
 
@@ -116,78 +123,113 @@ struct PlayView: View {
       // カウントダウン完了後に譜面をロード → PlayScene が startTime を CACurrentMediaTime() で
       // 記録し、ノーツのスケジューリング(および autoPlay 時の音再生)を開始する
       scene.load(chart: chart)
+      // 自動再生モードではシークバー用に再生時間ポーリングを開始
+      if mode == .autoPlay {
+        startPlaybackTimePolling()
+      }
     }
   }
 
-  // MARK: - Auto-play controls(再生/停止トグル)
+  // MARK: - Auto-play controls(再生/停止トグル + シークバー)
 
   private var autoPlayControls: some View {
-    HStack(spacing: 24) {
-      controlButton(
-        icon: "▶",
-        label: "再生",
-        active: !isPaused,
-        action: resume
-      )
-      controlButton(
-        icon: "■",
-        label: "停止",
-        active: isPaused,
-        action: pause
-      )
+    HStack(spacing: 14) {
+      playPauseToggle
+      seekBar
     }
-    .padding(.horizontal, 20)
-    .padding(.vertical, 12)
+    .padding(.horizontal, 16)
+    .padding(.vertical, 10)
     .background(
       RoundedRectangle(cornerRadius: 16)
-        .fill(WafuuUI.paper.opacity(0.9))
+        .fill(WafuuUI.paper.opacity(0.92))
         .shadow(color: .black.opacity(0.25), radius: 8, x: 0, y: 4)
     )
     .overlay(
       RoundedRectangle(cornerRadius: 16)
         .stroke(WafuuUI.woodDeep, lineWidth: 1.5)
     )
+    .padding(.horizontal, 16)
   }
 
-  private func controlButton(
-    icon: String,
-    label: String,
-    active: Bool,
-    action: @escaping () -> Void
-  ) -> some View {
-    Button(action: action) {
-      VStack(spacing: 4) {
-        Text(icon)
-          .font(.system(size: 22, weight: .bold))
-          .foregroundStyle(active ? .white : WafuuUI.sumiSoft)
-        Text(label)
-          .font(WafuuUI.serif(11, weight: .semibold))
-          .tracking(2)
-          .foregroundStyle(active ? .white : WafuuUI.sumiSoft)
-      }
-      .frame(width: 68, height: 60)
-      .background(
-        RoundedRectangle(cornerRadius: 10)
-          .fill(active ? WafuuUI.don : Color.clear)
-      )
-      .overlay(
-        RoundedRectangle(cornerRadius: 10)
-          .stroke(active ? WafuuUI.donDim : WafuuUI.woodDark, lineWidth: 1.5)
-      )
+  /// 左端の再生/停止トグル(1 個のボタンでアイコン切替)。
+  private var playPauseToggle: some View {
+    Button(action: togglePlayPause) {
+      Text(isPaused ? "▶" : "❚❚")
+        .font(.system(size: 20, weight: .bold))
+        .foregroundStyle(.white)
+        .frame(width: 54, height: 54)
+        .background(
+          Circle()
+            .fill(
+              LinearGradient(
+                colors: [WafuuUI.donHi, WafuuUI.don, WafuuUI.donDim],
+                startPoint: .top,
+                endPoint: .bottom
+              )
+            )
+        )
+        .overlay(Circle().stroke(WafuuUI.donDim, lineWidth: 1.5))
+        .shadow(color: WafuuUI.don.opacity(0.35), radius: 4, x: 0, y: 2)
     }
     .buttonStyle(.plain)
   }
 
-  private func pause() {
-    guard !isPaused else { return }
-    isPaused = true
-    scene.pauseGame()
+  /// 右側のシークバー + 経過時刻 / 総時間表示。
+  private var seekBar: some View {
+    let totalSec = Double(chart.durationMs) / 1000.0
+    return VStack(spacing: 4) {
+      Slider(
+        value: $sliderSec,
+        in: 0...max(totalSec, 0.001),
+        onEditingChanged: { editing in
+          if editing {
+            isSliderDragging = true
+          } else {
+            isSliderDragging = false
+            scene.seek(toSec: sliderSec)
+          }
+        }
+      )
+      .tint(WafuuUI.donDim)
+
+      HStack {
+        Text(formatMSS(sliderSec))
+        Spacer()
+        Text(formatMSS(totalSec))
+      }
+      .font(WafuuUI.num(10, weight: .medium))
+      .tracking(1)
+      .foregroundStyle(WafuuUI.sumiSoft)
+    }
   }
 
-  private func resume() {
-    guard isPaused else { return }
-    isPaused = false
-    scene.resumeGame()
+  private func togglePlayPause() {
+    if isPaused {
+      isPaused = false
+      scene.resumeGame()
+    } else {
+      isPaused = true
+      scene.pauseGame()
+    }
+  }
+
+  /// 再生時間を 100ms 毎にポーリングしてスライダー位置を更新。
+  /// ドラッグ中はユーザー操作を優先(更新しない)。
+  private func startPlaybackTimePolling() {
+    playbackTimerTask?.cancel()
+    playbackTimerTask = Task { @MainActor in
+      while !Task.isCancelled {
+        if !isSliderDragging {
+          sliderSec = scene.currentPlaybackTimeSec()
+        }
+        try? await Task.sleep(nanoseconds: 100_000_000)
+      }
+    }
+  }
+
+  private func formatMSS(_ sec: Double) -> String {
+    let total = Int(sec.rounded())
+    return String(format: "%d:%02d", total / 60, total % 60)
   }
 
   // MARK: - Header
