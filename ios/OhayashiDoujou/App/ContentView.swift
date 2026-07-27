@@ -162,18 +162,16 @@ struct ContentView: View {
 
       case .previewingDraft(let draft):
         // 試遊 = 自動再生プレビュー(タッチ判定なし、譜面通りに音のみ再生)
-        // 終了時・中断時のどちらも編集画面へ復帰(スコア画面は経由しない)
+        // 停止中はノーツ位置微調整が可能。編集された chart は onAutoPlayExit
+        // で受け取り、編集画面へ復帰する際に反映する。
         PlayView(
           chart: draft,
           mode: .autoPlay,
-          onFinished: { _ in
+          onFinished: { _ in },  // autoPlay では未使用
+          onQuit: {},            // autoPlay では未使用
+          onAutoPlayExit: { editedChart in
             withAnimation(.easeInOut(duration: 0.25)) {
-              route = .editing(draft)
-            }
-          },
-          onQuit: {
-            withAnimation(.easeInOut(duration: 0.2)) {
-              route = .editing(draft)
+              route = .editing(editedChart)
             }
           }
         )

@@ -75,6 +75,8 @@ final class PlayScene: SKScene {
     let durationSec: TimeInterval
     weak var node: SKShapeNode?
     weak var tail: SKShapeNode?
+    /// 元 chart.notes 配列でのインデックス。編集モード時の adjustments 適用に使う。
+    let originalIndex: Int
   }
 
   private enum CenterHalf { case left, right }
@@ -166,7 +168,178 @@ final class PlayScene: SKScene {
 
   /// シーン全体を再開する。
   func resumeGame() {
+    hideAdjustmentEditor()
     isPaused = false
+  }
+
+  // MARK: - AutoPlay editing mode(停止中のノーツ位置調整)
+
+  /// 現在停止中に選択されているノーツの original index。nil = 未選択。
+  private var selectedOriginalIndex: Int? = nil
+  /// original index → 累積調整量 (ms)。正 = 後ろにずらす、負 = 前にずらす。
+  private var noteAdjustmentsMs: [Int: Int] = [:]
+  /// 選択中のノーツに表示する ▲▼ 編集 UI コンテナ。
+  private var editorOverlay: SKNode?
+
+  /// 停止中に PlayView から呼ばれる想定の外部 API。
+  /// adjustments 適用済みの Chart を返す。
+  func currentAdjustedChart() -> Chart? {
+    guard var c = chart else { return nil }
+    guard !noteAdjustmentsMs.isEmpty else { return c }
+    for (idx, deltaMs) in noteAdjustmentsMs {
+      guard idx >= 0 && idx < c.notes.count else { continue }
+      let newT = max(0, c.notes[idx].t + deltaMs)
+      c.notes[idx].t = newT
+    }
+    c.notes.sort { $0.t < $1.t }
+    return c
+  }
+
+  /// 停止中タップの処理。
+  /// - 選択済みノーツの ▲▼ 領域なら調整
+  /// - ノーツにヒットしたら選択切り替え
+  /// - どこにもヒットしなければ選択解除
+  private func handleEditingTap(at location: CGPoint) {
+    // 1) 既存 overlay 上の ▲▼ タップを優先チェック
+    if let overlay = editorOverlay {
+      let localPoint = overlay.convert(location, from: self)
+      for node in overlay.children {
+        guard let name = node.name else { continue }
+        if node.contains(localPoint) {
+          switch name {
+          case "arrow_up":
+            adjustSelectedNote(deltaMs: 100)  // +0.1s = 後ろへ
+            return
+          case "arrow_down":
+            adjustSelectedNote(deltaMs: -100) // -0.1s = 前へ
+            return
+          default: break
+          }
+        }
+      }
+    }
+
+    // 2) ノーツにヒットするか
+    if let hit = pickPendingNote(at: location) {
+      selectedOriginalIndex = hit.originalIndex
+      showAdjustmentEditor(near: hit)
+    } else {
+      // 3) 何もヒットしなければ解除
+      hideAdjustmentEditor()
+    }
+  }
+
+  private func pickPendingNote(at location: CGPoint) -> PendingNote? {
+    // container の position からの距離が短いものを優先
+    var best: (PendingNote, CGFloat)? = nil
+    for pending in pendingNotes {
+      guard pending.originalIndex >= 0 else { continue }
+      guard let container = pending.node?.parent else { continue }
+      // シーン内に表示されているもののみ(画面外はスキップ)
+      let pos = container.position
+      guard pos.y > -100 && pos.y < size.height + 100 else { continue }
+      let dx = location.x - pos.x
+      let dy = location.y - pos.y
+      let dist = sqrt(dx * dx + dy * dy)
+      // ピックアップ半径 40px(ノーツサイズ + 余裕)
+      guard dist < 40 else { continue }
+      if best == nil || dist < best!.1 {
+        best = (pending, dist)
+      }
+    }
+    return best?.0
+  }
+
+  private func showAdjustmentEditor(near pending: PendingNote) {
+    hideAdjustmentEditor()
+    guard let container = pending.node?.parent else { return }
+
+    let overlay = SKNode()
+    overlay.zPosition = 200
+
+    // 位置: 右カッはノーツの左、それ以外は右
+    let arrowOffsetX: CGFloat = 44
+    let side: CGFloat = (pending.type == .ka_r) ? -1 : 1
+    overlay.position = CGPoint(
+      x: container.position.x + arrowOffsetX * side,
+      y: container.position.y
+    )
+
+    // ▲(上三角): 0.1s 遅らせる
+    let up = makeArrowButton(text: "🔼", name: "arrow_up")
+    up.position = CGPoint(x: 0, y: 22)
+    overlay.addChild(up)
+
+    // ▼(下三角): 0.1s 早める
+    let down = makeArrowButton(text: "🔽", name: "arrow_down")
+    down.position = CGPoint(x: 0, y: -22)
+    overlay.addChild(down)
+
+    // 累積調整量ラベル(▲と▼の間、右側 or 左側)
+    let deltaMs = noteAdjustmentsMs[pending.originalIndex] ?? 0
+    let label = SKLabelNode(fontNamed: "HiraMinProN-W6")
+    label.name = "delta_label"
+    label.text = formatDelta(deltaMs)
+    label.fontSize = 11
+    label.fontColor = Self.wSumi
+    label.verticalAlignmentMode = .center
+    label.horizontalAlignmentMode = (side > 0) ? .left : .right
+    // ▲▼の外側にラベルを寄せる
+    label.position = CGPoint(x: 24 * side, y: 0)
+    overlay.addChild(label)
+
+    // 選択中ノーツを軽く光らせる(視認性)
+    container.alpha = 1.0
+    let pulse = SKAction.sequence([
+      SKAction.scale(to: 1.15, duration: 0.15),
+      SKAction.scale(to: 1.0, duration: 0.15),
+    ])
+    container.run(pulse)
+
+    addChild(overlay)
+    editorOverlay = overlay
+  }
+
+  private func hideAdjustmentEditor() {
+    editorOverlay?.removeFromParent()
+    editorOverlay = nil
+    selectedOriginalIndex = nil
+  }
+
+  private func makeArrowButton(text: String, name: String) -> SKNode {
+    let bg = SKShapeNode(circleOfRadius: 18)
+    bg.fillColor = Self.wPaper
+    bg.strokeColor = Self.wWoodDeep
+    bg.lineWidth = 1.5
+    bg.name = name
+
+    let label = SKLabelNode(text: text)
+    label.fontSize = 22
+    label.verticalAlignmentMode = .center
+    label.horizontalAlignmentMode = .center
+    label.name = name  // 子ラベルもタップで拾えるように同名
+    bg.addChild(label)
+
+    return bg
+  }
+
+  private func adjustSelectedNote(deltaMs: Int) {
+    guard let idx = selectedOriginalIndex else { return }
+    noteAdjustmentsMs[idx, default: 0] += deltaMs
+
+    // ラベル更新
+    if let overlay = editorOverlay,
+       let label = overlay.childNode(withName: "delta_label") as? SKLabelNode {
+      label.text = formatDelta(noteAdjustmentsMs[idx] ?? 0)
+    }
+  }
+
+  private func formatDelta(_ ms: Int) -> String {
+    if ms == 0 { return "±0.0s" }
+    let sign = ms > 0 ? "+" : "-"
+    let abs = Swift.abs(ms)
+    let sec = Double(abs) / 1000.0
+    return String(format: "%@%.1fs", sign, sec)
   }
 
   // MARK: - Scene lifecycle
@@ -324,10 +497,15 @@ final class PlayScene: SKScene {
   // MARK: - Note scheduling
 
   private func scheduleNotes(from chart: Chart) {
-    for note in chart.notes {
+    for (idx, note) in chart.notes.enumerated() {
       let targetSec = TimeInterval(note.t) / 1000.0
       let durationSec = TimeInterval(note.duration ?? 0) / 1000.0
-      spawnNote(targetTime: targetSec, type: note.type, durationSec: durationSec)
+      spawnNote(
+        targetTime: targetSec,
+        type: note.type,
+        durationSec: durationSec,
+        originalIndex: idx
+      )
     }
   }
 
@@ -340,7 +518,12 @@ final class PlayScene: SKScene {
     run(SKAction.sequence([wait, notify]), withKey: "finish")
   }
 
-  private func spawnNote(targetTime: TimeInterval, type: NoteType, durationSec: TimeInterval) {
+  private func spawnNote(
+    targetTime: TimeInterval,
+    type: NoteType,
+    durationSec: TimeInterval,
+    originalIndex: Int = -1
+  ) {
     let laneWidth = size.width / CGFloat(laneCount)
     let x: CGFloat
     let isDon: Bool
@@ -433,7 +616,8 @@ final class PlayScene: SKScene {
       type: type,
       durationSec: durationSec,
       node: node,
-      tail: tailNode
+      tail: tailNode,
+      originalIndex: originalIndex
     )
     pendingNotes.append(pending)
 
@@ -489,8 +673,13 @@ final class PlayScene: SKScene {
   // MARK: - Touch handling
 
   override func touchesBegan(_ touches: Set<UITouch>, with event: UIEvent?) {
-    // 自動再生モードではタッチを完全に無視(スコアも判定も動かさない)
-    guard mode == .interactive else { return }
+    if mode == .autoPlay {
+      // 自動再生モード: 停止中のみ編集タップを受け付ける(再生中は無視)
+      if isPaused, let touch = touches.first {
+        handleEditingTap(at: touch.location(in: self))
+      }
+      return
+    }
 
     let now = CACurrentMediaTime() - startTime
 

@@ -16,6 +16,12 @@ struct PlayView: View {
   var mode: PlayScene.Mode = .interactive
   var onFinished: (ScoreState) -> Void
   var onQuit: () -> Void
+  /// 自動再生プレビューを離れる時に呼ばれる。停止中に編集された調整が
+  /// 反映済みの Chart を受け取る。autoPlay モードでのみ意味を持つ。
+  /// 呼ばれるタイミング:
+  ///  - ×(戻る)ボタン
+  ///  - 譜面終端に達して自動的に完了
+  var onAutoPlayExit: (Chart) -> Void = { _ in }
 
   enum Phase: Equatable {
     case countdown(Int)
@@ -188,7 +194,7 @@ struct PlayView: View {
 
   private var header: some View {
     HStack(alignment: .center, spacing: 10) {
-      Button(action: onQuit) {
+      Button(action: handleQuit) {
         Text("×")
           .font(.system(size: 22, weight: .bold))
           .foregroundStyle(WafuuUI.sumiSoft)
@@ -282,8 +288,22 @@ struct PlayView: View {
       score = newScore
     }
     scene.onFinished = { finalScore in
-      score = finalScore
-      onFinished(finalScore)
+      if mode == .autoPlay {
+        // 自動再生プレビューでは編集された chart を返して編集画面に戻る
+        onAutoPlayExit(scene.currentAdjustedChart() ?? chart)
+      } else {
+        score = finalScore
+        onFinished(finalScore)
+      }
+    }
+  }
+
+  /// ×(戻る)ボタンハンドラ。autoPlay 時は編集チャートを返す。
+  private func handleQuit() {
+    if mode == .autoPlay {
+      onAutoPlayExit(scene.currentAdjustedChart() ?? chart)
+    } else {
+      onQuit()
     }
   }
 
