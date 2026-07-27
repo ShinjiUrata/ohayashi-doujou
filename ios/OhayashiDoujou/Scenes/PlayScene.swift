@@ -201,28 +201,33 @@ final class PlayScene: SKScene {
   /// - どこにもヒットしなければ選択解除
   private func handleEditingTap(at location: CGPoint) {
     // 1) 既存 overlay 上の ▲▼ タップを優先チェック
-    if let overlay = editorOverlay {
-      let localPoint = overlay.convert(location, from: self)
-      for node in overlay.children {
-        guard let name = node.name else { continue }
-        if node.contains(localPoint) {
-          switch name {
-          case "arrow_up":
-            adjustSelectedNote(deltaMs: 100)  // +0.1s = 後ろへ
-            return
-          case "arrow_down":
-            adjustSelectedNote(deltaMs: -100) // -0.1s = 前へ
-            return
-          default: break
+    //    SpriteKit 標準の nodes(at:) でシーン内の該当ノードを取得し、
+    //    node と ancestor の name を辿って arrow_up/down を探す。
+    if editorOverlay != nil {
+      let hits = nodes(at: location)
+      for hit in hits {
+        var cur: SKNode? = hit
+        while let n = cur {
+          if let name = n.name {
+            switch name {
+            case "arrow_up":
+              adjustSelectedNote(deltaMs: 100)  // +0.1s = 後ろへ
+              return
+            case "arrow_down":
+              adjustSelectedNote(deltaMs: -100) // -0.1s = 前へ
+              return
+            default: break
+            }
           }
+          cur = n.parent
         }
       }
     }
 
     // 2) ノーツにヒットするか
-    if let hit = pickPendingNote(at: location) {
-      selectedOriginalIndex = hit.originalIndex
-      showAdjustmentEditor(near: hit)
+    if let pick = pickPendingNote(at: location) {
+      selectedOriginalIndex = pick.originalIndex
+      showAdjustmentEditor(near: pick)
     } else {
       // 3) 何もヒットしなければ解除
       hideAdjustmentEditor()
@@ -258,7 +263,7 @@ final class PlayScene: SKScene {
     overlay.zPosition = 200
 
     // 位置: 右カッはノーツの左、それ以外は右
-    let arrowOffsetX: CGFloat = 44
+    let arrowOffsetX: CGFloat = 50
     let side: CGFloat = (pending.type == .ka_r) ? -1 : 1
     overlay.position = CGPoint(
       x: container.position.x + arrowOffsetX * side,
@@ -267,12 +272,12 @@ final class PlayScene: SKScene {
 
     // ▲(上三角): 0.1s 遅らせる
     let up = makeArrowButton(text: "🔼", name: "arrow_up")
-    up.position = CGPoint(x: 0, y: 22)
+    up.position = CGPoint(x: 0, y: 28)
     overlay.addChild(up)
 
     // ▼(下三角): 0.1s 早める
     let down = makeArrowButton(text: "🔽", name: "arrow_down")
-    down.position = CGPoint(x: 0, y: -22)
+    down.position = CGPoint(x: 0, y: -28)
     overlay.addChild(down)
 
     // 累積調整量ラベル(▲と▼の間、右側 or 左側)
@@ -307,18 +312,30 @@ final class PlayScene: SKScene {
   }
 
   private func makeArrowButton(text: String, name: String) -> SKNode {
-    let bg = SKShapeNode(circleOfRadius: 18)
+    // 見た目の円(直径 48)
+    let bg = SKShapeNode(circleOfRadius: 24)
     bg.fillColor = Self.wPaper
     bg.strokeColor = Self.wWoodDeep
     bg.lineWidth = 1.5
     bg.name = name
+    bg.zPosition = 0
 
     let label = SKLabelNode(text: text)
-    label.fontSize = 22
+    label.fontSize = 26
     label.verticalAlignmentMode = .center
     label.horizontalAlignmentMode = .center
-    label.name = name  // 子ラベルもタップで拾えるように同名
+    label.name = name
+    label.zPosition = 1
     bg.addChild(label)
+
+    // 押しやすくするための透明な hit area(直径 60)。
+    // nodes(at:) は透明ノードでもフレームで拾ってくれる。
+    let hitArea = SKShapeNode(circleOfRadius: 30)
+    hitArea.fillColor = .clear
+    hitArea.strokeColor = .clear
+    hitArea.name = name
+    hitArea.zPosition = 2
+    bg.addChild(hitArea)
 
     return bg
   }
