@@ -161,15 +161,17 @@ struct ContentView: View {
         .transition(.opacity)
 
       case .previewingDraft(let draft):
+        // 試遊 = 自動再生プレビュー(タッチ判定なし、譜面通りに音のみ再生)
+        // 終了時・中断時のどちらも編集画面へ復帰(スコア画面は経由しない)
         PlayView(
           chart: draft,
-          onFinished: { finalScore in
+          mode: .autoPlay,
+          onFinished: { _ in
             withAnimation(.easeInOut(duration: 0.25)) {
-              route = .previewResult(draft, finalScore)
+              route = .editing(draft)
             }
           },
           onQuit: {
-            // 試遊中の中断は編集画面に戻る(録音した内容を失わない)
             withAnimation(.easeInOut(duration: 0.2)) {
               route = .editing(draft)
             }
@@ -179,6 +181,8 @@ struct ContentView: View {
         .transition(.opacity)
 
       case .previewResult(let draft, let score):
+        // 現状の自動再生プレビューでは経由しないが、Route enum の
+        // 互換性維持のため case は残す。到達したら編集画面へ復帰。
         ResultView(
           chart: draft,
           score: score,
@@ -189,7 +193,6 @@ struct ContentView: View {
             }
           },
           onDismiss: {
-            // 試遊のリザルトから戻ると編集画面へ復帰
             withAnimation(.easeInOut(duration: 0.25)) {
               route = .editing(draft)
             }

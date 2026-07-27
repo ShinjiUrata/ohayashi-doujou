@@ -4,13 +4,16 @@ import SpriteKit
 /// プレイ画面。
 ///
 /// - `Chart` を受け取って再生
-/// - **開始前に 3-2-1 カウントダウン**を表示、終わってから `PlayScene` に load
-/// - ヘッダに曲名バナー + SCORE + COMBO 掛け札
+/// - 開始前に 3-2-1 カウントダウンを表示、終わってから `PlayScene` に load
+/// - **mode: .interactive** → 通常プレイ(タッチ判定・スコア加算)
+/// - **mode: .autoPlay**   → 自動再生プレビュー(タッチ判定なし、譜面通りに
+///                            音のみ再生。画面下部に再生/停止ボタン)
 /// - `PlayScene` からの終了コールバックで onFinished を呼ぶ
 ///
 /// mockup: `mockups/play_wafuu_modern.html`
 struct PlayView: View {
   let chart: Chart
+  var mode: PlayScene.Mode = .interactive
   var onFinished: (ScoreState) -> Void
   var onQuit: () -> Void
 
@@ -29,6 +32,9 @@ struct PlayView: View {
   @State private var phase: Phase = .countdown(3)
   @State private var countdownTask: Task<Void, Never>?
 
+  /// 自動再生モード時の再生/停止トグル状態。
+  @State private var isPaused: Bool = false
+
   var body: some View {
     ZStack {
       WafuuBackground()
@@ -43,11 +49,21 @@ struct PlayView: View {
       }
 
       countdownOverlay
+
+      // 自動再生モードのコントロール(画面下部、太鼓と被って OK)
+      if mode == .autoPlay && phase == .playing {
+        VStack {
+          Spacer()
+          autoPlayControls
+            .padding(.bottom, 36)
+        }
+      }
     }
     .statusBarHidden(true)
     .onAppear {
       AudioEngine.shared.start()
       Haptics.shared.prepare()
+      scene.mode = mode
       wireScene()
       startCountdown()
     }
@@ -92,9 +108,80 @@ struct PlayView: View {
         phase = .playing
       }
       // カウントダウン完了後に譜面をロード → PlayScene が startTime を CACurrentMediaTime() で
-      // 記録し、ノーツのスケジューリングを開始する
+      // 記録し、ノーツのスケジューリング(および autoPlay 時の音再生)を開始する
       scene.load(chart: chart)
     }
+  }
+
+  // MARK: - Auto-play controls(再生/停止トグル)
+
+  private var autoPlayControls: some View {
+    HStack(spacing: 24) {
+      controlButton(
+        icon: "▶",
+        label: "再生",
+        active: !isPaused,
+        action: resume
+      )
+      controlButton(
+        icon: "■",
+        label: "停止",
+        active: isPaused,
+        action: pause
+      )
+    }
+    .padding(.horizontal, 20)
+    .padding(.vertical, 12)
+    .background(
+      RoundedRectangle(cornerRadius: 16)
+        .fill(WafuuUI.paper.opacity(0.9))
+        .shadow(color: .black.opacity(0.25), radius: 8, x: 0, y: 4)
+    )
+    .overlay(
+      RoundedRectangle(cornerRadius: 16)
+        .stroke(WafuuUI.woodDeep, lineWidth: 1.5)
+    )
+  }
+
+  private func controlButton(
+    icon: String,
+    label: String,
+    active: Bool,
+    action: @escaping () -> Void
+  ) -> some View {
+    Button(action: action) {
+      VStack(spacing: 4) {
+        Text(icon)
+          .font(.system(size: 22, weight: .bold))
+          .foregroundStyle(active ? .white : WafuuUI.sumiSoft)
+        Text(label)
+          .font(WafuuUI.serif(11, weight: .semibold))
+          .tracking(2)
+          .foregroundStyle(active ? .white : WafuuUI.sumiSoft)
+      }
+      .frame(width: 68, height: 60)
+      .background(
+        RoundedRectangle(cornerRadius: 10)
+          .fill(active ? WafuuUI.don : Color.clear)
+      )
+      .overlay(
+        RoundedRectangle(cornerRadius: 10)
+          .stroke(active ? WafuuUI.donDim : WafuuUI.woodDark, lineWidth: 1.5)
+      )
+    }
+    .buttonStyle(.plain)
+  }
+
+  private func pause() {
+    guard !isPaused else { return }
+    isPaused = true
+    scene.pauseGame()
+  }
+
+  private func resume() {
+    guard isPaused else { return }
+    isPaused = false
+    scene.resumeGame()
   }
 
   // MARK: - Header
@@ -108,23 +195,25 @@ struct PlayView: View {
           .frame(width: 32, height: 32)
       }
 
-      // SCORE 掛け札
-      WoodPlate(width: 68) {
-        Text("SCORE")
-          .font(WafuuUI.num(8, weight: .semibold))
-          .tracking(3)
-          .foregroundStyle(WafuuUI.sumiMist)
-        Text(formattedScore(score.totalScore))
-          .font(WafuuUI.num(18, weight: .medium))
-          .tracking(1)
-          .foregroundStyle(WafuuUI.sumi)
-          .lineLimit(1)
-          .minimumScaleFactor(0.6)
+      if mode == .interactive {
+        // SCORE 掛け札(通常プレイ時のみ)
+        WoodPlate(width: 68) {
+          Text("SCORE")
+            .font(WafuuUI.num(8, weight: .semibold))
+            .tracking(3)
+            .foregroundStyle(WafuuUI.sumiMist)
+          Text(formattedScore(score.totalScore))
+            .font(WafuuUI.num(18, weight: .medium))
+            .tracking(1)
+            .foregroundStyle(WafuuUI.sumi)
+            .lineLimit(1)
+            .minimumScaleFactor(0.6)
+        }
       }
 
-      // 曲名バナー
+      // 曲名バナー(両モードで表示)
       VStack(spacing: 2) {
-        Text("NOW PLAYING")
+        Text(mode == .autoPlay ? "PREVIEW" : "NOW PLAYING")
           .font(WafuuUI.num(8, weight: .semibold))
           .tracking(3)
           .foregroundStyle(WafuuUI.sumiMist)
@@ -156,16 +245,18 @@ struct PlayView: View {
       .clipShape(RoundedRectangle(cornerRadius: 5))
       .shadow(color: .black.opacity(0.15), radius: 1.5, x: 0, y: 2)
 
-      // COMBO 掛け札
-      WoodPlate(width: 68) {
-        Text("COMBO")
-          .font(WafuuUI.num(8, weight: .semibold))
-          .tracking(3)
-          .foregroundStyle(WafuuUI.sumiMist)
-        Text("\(score.combo)")
-          .font(WafuuUI.num(18, weight: .medium))
-          .tracking(1)
-          .foregroundStyle(WafuuUI.donDim)
+      if mode == .interactive {
+        // COMBO 掛け札(通常プレイ時のみ)
+        WoodPlate(width: 68) {
+          Text("COMBO")
+            .font(WafuuUI.num(8, weight: .semibold))
+            .tracking(3)
+            .foregroundStyle(WafuuUI.sumiMist)
+          Text("\(score.combo)")
+            .font(WafuuUI.num(18, weight: .medium))
+            .tracking(1)
+            .foregroundStyle(WafuuUI.donDim)
+        }
       }
     }
     .padding(.horizontal, 12)
@@ -203,9 +294,18 @@ struct PlayView: View {
   }
 }
 
-#Preview {
+#Preview("Interactive") {
   PlayView(
     chart: DemoChart.phase2Demo,
+    onFinished: { _ in },
+    onQuit: {}
+  )
+}
+
+#Preview("AutoPlay") {
+  PlayView(
+    chart: DemoChart.phase2Demo,
+    mode: .autoPlay,
     onFinished: { _ in },
     onQuit: {}
   )

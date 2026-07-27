@@ -32,6 +32,17 @@ final class PlayScene: SKScene {
   private static let bothPairWindowSec: TimeInterval = 0.05
   private static let missGraceSec: TimeInterval = 0.5
 
+  // MARK: - Mode
+
+  /// シーンの動作モード。
+  /// - interactive: 通常プレイ(タッチ判定・スコア加算あり)
+  /// - autoPlay: 自動再生プレビュー(タッチ判定なし、譜面通りに音のみ再生)
+  enum Mode {
+    case interactive
+    case autoPlay
+  }
+  var mode: Mode = .interactive
+
   // MARK: - Public API
   var onScoreChanged: (@MainActor (ScoreState) -> Void)?
   var onFinished: (@MainActor (ScoreState) -> Void)?
@@ -123,7 +134,39 @@ final class PlayScene: SKScene {
     scheduleNotes(from: chart)
     scheduleFinish(after: TimeInterval(chart.durationMs) / 1000 + Self.missGraceSec)
 
+    if mode == .autoPlay {
+      scheduleAutoPlayAudio(from: chart)
+    }
+
     onScoreChanged?(score)
+  }
+
+  /// 自動再生モード時の音の再生スケジュール。
+  /// 各ノーツの target 時刻に、種別に応じた効果音を鳴らす。
+  private func scheduleAutoPlayAudio(from chart: Chart) {
+    for note in chart.notes {
+      let targetSec = TimeInterval(note.t) / 1000.0
+      let type = note.type
+      let wait = SKAction.wait(forDuration: targetSec)
+      let play = SKAction.run {
+        AudioEngine.shared.play(for: type)
+      }
+      // ホールドの場合は尾のリリース時刻でもう一発鳴らす選択もあるが、
+      // 太鼓の達人でもホールドは頭で 1 発だけなので頭のみ再生する。
+      run(SKAction.sequence([wait, play]))
+    }
+  }
+
+  // MARK: - Pause / Resume(自動再生モード用)
+
+  /// シーン全体を一時停止する(SKAction・アニメーション・音のスケジュールすべて)。
+  func pauseGame() {
+    isPaused = true
+  }
+
+  /// シーン全体を再開する。
+  func resumeGame() {
+    isPaused = false
   }
 
   // MARK: - Scene lifecycle
@@ -416,6 +459,9 @@ final class PlayScene: SKScene {
   // MARK: - Touch handling
 
   override func touchesBegan(_ touches: Set<UITouch>, with event: UIEvent?) {
+    // 自動再生モードではタッチを完全に無視(スコアも判定も動かさない)
+    guard mode == .interactive else { return }
+
     let now = CACurrentMediaTime() - startTime
 
     // 50ms を超えた古いエントリは相方判定の対象外(掃除)
@@ -525,10 +571,12 @@ final class PlayScene: SKScene {
   }
 
   override func touchesEnded(_ touches: Set<UITouch>, with event: UIEvent?) {
+    guard mode == .interactive else { return }
     finishHolds(for: touches, cancelled: false)
   }
 
   override func touchesCancelled(_ touches: Set<UITouch>, with event: UIEvent?) {
+    guard mode == .interactive else { return }
     finishHolds(for: touches, cancelled: true)
   }
 
