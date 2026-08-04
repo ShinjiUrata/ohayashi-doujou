@@ -50,6 +50,12 @@ struct PlayView: View {
   /// ドラッグ終了時に元の状態に戻すために使う。
   @State private var wasPlayingBeforeScrub: Bool = false
 
+  /// 最後にスライダーが変化した時刻(sliderSec が更新された wall clock 時刻)。
+  /// SwiftUI Slider の onEditingChanged(false) が発火しない既知の問題への
+  /// 保険として、isSliderDragging = true のまま長時間スライダー変化が無い
+  /// 場合は「ドラッグが終わっている」とみなして endScrub を強制発火するのに使う。
+  @State private var lastSliderChangeAt: TimeInterval = 0
+
   /// 停止中に選択されているノーツの情報(SwiftUI の ± ボタン表示用)。
   /// nil = 未選択(ボタンは非表示)。
   @State private var selectedNoteInfo: PlayScene.NoteSelectionInfo? = nil
@@ -225,6 +231,8 @@ struct PlayView: View {
       )
       .tint(WafuuUI.donDim)
       .onChange(of: sliderSec) { _, new in
+        // スライダー変化時刻を記録(onEditingChanged の欠落検出用)
+        lastSliderChangeAt = CACurrentMediaTime()
         // ドラッグ中はスライダー移動に追従して scene を silent seek
         // (視覚だけ更新、音は鳴らさない)
         if isSliderDragging {
@@ -247,6 +255,7 @@ struct PlayView: View {
   /// 元の再生状態を記憶して、endScrub で復元する。
   private func beginScrub() {
     isSliderDragging = true
+    lastSliderChangeAt = CACurrentMediaTime()
     wasPlayingBeforeScrub = !isPaused
     if !isPaused {
       // 再生中 → 一時停止(スクラブ中は音を止めた状態で視覚だけ動かす)
@@ -268,6 +277,16 @@ struct PlayView: View {
   }
 
   private func togglePlayPause() {
+    // セーフガード: SwiftUI Slider の onEditingChanged(false) が発火
+    // しないケース(特に slider 最小値でリリースした時)で isSliderDragging
+    // が true のまま残ることがある。この時 polling が sliderSec を更新
+    // しなくなるため、play/pause ボタンが押されたタイミングでも念のため
+    // スクラブ状態を強制解除する(ユーザーはボタンを押すには slider から
+    // 指を離しているはずなので、reset は常に安全)。
+    if isSliderDragging {
+      forceEndStaleScrub()
+    }
+
     if isPaused {
       isPaused = false
       scene.resumeGame()
@@ -277,12 +296,33 @@ struct PlayView: View {
     }
   }
 
+  /// isSliderDragging = true のまま長期間放置された状態を強制解除する。
+  /// endScrub と同じ振る舞い(seek 音付き + 元が再生中なら resume)。
+  private func forceEndStaleScrub() {
+    isSliderDragging = false
+    scene.seek(toSec: sliderSec, silent: false)
+    if wasPlayingBeforeScrub && isPaused {
+      scene.resumeGame()
+      isPaused = false
+    }
+  }
+
   /// 再生時間を 100ms 毎にポーリングしてスライダー位置を更新。
   /// ドラッグ中はユーザー操作を優先(更新しない)。
+  ///
+  /// セーフガード:
+  /// isSliderDragging = true のまま lastSliderChangeAt から 400ms 以上
+  /// 経過している場合、SwiftUI Slider の onEditingChanged(false) が発火
+  /// せずスクラブ状態が「取り残された」と判定して強制解除する。
   private func startPlaybackTimePolling() {
     playbackTimerTask?.cancel()
     playbackTimerTask = Task { @MainActor in
       while !Task.isCancelled {
+        // 取り残されたスクラブを検出して強制解除
+        if isSliderDragging,
+           CACurrentMediaTime() - lastSliderChangeAt > 0.4 {
+          forceEndStaleScrub()
+        }
         if !isSliderDragging {
           sliderSec = scene.currentPlaybackTimeSec()
         }
