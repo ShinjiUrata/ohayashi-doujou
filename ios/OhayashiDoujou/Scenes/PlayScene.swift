@@ -131,6 +131,8 @@ final class PlayScene: SKScene {
   // MARK: - Public entry
 
   func load(chart: Chart) {
+    // 新しい chart のロード = 新セッション。過去の delta 追跡をクリア。
+    noteAdjustmentsMs.removeAll()
     loadInternal(chart: chart, atSec: 0)
     // 新規ロード時は再生状態にリセット
     isEditingPaused = false
@@ -284,15 +286,10 @@ final class PlayScene: SKScene {
   private var noteAdjustmentsMs: [Int: Int] = [:]
 
   /// 停止中に PlayView から呼ばれる想定の外部 API。
-  /// adjustments 適用済みの Chart を返す。
+  /// self.chart は applyExternalAdjustment のたびに直接更新済みなので、
+  /// あとは時系列に sort して返すだけ。
   func currentAdjustedChart() -> Chart? {
     guard var c = chart else { return nil }
-    guard !noteAdjustmentsMs.isEmpty else { return c }
-    for (idx, deltaMs) in noteAdjustmentsMs {
-      guard idx >= 0 && idx < c.notes.count else { continue }
-      let newT = max(0, c.notes[idx].t + deltaMs)
-      c.notes[idx].t = newT
-    }
     c.notes.sort { $0.t < $1.t }
     return c
   }
@@ -370,10 +367,39 @@ final class PlayScene: SKScene {
   }
 
   /// SwiftUI 側の ± ボタンから呼ばれる。
-  /// - Parameter deltaMs: 正 = 遅らせる、負 = 早める
+  /// - Parameter deltaMs: 正 = 遅らせる(視覚は上へ)、負 = 早める(視覚は下へ)
+  ///
+  /// 停止中の呼び出しを想定。chart.notes[idx].t を直接更新するので、
+  /// resume・seek 時のスケジューリングにもそのまま反映される。
+  /// 視覚は SKAction ではなく直接 container.position.y を書き換えて
+  /// 即時反映(scene.speed = 0 で SKAction は動かないため)。
   func applyExternalAdjustment(deltaMs: Int) {
-    guard let idx = selectedOriginalIndex else { return }
+    guard let idx = selectedOriginalIndex,
+          var c = chart,
+          idx >= 0, idx < c.notes.count else { return }
+
+    // chart.notes[idx].t を直接更新(次回 loadInternal でも反映される)
+    c.notes[idx].t = max(0, c.notes[idx].t + deltaMs)
+    self.chart = c
+
+    // 累積 delta 追跡(SwiftUI の表示用)
     noteAdjustmentsMs[idx, default: 0] += deltaMs
+
+    // 視覚的にノーツを移動
+    // 右矢印(deltaMs = -100 = 早める)→ position.y を下げる(hit line に近づく)
+    // 左矢印(deltaMs = +100 = 遅らせる)→ position.y を上げる(hit line から離れる)
+    let spawnY = size.height + 40
+    let fallDistance = spawnY - hitLineY
+    let fallSpeedPerSec = fallDistance / CGFloat(fallDuration)
+    let deltaSec = CGFloat(deltaMs) / 1000.0
+    let deltaPixels = fallSpeedPerSec * deltaSec  // 正: 上へ、負: 下へ
+
+    for pending in pendingNotes where pending.originalIndex == idx {
+      if let container = pending.node?.parent {
+        container.position.y += deltaPixels
+      }
+    }
+
     // SwiftUI に更新済みの delta を通知
     onNoteSelectionChanged?(makeSelectionInfo())
   }
