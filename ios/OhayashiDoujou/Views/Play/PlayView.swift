@@ -76,16 +76,11 @@ struct PlayView: View {
 
       VStack {
         header
-        // 自動再生モードで停止中のみ、ヘッダー直下にボタン列を表示。
-        // 通常時: 4 レーン分の「ノーツ追加」ボタン
-        // ノーツ選択中: 4 個の「削除」ボタン(いずれをタップしても
-        //             選択中ノーツを削除)
+        // 自動再生モードで停止中のみ、ヘッダー直下にレーン別ボタン列を表示。
+        // 選択中ノーツがあれば、そのレーンだけ「削除」ボタンに切替、
+        // 他レーンは「追加」ボタンのまま。
         if mode == .autoPlay && phase == .playing && isPaused {
-          if selectedNoteInfo != nil {
-            deleteNoteButtonsRow
-          } else {
-            addNoteButtonsRow
-          }
+          topButtonsRow
         }
         Spacer()
       }
@@ -381,32 +376,44 @@ struct PlayView: View {
 
   // MARK: - Add note buttons(ヘッダー直下、4 レーン分)
 
-  /// 各レーンの最上部に配置される「ノーツ追加」ボタン列。
-  /// autoPlay モード時のみ表示、押すと現在の再生位置にそのレーンの
-  /// ノーツを追加する。追加すると未保存フラグが立ち、保存ボタンで確定。
-  private var addNoteButtonsRow: some View {
+  /// 各レーンの最上部に配置されるボタン列(追加 or 削除)。
+  /// autoPlay モード && 停止中に表示。
+  /// - 通常時: 4 レーン分の「＋ 追加」ボタン
+  /// - 選択中ノーツがある時: そのレーンだけ「× 削除」ボタンに切替
+  ///   (don_both の場合は don_l と don_r の 2 レーンが削除に切替)
+  private var topButtonsRow: some View {
     HStack(spacing: 0) {
-      addNoteButton(typeRaw: "ka_l", color: WafuuUI.ka, dimColor: WafuuUI.kaDim, label: "左カ")
-      addNoteButton(typeRaw: "don_l", color: WafuuUI.don, dimColor: WafuuUI.donDim, label: "左ド")
-      addNoteButton(typeRaw: "don_r", color: WafuuUI.don, dimColor: WafuuUI.donDim, label: "右ド")
-      addNoteButton(typeRaw: "ka_r", color: WafuuUI.ka, dimColor: WafuuUI.kaDim, label: "右カ")
+      topButton(laneIndex: 0, typeRaw: "ka_l", color: WafuuUI.ka, dimColor: WafuuUI.kaDim, label: "左カ")
+      topButton(laneIndex: 1, typeRaw: "don_l", color: WafuuUI.don, dimColor: WafuuUI.donDim, label: "左ド")
+      topButton(laneIndex: 2, typeRaw: "don_r", color: WafuuUI.don, dimColor: WafuuUI.donDim, label: "右ド")
+      topButton(laneIndex: 3, typeRaw: "ka_r", color: WafuuUI.ka, dimColor: WafuuUI.kaDim, label: "右カ")
     }
-    .padding(.horizontal, 0)
     .padding(.top, 4)
   }
 
-  /// 停止中にノーツ選択されている時、上部の追加ボタン列と
-  /// 差し替えで表示される「削除」ボタン列。4 個並ぶが全て同じ動作
-  /// (選択中のノーツを削除)。
-  private var deleteNoteButtonsRow: some View {
-    HStack(spacing: 0) {
+  /// レーンごとに追加 or 削除ボタンを返す。
+  @ViewBuilder
+  private func topButton(laneIndex: Int, typeRaw: String, color: Color, dimColor: Color, label: String) -> some View {
+    if let info = selectedNoteInfo, laneIndicesForType(info.typeRawValue).contains(laneIndex) {
+      // このレーンに選択中ノーツがある → 削除ボタン
       deleteNoteButton()
-      deleteNoteButton()
-      deleteNoteButton()
-      deleteNoteButton()
+    } else {
+      // それ以外 → 追加ボタン(通常)
+      addNoteButton(typeRaw: typeRaw, color: color, dimColor: dimColor, label: label)
     }
-    .padding(.horizontal, 0)
-    .padding(.top, 4)
+  }
+
+  /// NoteType の rawValue から、それが属するレーン index の集合を返す。
+  /// don_both は 2 レーンにまたがる(don_l と don_r の位置)。
+  private func laneIndicesForType(_ typeRaw: String) -> Set<Int> {
+    switch typeRaw {
+    case "ka_l":     return [0]
+    case "don_l":    return [1]
+    case "don_r":    return [2]
+    case "ka_r":     return [3]
+    case "don_both": return [1, 2]
+    default:         return []
+    }
   }
 
   private func deleteNoteButton() -> some View {
