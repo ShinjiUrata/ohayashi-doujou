@@ -54,6 +54,18 @@ struct PlayView: View {
   /// nil = 未選択(ボタンは非表示)。
   @State private var selectedNoteInfo: PlayScene.NoteSelectionInfo? = nil
 
+  /// 保存済みの chart(nil = まだ一度も保存していない)。
+  /// × ボタンで編集画面に戻る時、これがあれば返す。無ければ元の chart を返す。
+  /// 保存を経ないと adjustments は破棄される仕組み。
+  @State private var lastSavedChart: Chart? = nil
+
+  /// 保存されていない編集がある(前回保存以降 or 初期状態からの adjustment あり)。
+  @State private var hasUnsavedChanges: Bool = false
+
+  /// 保存直後の視覚フィードバック(短時間だけ ✓ を出す)。
+  @State private var showSavedFeedback: Bool = false
+  @State private var savedFeedbackTask: Task<Void, Never>?
+
   var body: some View {
     ZStack {
       WafuuBackground()
@@ -287,7 +299,10 @@ struct PlayView: View {
   private func noteAdjustControls(for info: PlayScene.NoteSelectionInfo) -> some View {
     HStack(spacing: 12) {
       // 左矢印: 遅らせる
-      Button(action: { scene.applyExternalAdjustment(deltaMs: 100) }) {
+      Button(action: {
+        scene.applyExternalAdjustment(deltaMs: 100)
+        markUnsaved()
+      }) {
         Text("◀")
           .font(.system(size: 22, weight: .bold))
           .foregroundStyle(.white)
@@ -319,7 +334,10 @@ struct PlayView: View {
       .frame(maxWidth: .infinity)
 
       // 右矢印: 早める
-      Button(action: { scene.applyExternalAdjustment(deltaMs: -100) }) {
+      Button(action: {
+        scene.applyExternalAdjustment(deltaMs: -100)
+        markUnsaved()
+      }) {
         Text("▶")
           .font(.system(size: 22, weight: .bold))
           .foregroundStyle(.white)
@@ -348,6 +366,78 @@ struct PlayView: View {
       RoundedRectangle(cornerRadius: 16)
         .stroke(WafuuUI.woodDeep, lineWidth: 1.5)
     )
+  }
+
+  // MARK: - Save button(autoPlay モード時、ヘッダー右端)
+
+  /// 保存ボタン。押すと現在の adjustments を lastSavedChart に commit する。
+  /// hasUnsavedChanges = false なら disabled(押しても意味なし)。
+  private var saveButton: some View {
+    Button(action: saveAdjustments) {
+      VStack(spacing: 2) {
+        Text(showSavedFeedback ? "✓" : "保存")
+          .font(WafuuUI.serif(13, weight: .bold))
+          .tracking(2)
+          .foregroundStyle(showSavedFeedback ? WafuuUI.moss : WafuuUI.sumi)
+        Text("SAVE")
+          .font(WafuuUI.num(8, weight: .semibold))
+          .tracking(3)
+          .foregroundStyle(WafuuUI.sumiMist)
+      }
+      .frame(width: 62)
+      .padding(.vertical, 8)
+      .background(
+        LinearGradient(
+          colors: [WafuuUI.woodLight, WafuuUI.woodMid],
+          startPoint: .top,
+          endPoint: .bottom
+        )
+      )
+      .overlay(
+        RoundedRectangle(cornerRadius: 6)
+          .stroke(WafuuUI.woodDeep, lineWidth: 1.5)
+      )
+      .clipShape(RoundedRectangle(cornerRadius: 6))
+      .shadow(color: .black.opacity(0.15), radius: 1.5, x: 0, y: 2)
+    }
+    .buttonStyle(.plain)
+    .disabled(!hasUnsavedChanges && !showSavedFeedback)
+    .opacity(hasUnsavedChanges || showSavedFeedback ? 1 : 0.45)
+  }
+
+  /// ± ボタン押下時に呼ばれる。未保存フラグを立てる。
+  private func markUnsaved() {
+    hasUnsavedChanges = true
+    // 直前の "✓" フィードバックが残っていたら消す
+    if showSavedFeedback {
+      savedFeedbackTask?.cancel()
+      showSavedFeedback = false
+    }
+  }
+
+  /// 保存ボタン押下時。現在の scene の chart を lastSavedChart に commit。
+  /// これで × / 完了時に adjustments が編集画面へ持ち帰られる。
+  private func saveAdjustments() {
+    lastSavedChart = scene.currentAdjustedChart() ?? chart
+    hasUnsavedChanges = false
+    // 短時間だけ ✓ を表示して保存できたことを可視化
+    savedFeedbackTask?.cancel()
+    withAnimation(.easeInOut(duration: 0.15)) {
+      showSavedFeedback = true
+    }
+    savedFeedbackTask = Task { @MainActor in
+      try? await Task.sleep(nanoseconds: 1_500_000_000)
+      if !Task.isCancelled {
+        withAnimation(.easeInOut(duration: 0.25)) {
+          showSavedFeedback = false
+        }
+      }
+    }
+  }
+
+  /// 編集画面に持ち帰る chart(保存済みが無ければ元の chart)。
+  private func chartToReturnOnExit() -> Chart {
+    return lastSavedChart ?? chart
   }
 
   private func noteTypeLabel(_ raw: String) -> String {
@@ -441,6 +531,9 @@ struct PlayView: View {
             .tracking(1)
             .foregroundStyle(WafuuUI.donDim)
         }
+      } else {
+        // autoPlay モードでは右端に保存ボタン
+        saveButton
       }
     }
     .padding(.horizontal, 12)
@@ -467,8 +560,9 @@ struct PlayView: View {
     }
     scene.onFinished = { finalScore in
       if mode == .autoPlay {
-        // 自動再生プレビューでは編集された chart を返して編集画面に戻る
-        onAutoPlayExit(scene.currentAdjustedChart() ?? chart)
+        // 自動再生プレビュー: 保存済みの chart(あれば)を返す。
+        // 未保存の adjustments は破棄される仕様。
+        onAutoPlayExit(chartToReturnOnExit())
       } else {
         score = finalScore
         onFinished(finalScore)
@@ -481,10 +575,11 @@ struct PlayView: View {
     }
   }
 
-  /// ×(戻る)ボタンハンドラ。autoPlay 時は編集チャートを返す。
+  /// ×(戻る)ボタンハンドラ。
+  /// autoPlay 時は保存済み chart を返す(未保存の adjustments は破棄)。
   private func handleQuit() {
     if mode == .autoPlay {
-      onAutoPlayExit(scene.currentAdjustedChart() ?? chart)
+      onAutoPlayExit(chartToReturnOnExit())
     } else {
       onQuit()
     }
