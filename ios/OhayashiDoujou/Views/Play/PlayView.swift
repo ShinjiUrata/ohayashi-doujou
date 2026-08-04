@@ -716,9 +716,10 @@ struct PlayView: View {
     }
     scene.onFinished = { finalScore in
       if mode == .autoPlay {
-        // 自動再生プレビュー: 保存済みの chart(あれば)を返す。
-        // 未保存の adjustments は破棄される仕様。
-        onAutoPlayExit(chartToReturnOnExit())
+        // 自動再生プレビュー: 譜面終端で編集画面には抜けず、末尾で
+        // 停止して留まる。ユーザーは slider を戻して再度再生 or × で
+        // 明示的に戻る。
+        handleAutoPlayFinish()
       } else {
         score = finalScore
         onFinished(finalScore)
@@ -729,6 +730,25 @@ struct PlayView: View {
         selectedNoteInfo = info
       }
     }
+  }
+
+  /// autoPlay モードで譜面終端に到達した時のハンドラ。
+  /// 編集画面には戻らず、末尾で停止して留まる。
+  ///
+  /// 挙動:
+  /// - scene を末尾時刻に seek し直す(silent、位置を明示的に確定)
+  /// - scene を pause(SKAction 停止)
+  /// - SwiftUI 側の isPaused / sliderSec を末尾に同期
+  private func handleAutoPlayFinish() {
+    let endSec = scene.durationSec()
+    // 末尾に seek(silent = 音は既に鳴り終わっているので不要)
+    scene.seek(toSec: endSec, silent: true)
+    // 一時停止
+    scene.pauseGame()
+    // SwiftUI 側の状態を同期
+    isPaused = true
+    sliderSec = endSec
+    lastSliderChangeAt = CACurrentMediaTime()
   }
 
   /// ×(戻る)ボタンハンドラ。
