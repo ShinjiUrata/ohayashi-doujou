@@ -45,6 +45,7 @@ struct PlayView: View {
   /// SwiftUI Slider は Double バインディングが必要。
   @State private var sliderSec: Double = 0
   @State private var isSliderDragging: Bool = false
+  @State private var playbackTimerTask: Task<Void, Never>?
   /// スクラブ(ドラッグ)開始時点の再生状態(true = 元は再生中だった)。
   /// ドラッグ終了時に元の状態に戻すために使う。
   @State private var wasPlayingBeforeScrub: Bool = false
@@ -110,7 +111,7 @@ struct PlayView: View {
     }
     .onDisappear {
       countdownTask?.cancel()
-      savedFeedbackTask?.cancel()
+      playbackTimerTask?.cancel()
     }
   }
 
@@ -152,8 +153,10 @@ struct PlayView: View {
       // カウントダウン完了後に譜面をロード → PlayScene が startTime を CACurrentMediaTime() で
       // 記録し、ノーツのスケジューリング(および autoPlay 時の音再生)を開始する
       scene.load(chart: chart)
-      // シークバーの位置更新は seekBar 内の TimelineView が行うため
-      // ポーリング Task は不要。
+      // 自動再生モードではシークバー用に再生時間ポーリングを開始
+      if mode == .autoPlay {
+        startPlaybackTimePolling()
+      }
     }
   }
 
@@ -202,54 +205,39 @@ struct PlayView: View {
   }
 
   /// 右側のシークバー + 経過時刻 / 総時間表示。
-  ///
-  /// 実装方針:
-  /// TimelineView で 100ms 毎に body を再評価する。Binding の get は
-  /// - isSliderDragging が true → sliderSec(ユーザーの指位置)を返す
-  /// - false → scene.currentPlaybackTimeSec() を返す
-  /// この方針にすると、@State の polling Task を持たなくてよくなり、
-  /// Task の再走・state 同期・キャンセルなど「シークバーが動かなくなる」
-  /// 系のバグが構造的に発生しなくなる。
+  /// ドラッグ中はスライダー位置に合わせて譜面もリアルタイムで動く
+  /// (音は鳴らさず、視覚のみ更新)。YouTube のシーク挙動と同じ。
   private var seekBar: some View {
     let totalSec = Double(chart.durationMs) / 1000.0
-    return TimelineView(.periodic(from: .now, by: 0.1)) { _ in
-      let displaySec: Double = isSliderDragging ? sliderSec : scene.currentPlaybackTimeSec()
-      VStack(spacing: 4) {
-        Slider(
-          value: Binding(
-            get: { displaySec },
-            set: { newVal in sliderSec = newVal }
-          ),
-          in: 0...max(totalSec, 0.001),
-          onEditingChanged: { editing in
-            if editing {
-              // ドラッグ開始時に sliderSec を現在の表示時刻に初期化
-              // (ドラッグ中は sliderSec がユーザーの指の位置を表す)
-              sliderSec = displaySec
-              beginScrub()
-            } else {
-              endScrub()
-            }
-          }
-        )
-        .tint(WafuuUI.donDim)
-        .onChange(of: sliderSec) { _, new in
-          // ドラッグ中はスライダー移動に追従して scene を silent seek
-          // (視覚だけ更新、音は鳴らさない)
-          if isSliderDragging {
-            scene.seek(toSec: new, silent: true)
+    return VStack(spacing: 4) {
+      Slider(
+        value: $sliderSec,
+        in: 0...max(totalSec, 0.001),
+        onEditingChanged: { editing in
+          if editing {
+            beginScrub()
+          } else {
+            endScrub()
           }
         }
-
-        HStack {
-          Text(formatMSS(displaySec))
-          Spacer()
-          Text(formatMSS(totalSec))
+      )
+      .tint(WafuuUI.donDim)
+      .onChange(of: sliderSec) { _, new in
+        // ドラッグ中はスライダー移動に追従して scene を silent seek
+        // (視覚だけ更新、音は鳴らさない)
+        if isSliderDragging {
+          scene.seek(toSec: new, silent: true)
         }
-        .font(WafuuUI.num(10, weight: .medium))
-        .tracking(1)
-        .foregroundStyle(WafuuUI.sumiSoft)
       }
+
+      HStack {
+        Text(formatMSS(sliderSec))
+        Spacer()
+        Text(formatMSS(totalSec))
+      }
+      .font(WafuuUI.num(10, weight: .medium))
+      .tracking(1)
+      .foregroundStyle(WafuuUI.sumiSoft)
     }
   }
 
@@ -287,9 +275,19 @@ struct PlayView: View {
     }
   }
 
-  // 再生時間のポーリングは廃止。シークバー内の TimelineView が
-  // 100ms 周期で再描画するため、Slider の表示は常に最新の
-  // scene.currentPlaybackTimeSec() を反映する。
+  /// 再生時間を 100ms 毎にポーリングしてスライダー位置を更新。
+  /// ドラッグ中はユーザー操作を優先(更新しない)。
+  private func startPlaybackTimePolling() {
+    playbackTimerTask?.cancel()
+    playbackTimerTask = Task { @MainActor in
+      while !Task.isCancelled {
+        if !isSliderDragging {
+          sliderSec = scene.currentPlaybackTimeSec()
+        }
+        try? await Task.sleep(nanoseconds: 100_000_000)
+      }
+    }
+  }
 
   private func formatMSS(_ sec: Double) -> String {
     let total = Int(sec.rounded())
