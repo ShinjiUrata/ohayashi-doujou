@@ -396,7 +396,17 @@ final class PlayScene: SKScene {
 
     for pending in pendingNotes where pending.originalIndex == idx {
       if let container = pending.node?.parent {
-        container.position.y += deltaPixels
+        // 重要: container には SKAction.sequence(fall...) が queue されて
+        // おり、これが scene 更新のたびに補間 y 位置を上書きしてしまう
+        // ため、手動 position 変更前に action を全部停止する。
+        // 再生再開時は resumeGame → loadInternal で containers を丸ごと
+        // 作り直すので、この停止は後続の再生には影響しない。
+        container.removeAllActions()
+        // CGPoint 全体を新規代入して確実にセッタを走らせる
+        container.position = CGPoint(
+          x: container.position.x,
+          y: container.position.y + deltaPixels
+        )
       }
     }
 
