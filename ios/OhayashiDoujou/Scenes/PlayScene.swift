@@ -46,6 +46,18 @@ final class PlayScene: SKScene {
   // MARK: - Public API
   var onScoreChanged: (@MainActor (ScoreState) -> Void)?
   var onFinished: (@MainActor (ScoreState) -> Void)?
+  /// 自動再生モードでノーツの選択状態が変わった時に呼ばれる。
+  /// info == nil は「選択解除」。SwiftUI 側でシークバー上部の ± UI を
+  /// 表示するために使う。
+  var onNoteSelectionChanged: (@MainActor (NoteSelectionInfo?) -> Void)?
+
+  /// SwiftUI へ渡す選択中ノーツ情報。
+  struct NoteSelectionInfo: Equatable, Sendable {
+    let originalIndex: Int
+    let typeRawValue: String  // NoteType.rawValue (SendableでStringに)
+    let originalTimeMs: Int
+    let deltaMs: Int
+  }
 
   // MARK: - State
   private var chart: Chart?
@@ -153,7 +165,7 @@ final class PlayScene: SKScene {
     recentTouches.removeAll()
     activeHolds.removeAll()
     deferredCenterTaps.removeAll()
-    hideAdjustmentEditor()
+    clearSelection()
     removeAllActions()
 
     // 再生時間トラッキング用の base をリセット
@@ -257,7 +269,7 @@ final class PlayScene: SKScene {
     basePlaybackWallTime = CACurrentMediaTime()
     pausedAtSec = nil
 
-    hideAdjustmentEditor()
+    clearSelection()
     isEditingPaused = false
     // 最後に speed = 1(この時点で queue されたばかりの新鮮な SKAction が
     // 一斉に advance 開始する)
@@ -270,13 +282,6 @@ final class PlayScene: SKScene {
   private var selectedOriginalIndex: Int? = nil
   /// original index → 累積調整量 (ms)。正 = 後ろにずらす、負 = 前にずらす。
   private var noteAdjustmentsMs: [Int: Int] = [:]
-  /// 選択中のノーツに表示する ▲▼ 編集 UI コンテナ。
-  private var editorOverlay: SKNode?
-
-  /// ▲▼ ボタンのタップ半径(overlay 原点からの相対座標)。
-  private static let arrowButtonRadius: CGFloat = 30
-  /// ▲▼ ボタンの縦オフセット(overlay 原点から ±方向)。
-  private static let arrowButtonOffsetY: CGFloat = 30
 
   /// 停止中に PlayView から呼ばれる想定の外部 API。
   /// adjustments 適用済みの Chart を返す。
@@ -293,37 +298,13 @@ final class PlayScene: SKScene {
   }
 
   /// 停止中タップの処理。
-  /// - 選択済みノーツの ▲▼ 領域なら調整
-  /// - ノーツにヒットしたら選択切り替え
-  /// - どこにもヒットしなければ選択解除
+  /// ノーツにヒットしたら選択、それ以外なら選択解除。
+  /// ± UI の描画・タップ判定は SwiftUI 側(PlayView)で行う。
   private func handleEditingTap(at location: CGPoint) {
-    // 1) 既存 overlay 上の ▲▼ タップを優先チェック
-    //    SpriteKit の nodes(at:) は SKScene.isPaused = true の状態で
-    //    信頼性が低い(タイミングによっては空配列が返る)ため、
-    //    距離ベースの判定で確実にヒットさせる。
-    if let overlay = editorOverlay {
-      let dx = location.x - overlay.position.x
-      let dyUp = location.y - (overlay.position.y + Self.arrowButtonOffsetY)
-      let distUp = sqrt(dx * dx + dyUp * dyUp)
-      if distUp <= Self.arrowButtonRadius {
-        adjustSelectedNote(deltaMs: 100)  // +0.1s = 後ろへ
-        return
-      }
-      let dyDown = location.y - (overlay.position.y - Self.arrowButtonOffsetY)
-      let distDown = sqrt(dx * dx + dyDown * dyDown)
-      if distDown <= Self.arrowButtonRadius {
-        adjustSelectedNote(deltaMs: -100) // -0.1s = 前へ
-        return
-      }
-    }
-
-    // 2) ノーツにヒットするか
     if let pick = pickPendingNote(at: location) {
-      selectedOriginalIndex = pick.originalIndex
-      showAdjustmentEditor(near: pick)
+      selectNote(pick)
     } else {
-      // 3) 何もヒットしなければ解除
-      hideAdjustmentEditor()
+      clearSelection()
     }
   }
 
@@ -348,127 +329,53 @@ final class PlayScene: SKScene {
     return best?.0
   }
 
-  private func showAdjustmentEditor(near pending: PendingNote) {
-    hideAdjustmentEditor()
-    guard let container = pending.node?.parent else { return }
-
-    let overlay = SKNode()
-    overlay.zPosition = 200
-
-    // 位置: 右カッはノーツの左、それ以外は右
-    let arrowOffsetX: CGFloat = 50
-    let side: CGFloat = (pending.type == .ka_r) ? -1 : 1
-    overlay.position = CGPoint(
-      x: container.position.x + arrowOffsetX * side,
-      y: container.position.y
+  /// 現在の選択情報を SwiftUI 用の struct にして返す。
+  private func makeSelectionInfo() -> NoteSelectionInfo? {
+    guard let idx = selectedOriginalIndex,
+          let chart = self.chart,
+          idx >= 0, idx < chart.notes.count else { return nil }
+    let note = chart.notes[idx]
+    return NoteSelectionInfo(
+      originalIndex: idx,
+      typeRawValue: note.type.rawValue,
+      originalTimeMs: note.t,
+      deltaMs: noteAdjustmentsMs[idx] ?? 0
     )
-
-    // 上ボタン: 0.1s 遅らせる(上向き三角)
-    let up = makeArrowButton(pointsUp: true)
-    up.position = CGPoint(x: 0, y: Self.arrowButtonOffsetY)
-    overlay.addChild(up)
-
-    // 下ボタン: 0.1s 早める(下向き三角)
-    let down = makeArrowButton(pointsUp: false)
-    down.position = CGPoint(x: 0, y: -Self.arrowButtonOffsetY)
-    overlay.addChild(down)
-
-    // 累積調整量ラベル(▲と▼の間、右側 or 左側)
-    let deltaMs = noteAdjustmentsMs[pending.originalIndex] ?? 0
-    let label = SKLabelNode(fontNamed: "HiraMinProN-W6")
-    label.name = "delta_label"
-    label.text = formatDelta(deltaMs)
-    label.fontSize = 11
-    label.fontColor = Self.wSumi
-    label.verticalAlignmentMode = .center
-    label.horizontalAlignmentMode = (side > 0) ? .left : .right
-    // ▲▼の外側にラベルを寄せる
-    label.position = CGPoint(x: 24 * side, y: 0)
-    overlay.addChild(label)
-
-    // 選択中ノーツを不透明・少し拡大して視認性を上げる
-    // (scene.speed = 0 で動作中のため、SKAction ではなく即時値変更で反映)
-    container.alpha = 1.0
-    container.setScale(1.15)
-
-    addChild(overlay)
-    editorOverlay = overlay
   }
 
-  private func hideAdjustmentEditor() {
-    // 選択中ノーツの拡大を元に戻す
-    if let idx = selectedOriginalIndex {
-      for pending in pendingNotes where pending.originalIndex == idx {
-        pending.node?.parent?.setScale(1.0)
+  /// ノーツを選択(SwiftUI 側の ± UI 表示のトリガー)。
+  private func selectNote(_ pending: PendingNote) {
+    // 前の選択を解除(scale を元に戻す)
+    if let prevIdx = selectedOriginalIndex, prevIdx != pending.originalIndex {
+      for p in pendingNotes where p.originalIndex == prevIdx {
+        p.node?.parent?.setScale(1.0)
       }
     }
-    editorOverlay?.removeFromParent()
-    editorOverlay = nil
-    selectedOriginalIndex = nil
+    selectedOriginalIndex = pending.originalIndex
+    // 選択中ノーツを拡大表示(scene.speed = 0 でも即時反映)
+    pending.node?.parent?.alpha = 1.0
+    pending.node?.parent?.setScale(1.15)
+    onNoteSelectionChanged?(makeSelectionInfo())
   }
 
-  /// ▲ or ▼ の丸ボタンを SKShapeNode で構築。
-  /// タップ判定は handleEditingTap 側の距離計算で行うため、name / hitArea は不要。
-  private func makeArrowButton(pointsUp: Bool) -> SKNode {
-    let container = SKNode()
-
-    // 背景の丸(直径 48)
-    let bg = SKShapeNode(circleOfRadius: 24)
-    bg.fillColor = Self.wPaper
-    bg.strokeColor = Self.wWoodDeep
-    bg.lineWidth = 1.5
-    bg.zPosition = 0
-    container.addChild(bg)
-
-    // 三角形(上向き or 下向き)を SKShapeNode の path で描く
-    let triangle = SKShapeNode(path: trianglePath(pointsUp: pointsUp))
-    triangle.fillColor = Self.wSumi
-    triangle.strokeColor = Self.wSumi
-    triangle.lineWidth = 1
-    triangle.zPosition = 1
-    container.addChild(triangle)
-
-    return container
-  }
-
-  /// 中心 (0,0) に配置される、辺 20 の正三角形パス。
-  private func trianglePath(pointsUp: Bool) -> CGPath {
-    let path = CGMutablePath()
-    let side: CGFloat = 20
-    let h = side * (sqrt(3) / 2)  // 高さ
-    // 重心を (0,0) にする調整オフセット(重心 = 頂点から高さの 1/3 下)
-    let offsetY = -h / 3
-
-    if pointsUp {
-      path.move(to: CGPoint(x: 0, y: h * 2 / 3 + offsetY))               // 頂点(上)
-      path.addLine(to: CGPoint(x: -side / 2, y: -h / 3 + offsetY))       // 左下
-      path.addLine(to: CGPoint(x: side / 2, y: -h / 3 + offsetY))        // 右下
-    } else {
-      path.move(to: CGPoint(x: 0, y: -h * 2 / 3 - offsetY))              // 頂点(下)
-      path.addLine(to: CGPoint(x: -side / 2, y: h / 3 - offsetY))        // 左上
-      path.addLine(to: CGPoint(x: side / 2, y: h / 3 - offsetY))         // 右上
+  /// 選択解除。
+  private func clearSelection() {
+    if let idx = selectedOriginalIndex {
+      for p in pendingNotes where p.originalIndex == idx {
+        p.node?.parent?.setScale(1.0)
+      }
     }
-    path.closeSubpath()
-    return path
+    selectedOriginalIndex = nil
+    onNoteSelectionChanged?(nil)
   }
 
-  private func adjustSelectedNote(deltaMs: Int) {
+  /// SwiftUI 側の ± ボタンから呼ばれる。
+  /// - Parameter deltaMs: 正 = 遅らせる、負 = 早める
+  func applyExternalAdjustment(deltaMs: Int) {
     guard let idx = selectedOriginalIndex else { return }
     noteAdjustmentsMs[idx, default: 0] += deltaMs
-
-    // ラベル更新
-    if let overlay = editorOverlay,
-       let label = overlay.childNode(withName: "delta_label") as? SKLabelNode {
-      label.text = formatDelta(noteAdjustmentsMs[idx] ?? 0)
-    }
-  }
-
-  private func formatDelta(_ ms: Int) -> String {
-    if ms == 0 { return "±0.0s" }
-    let sign = ms > 0 ? "+" : "-"
-    let abs = Swift.abs(ms)
-    let sec = Double(abs) / 1000.0
-    return String(format: "%@%.1fs", sign, sec)
+    // SwiftUI に更新済みの delta を通知
+    onNoteSelectionChanged?(makeSelectionInfo())
   }
 
   // MARK: - Scene lifecycle

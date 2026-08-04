@@ -50,6 +50,10 @@ struct PlayView: View {
   /// ドラッグ終了時に元の状態に戻すために使う。
   @State private var wasPlayingBeforeScrub: Bool = false
 
+  /// 停止中に選択されているノーツの情報(SwiftUI の ± ボタン表示用)。
+  /// nil = 未選択(ボタンは非表示)。
+  @State private var selectedNoteInfo: PlayScene.NoteSelectionInfo? = nil
+
   var body: some View {
     ZStack {
       WafuuBackground()
@@ -69,6 +73,13 @@ struct PlayView: View {
       if mode == .autoPlay && phase == .playing {
         VStack {
           Spacer()
+          // ノーツ選択中はシークバーの真上に ± 調整ボタンを表示
+          if let info = selectedNoteInfo {
+            noteAdjustControls(for: info)
+              .padding(.horizontal, 16)
+              .padding(.bottom, 8)
+              .transition(.move(edge: .bottom).combined(with: .opacity))
+          }
           autoPlayControls
             .padding(.bottom, 36)
         }
@@ -267,6 +278,96 @@ struct PlayView: View {
     return String(format: "%d:%02d", total / 60, total % 60)
   }
 
+  // MARK: - Note adjust controls(選択中ノーツの ± ボタン)
+
+  /// シークバー真上に表示する ± 調整ボタン。
+  /// - 右矢印 ▶ = 0.1s 早める(deltaMs = -100)
+  /// - 左矢印 ◀ = 0.1s 遅らせる(deltaMs = +100)
+  @ViewBuilder
+  private func noteAdjustControls(for info: PlayScene.NoteSelectionInfo) -> some View {
+    HStack(spacing: 12) {
+      // 左矢印: 遅らせる
+      Button(action: { scene.applyExternalAdjustment(deltaMs: 100) }) {
+        Text("◀")
+          .font(.system(size: 22, weight: .bold))
+          .foregroundStyle(.white)
+          .frame(width: 60, height: 48)
+          .background(
+            LinearGradient(
+              colors: [WafuuUI.donHi, WafuuUI.don, WafuuUI.donDim],
+              startPoint: .top,
+              endPoint: .bottom
+            )
+          )
+          .overlay(RoundedRectangle(cornerRadius: 12).stroke(WafuuUI.donDim, lineWidth: 1.5))
+          .clipShape(RoundedRectangle(cornerRadius: 12))
+          .shadow(color: WafuuUI.don.opacity(0.35), radius: 3, x: 0, y: 2)
+      }
+      .buttonStyle(.plain)
+
+      // 中央: ノーツ種別 + 累積調整量
+      VStack(spacing: 2) {
+        Text(noteTypeLabel(info.typeRawValue))
+          .font(WafuuUI.serif(11, weight: .bold))
+          .tracking(1)
+          .foregroundStyle(WafuuUI.sumi)
+        Text(formatDelta(info.deltaMs))
+          .font(WafuuUI.num(15, weight: .medium))
+          .tracking(1)
+          .foregroundStyle(info.deltaMs == 0 ? WafuuUI.sumiSoft : WafuuUI.donDim)
+      }
+      .frame(maxWidth: .infinity)
+
+      // 右矢印: 早める
+      Button(action: { scene.applyExternalAdjustment(deltaMs: -100) }) {
+        Text("▶")
+          .font(.system(size: 22, weight: .bold))
+          .foregroundStyle(.white)
+          .frame(width: 60, height: 48)
+          .background(
+            LinearGradient(
+              colors: [WafuuUI.donHi, WafuuUI.don, WafuuUI.donDim],
+              startPoint: .top,
+              endPoint: .bottom
+            )
+          )
+          .overlay(RoundedRectangle(cornerRadius: 12).stroke(WafuuUI.donDim, lineWidth: 1.5))
+          .clipShape(RoundedRectangle(cornerRadius: 12))
+          .shadow(color: WafuuUI.don.opacity(0.35), radius: 3, x: 0, y: 2)
+      }
+      .buttonStyle(.plain)
+    }
+    .padding(.horizontal, 14)
+    .padding(.vertical, 10)
+    .background(
+      RoundedRectangle(cornerRadius: 16)
+        .fill(WafuuUI.paper.opacity(0.92))
+        .shadow(color: .black.opacity(0.25), radius: 8, x: 0, y: 4)
+    )
+    .overlay(
+      RoundedRectangle(cornerRadius: 16)
+        .stroke(WafuuUI.woodDeep, lineWidth: 1.5)
+    )
+  }
+
+  private func noteTypeLabel(_ raw: String) -> String {
+    switch raw {
+    case "don_l": return "左ドン"
+    case "don_r": return "右ドン"
+    case "don_both": return "両手ドン"
+    case "ka_l": return "左カッ"
+    case "ka_r": return "右カッ"
+    default: return raw
+    }
+  }
+
+  private func formatDelta(_ ms: Int) -> String {
+    if ms == 0 { return "±0.0s" }
+    let sign = ms > 0 ? "+" : "-"
+    let sec = Double(abs(ms)) / 1000.0
+    return String(format: "%@%.1fs", sign, sec)
+  }
+
   // MARK: - Header
 
   private var header: some View {
@@ -371,6 +472,11 @@ struct PlayView: View {
       } else {
         score = finalScore
         onFinished(finalScore)
+      }
+    }
+    scene.onNoteSelectionChanged = { info in
+      withAnimation(.easeInOut(duration: 0.15)) {
+        selectedNoteInfo = info
       }
     }
   }
