@@ -180,8 +180,13 @@ final class PlayScene: SKScene {
       guard targetSec >= 0 else { continue }
       let type = note.type
       let wait = SKAction.wait(forDuration: targetSec)
+      // AudioEngine は @MainActor。SKAction.run の closure は必ずしも
+      // main で実行される保証がないため、Task { @MainActor in ... } で
+      // 明示的に MainActor に載せて呼び出す(silent fail 対策)。
       let play = SKAction.run {
-        AudioEngine.shared.play(for: type)
+        Task { @MainActor in
+          AudioEngine.shared.play(for: type)
+        }
       }
       // ホールドの場合は尾のリリース時刻でもう一発鳴らす選択もあるが、
       // 太鼓の達人でもホールドは頭で 1 発だけなので頭のみ再生する。
@@ -229,16 +234,33 @@ final class PlayScene: SKScene {
   }
 
   /// シーン全体を再開する。
+  ///
+  /// 実装上の重要な注意:
+  /// scene.speed = 0 の状態で queue した SKAction が、speed = 1 に
+  /// 戻した際に正しく発火しないケースが発生する(特に drag → pause →
+  /// play の順序で音が鳴らないバグ)。防御的に、resume 時は必ず現在
+  /// 位置からフレッシュに loadInternal し直して、SKAction を speed = 1
+  /// になる直前で綺麗に queue し直す。
   func resumeGame() {
     guard isEditingPaused else { return }
-    // 一時停止していた時刻から再開する。base を今の wall-clock に合わせる。
-    if let paused = pausedAtSec {
-      basePlaybackSec = paused
-      basePlaybackWallTime = CACurrentMediaTime()
-      pausedAtSec = nil
+    // 再開する仮想時刻を決定
+    let resumeTimeSec = pausedAtSec ?? basePlaybackSec
+
+    // 音・視覚を含めて全部 fresh に schedule し直す
+    // (speed = 0 のうちに queue したものは信頼できないため)
+    if let chart = self.chart {
+      loadInternal(chart: chart, atSec: resumeTimeSec, silent: false)
     }
+
+    // 時刻トラッキング base を今の wall-clock に合わせる
+    basePlaybackSec = resumeTimeSec
+    basePlaybackWallTime = CACurrentMediaTime()
+    pausedAtSec = nil
+
     hideAdjustmentEditor()
     isEditingPaused = false
+    // 最後に speed = 1(この時点で queue されたばかりの新鮮な SKAction が
+    // 一斉に advance 開始する)
     self.speed = 1
   }
 

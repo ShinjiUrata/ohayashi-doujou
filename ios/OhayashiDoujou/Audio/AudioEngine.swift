@@ -53,6 +53,13 @@ public final class AudioEngine {
 
   /// 効果音を即時再生する。
   public func play(_ key: SoundKey) {
+    // 事前チェック: engine が止まっていたら再起動を試みる。
+    // 音声セッションの中断や、SwiftUI/SpriteKit の状態遷移中に
+    // engine が silently 停止するケースへの防御(silent fail 対策)。
+    if !engine.isRunning {
+      isStarted = false
+      start()
+    }
     guard let buffer = buffers[key] else { return }
     guard let node = nextPlayer(for: key) else { return }
     // すでに再生中の場合は止めて、頭から鳴らし直す(連打時の反応性優先)。
