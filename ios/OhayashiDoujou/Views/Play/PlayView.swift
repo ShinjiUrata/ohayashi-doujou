@@ -76,8 +76,9 @@ struct PlayView: View {
 
       VStack {
         header
-        // 自動再生モードではヘッダーの直下に「ノーツ追加」ボタン列(4 レーン分)
-        if mode == .autoPlay && phase == .playing {
+        // 自動再生モードで停止中のみ、ヘッダー直下に「ノーツ追加」ボタン列
+        // (4 レーン分)。再生中は非表示にして視界を邪魔しない。
+        if mode == .autoPlay && phase == .playing && isPaused {
           addNoteButtonsRow
         }
         Spacer()
