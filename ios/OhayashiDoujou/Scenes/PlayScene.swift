@@ -129,10 +129,13 @@ final class PlayScene: SKScene {
 
   /// 現在再生中の chart を、指定時刻から再度ロード(seek 用途)。
   /// 再生/停止状態は維持する。
-  func seek(toSec: TimeInterval) {
+  ///
+  /// - Parameter silent: true にすると音のスケジュールを行わない。
+  ///   シークバーをドラッグ中のプレビュー(スクラブ)に使用。
+  func seek(toSec: TimeInterval, silent: Bool = false) {
     guard let chart = self.chart else { return }
     let clamped = max(0, min(toSec, TimeInterval(chart.durationMs) / 1000.0))
-    loadInternal(chart: chart, atSec: clamped)
+    loadInternal(chart: chart, atSec: clamped, silent: silent)
     if isEditingPaused {
       pausedAtSec = clamped
     }
@@ -140,7 +143,7 @@ final class PlayScene: SKScene {
 
   /// 内部ロード実装。scene の状態を一旦全部クリアして atSec の時点から
   /// スケジューリングし直す。isEditingPaused と speed には手を付けない。
-  private func loadInternal(chart: Chart, atSec offsetSec: TimeInterval) {
+  private func loadInternal(chart: Chart, atSec offsetSec: TimeInterval, silent: Bool = false) {
     self.chart = chart
     self.score = ScoreState()
     for pending in pendingNotes {
@@ -162,7 +165,8 @@ final class PlayScene: SKScene {
     scheduleNotes(from: chart, offsetSec: offsetSec)
     scheduleFinish(after: TimeInterval(chart.durationMs) / 1000.0 - offsetSec + Self.missGraceSec)
 
-    if mode == .autoPlay {
+    // silent = true(スクラブ中)は音を鳴らさない
+    if mode == .autoPlay && !silent {
       scheduleAutoPlayAudio(from: chart, offsetSec: offsetSec)
     }
   }

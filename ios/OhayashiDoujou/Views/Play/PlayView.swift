@@ -46,6 +46,9 @@ struct PlayView: View {
   @State private var sliderSec: Double = 0
   @State private var isSliderDragging: Bool = false
   @State private var playbackTimerTask: Task<Void, Never>?
+  /// スクラブ(ドラッグ)開始時点の再生状態(true = 元は再生中だった)。
+  /// ドラッグ終了時に元の状態に戻すために使う。
+  @State private var wasPlayingBeforeScrub: Bool = false
 
   var body: some View {
     ZStack {
@@ -175,6 +178,8 @@ struct PlayView: View {
   }
 
   /// 右側のシークバー + 経過時刻 / 総時間表示。
+  /// ドラッグ中はスライダー位置に合わせて譜面もリアルタイムで動く
+  /// (音は鳴らさず、視覚のみ更新)。YouTube のシーク挙動と同じ。
   private var seekBar: some View {
     let totalSec = Double(chart.durationMs) / 1000.0
     return VStack(spacing: 4) {
@@ -183,14 +188,20 @@ struct PlayView: View {
         in: 0...max(totalSec, 0.001),
         onEditingChanged: { editing in
           if editing {
-            isSliderDragging = true
+            beginScrub()
           } else {
-            isSliderDragging = false
-            scene.seek(toSec: sliderSec)
+            endScrub()
           }
         }
       )
       .tint(WafuuUI.donDim)
+      .onChange(of: sliderSec) { _, new in
+        // ドラッグ中はスライダー移動に追従して scene を silent seek
+        // (視覚だけ更新、音は鳴らさない)
+        if isSliderDragging {
+          scene.seek(toSec: new, silent: true)
+        }
+      }
 
       HStack {
         Text(formatMSS(sliderSec))
@@ -200,6 +211,30 @@ struct PlayView: View {
       .font(WafuuUI.num(10, weight: .medium))
       .tracking(1)
       .foregroundStyle(WafuuUI.sumiSoft)
+    }
+  }
+
+  /// スクラブ開始: 元が再生中だったら pause(scene.speed = 0 で SKAction 停止)。
+  /// 元の再生状態を記憶して、endScrub で復元する。
+  private func beginScrub() {
+    isSliderDragging = true
+    wasPlayingBeforeScrub = !isPaused
+    if !isPaused {
+      // 再生中 → 一時停止(スクラブ中は音を止めた状態で視覚だけ動かす)
+      scene.pauseGame()
+      isPaused = true
+    }
+  }
+
+  /// スクラブ終了: 最終位置に音付きで seek 再スケジュール。
+  /// 元が再生中だったら再開、停止中だったらそのまま。
+  private func endScrub() {
+    isSliderDragging = false
+    // 音付きで最終位置に再スケジュール(silent = false)
+    scene.seek(toSec: sliderSec, silent: false)
+    if wasPlayingBeforeScrub {
+      scene.resumeGame()
+      isPaused = false
     }
   }
 
