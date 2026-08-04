@@ -76,10 +76,16 @@ struct PlayView: View {
 
       VStack {
         header
-        // 自動再生モードで停止中のみ、ヘッダー直下に「ノーツ追加」ボタン列
-        // (4 レーン分)。再生中は非表示にして視界を邪魔しない。
+        // 自動再生モードで停止中のみ、ヘッダー直下にボタン列を表示。
+        // 通常時: 4 レーン分の「ノーツ追加」ボタン
+        // ノーツ選択中: 4 個の「削除」ボタン(いずれをタップしても
+        //             選択中ノーツを削除)
         if mode == .autoPlay && phase == .playing && isPaused {
-          addNoteButtonsRow
+          if selectedNoteInfo != nil {
+            deleteNoteButtonsRow
+          } else {
+            addNoteButtonsRow
+          }
         }
         Spacer()
       }
@@ -387,6 +393,54 @@ struct PlayView: View {
     }
     .padding(.horizontal, 0)
     .padding(.top, 4)
+  }
+
+  /// 停止中にノーツ選択されている時、上部の追加ボタン列と
+  /// 差し替えで表示される「削除」ボタン列。4 個並ぶが全て同じ動作
+  /// (選択中のノーツを削除)。
+  private var deleteNoteButtonsRow: some View {
+    HStack(spacing: 0) {
+      deleteNoteButton()
+      deleteNoteButton()
+      deleteNoteButton()
+      deleteNoteButton()
+    }
+    .padding(.horizontal, 0)
+    .padding(.top, 4)
+  }
+
+  private func deleteNoteButton() -> some View {
+    Button(action: {
+      scene.deleteSelectedNote()
+      markUnsaved()
+    }) {
+      VStack(spacing: 2) {
+        Text("×")
+          .font(.system(size: 22, weight: .bold))
+          .foregroundStyle(.white)
+        Text("削除")
+          .font(WafuuUI.serif(9, weight: .bold))
+          .tracking(1)
+          .foregroundStyle(.white.opacity(0.85))
+      }
+      .frame(maxWidth: .infinity)
+      .frame(height: 42)
+      .background(
+        LinearGradient(
+          colors: [Color(hex: 0x6A5248), Color(hex: 0x3E2E24)],
+          startPoint: .top,
+          endPoint: .bottom
+        )
+      )
+      .overlay(
+        RoundedRectangle(cornerRadius: 6)
+          .stroke(Color(hex: 0x3E2E24), lineWidth: 1)
+      )
+      .clipShape(RoundedRectangle(cornerRadius: 6))
+      .shadow(color: .black.opacity(0.18), radius: 1.5, x: 0, y: 1)
+      .padding(.horizontal, 2)
+    }
+    .buttonStyle(.plain)
   }
 
   private func addNoteButton(typeRaw: String, color: Color, dimColor: Color, label: String) -> some View {

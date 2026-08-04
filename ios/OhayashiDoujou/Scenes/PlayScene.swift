@@ -408,6 +408,44 @@ final class PlayScene: SKScene {
     }
   }
 
+  /// SwiftUI 側の削除ボタンから呼ばれる。
+  /// 現在選択されているノーツを chart.notes から削除する。
+  /// - chart.notes を .remove(at: idx) で削除
+  /// - 影響を受ける noteAdjustmentsMs のキーを整合的にシフト
+  /// - 削除された index の adjustment は破棄
+  /// - 削除後、seek(silent) で scene 全体を現在位置から再構築
+  ///   (残る pending notes の originalIndex を新しい配列に合わせる)
+  func deleteSelectedNote() {
+    guard let idx = selectedOriginalIndex,
+          var c = chart,
+          idx >= 0, idx < c.notes.count else { return }
+
+    // chart から該当ノーツを削除
+    c.notes.remove(at: idx)
+    self.chart = c
+
+    // noteAdjustmentsMs のキーを整合的にシフト:
+    //   idx = 削除する → 破棄
+    //   k > idx    → k-1 に変更(削除後の新しい位置)
+    //   k < idx    → そのまま
+    var shifted: [Int: Int] = [:]
+    for (k, v) in noteAdjustmentsMs {
+      if k == idx { continue }
+      shifted[k > idx ? k - 1 : k] = v
+    }
+    noteAdjustmentsMs = shifted
+
+    // 選択を解除(SwiftUI に nil を通知)
+    selectedOriginalIndex = nil
+    onNoteSelectionChanged?(nil)
+
+    // scene を現在位置から再構築(silent = 音は鳴らさない)
+    // これで pending notes の originalIndex が新しい chart.notes 配列
+    // (削除後)と一致するように spawn し直される
+    let currentTime = currentPlaybackTimeSec()
+    seek(toSec: currentTime, silent: true)
+  }
+
   /// SwiftUI 側の ± ボタンから呼ばれる。
   /// - Parameter deltaMs: 正 = 遅らせる(視覚は上へ)、負 = 早める(視覚は下へ)
   ///
