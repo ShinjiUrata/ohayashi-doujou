@@ -366,6 +366,48 @@ final class PlayScene: SKScene {
     onNoteSelectionChanged?(nil)
   }
 
+  /// SwiftUI 側の「ノーツ追加」ボタンから呼ばれる。
+  /// 現在の再生位置(pausedAtSec または currentPlaybackTimeSec)に
+  /// 指定タイプのノーツを追加する。追加後、視覚的にも即座に判定
+  /// ライン上にノーツが表示される。chart.notes に append するので、
+  /// resume や seek 時も自動的に反映される。
+  ///
+  /// - Parameter typeRawValue: NoteType の rawValue("don_l"/"don_r"/"ka_l"/"ka_r"/"don_both")
+  func addNoteAtCurrentTime(typeRawValue: String) {
+    guard let type = NoteType(rawValue: typeRawValue),
+          var c = chart else { return }
+
+    let currentSec = currentPlaybackTimeSec()
+    let currentMs = max(0, Int(currentSec * 1000))
+    let note = Note(t: currentMs, type: type, duration: nil)
+    c.notes.append(note)
+    // 時刻順にソートせず末尾に追加(originalIndex の整合性維持)。
+    // currentAdjustedChart() で最終的にソートされて編集画面へ返る。
+    self.chart = c
+    let newIndex = c.notes.count - 1
+
+    // 視覚: 新しいノーツを判定ライン上に spawn する(現時点で
+    // targetTime == currentTime なので effectiveTargetSec = 0 → 判定
+    // ライン上に startY で配置される)
+    // note: spawnNote は targetTime を「現在からの相対秒数」として扱うため 0 を渡す
+    spawnNote(
+      targetTime: 0,
+      type: type,
+      durationSec: 0,
+      originalIndex: newIndex
+    )
+
+    // 再生中(scene.speed > 0)なら即座に音を鳴らす
+    // 停止中(speed = 0)は resume 時の loadInternal で改めて scheduling されるため不要
+    if self.speed > 0 {
+      run(SKAction.run {
+        Task { @MainActor in
+          AudioEngine.shared.play(for: type)
+        }
+      })
+    }
+  }
+
   /// SwiftUI 側の ± ボタンから呼ばれる。
   /// - Parameter deltaMs: 正 = 遅らせる(視覚は上へ)、負 = 早める(視覚は下へ)
   ///

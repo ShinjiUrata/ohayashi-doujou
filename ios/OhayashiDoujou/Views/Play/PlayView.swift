@@ -76,6 +76,10 @@ struct PlayView: View {
 
       VStack {
         header
+        // 自動再生モードではヘッダーの直下に「ノーツ追加」ボタン列(4 レーン分)
+        if mode == .autoPlay && phase == .playing {
+          addNoteButtonsRow
+        }
         Spacer()
       }
 
@@ -366,6 +370,56 @@ struct PlayView: View {
       RoundedRectangle(cornerRadius: 16)
         .stroke(WafuuUI.woodDeep, lineWidth: 1.5)
     )
+  }
+
+  // MARK: - Add note buttons(ヘッダー直下、4 レーン分)
+
+  /// 各レーンの最上部に配置される「ノーツ追加」ボタン列。
+  /// autoPlay モード時のみ表示、押すと現在の再生位置にそのレーンの
+  /// ノーツを追加する。追加すると未保存フラグが立ち、保存ボタンで確定。
+  private var addNoteButtonsRow: some View {
+    HStack(spacing: 0) {
+      addNoteButton(typeRaw: "ka_l", color: WafuuUI.ka, dimColor: WafuuUI.kaDim, label: "左カ")
+      addNoteButton(typeRaw: "don_l", color: WafuuUI.don, dimColor: WafuuUI.donDim, label: "左ド")
+      addNoteButton(typeRaw: "don_r", color: WafuuUI.don, dimColor: WafuuUI.donDim, label: "右ド")
+      addNoteButton(typeRaw: "ka_r", color: WafuuUI.ka, dimColor: WafuuUI.kaDim, label: "右カ")
+    }
+    .padding(.horizontal, 0)
+    .padding(.top, 4)
+  }
+
+  private func addNoteButton(typeRaw: String, color: Color, dimColor: Color, label: String) -> some View {
+    Button(action: {
+      scene.addNoteAtCurrentTime(typeRawValue: typeRaw)
+      markUnsaved()
+    }) {
+      VStack(spacing: 2) {
+        Text("＋")
+          .font(.system(size: 20, weight: .bold))
+          .foregroundStyle(.white)
+        Text(label)
+          .font(WafuuUI.serif(9, weight: .bold))
+          .tracking(1)
+          .foregroundStyle(.white.opacity(0.85))
+      }
+      .frame(maxWidth: .infinity)
+      .frame(height: 42)
+      .background(
+        LinearGradient(
+          colors: [color, dimColor],
+          startPoint: .top,
+          endPoint: .bottom
+        )
+      )
+      .overlay(
+        RoundedRectangle(cornerRadius: 6)
+          .stroke(dimColor, lineWidth: 1)
+      )
+      .clipShape(RoundedRectangle(cornerRadius: 6))
+      .shadow(color: .black.opacity(0.15), radius: 1.5, x: 0, y: 1)
+      .padding(.horizontal, 2)
+    }
+    .buttonStyle(.plain)
   }
 
   // MARK: - Save button(autoPlay モード時、ヘッダー右端)
