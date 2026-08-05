@@ -53,6 +53,10 @@ resource "google_cloud_run_v2_service" "api" {
         name  = "APPLE_PRODUCT_ID"
         value = "rhythm.chart.publish.single"
       }
+      env {
+        name  = "APPLE_APP_APPLE_ID"
+        value = local.apple_app_apple_id
+      }
     }
 
     timeout = "60s"
