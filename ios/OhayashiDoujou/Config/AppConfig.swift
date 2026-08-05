@@ -39,4 +39,18 @@ public enum AppConfig {
     }
     return url
   }
+
+  /// 譜面公開 IAP のプロダクト ID(Debug/Release で別)。
+  ///
+  /// App Store Connect のチーム内で IAP プロダクト ID は一意制約があるため、
+  /// dev アプリレコード用に `.dev` サフィックス付きの別 ID を用意している。
+  ///  - Debug: `rhythm.chart.publish.single.dev`(お囃子道場 (Dev) アプリ)
+  ///  - Release: `rhythm.chart.publish.single`(お囃子道場 アプリ)
+  public static var iapPublishProductID: String {
+    guard let raw = Bundle.main.object(forInfoDictionaryKey: "IAPPublishProductID") as? String,
+          !raw.isEmpty else {
+      fatalError("Info.plist の IAPPublishProductID が未設定または不正")
+    }
+    return raw
+  }
 }

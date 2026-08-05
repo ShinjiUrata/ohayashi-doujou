@@ -39,6 +39,11 @@ locals {
   # ここが JWS 検証時の bundleId チェックの正解値になる。
   apple_bundle_id = var.environment == "prod" ? "com.zembrem.ohayashidoujou" : "com.zembrem.ohayashidoujou.dev"
 
+  # IAP プロダクト ID。App Store Connect のチーム内で一意制約があるため、
+  # dev アプリレコード用に別 ID を使う(iOS 側 xcconfig とも揃える)。
+  # ここが JWS 検証時の productId チェックの正解値になる。
+  apple_product_id = var.environment == "prod" ? "rhythm.chart.publish.single" : "rhythm.chart.publish.single.dev"
+
   # App Store Connect が発行する App Apple ID(10 桁前後の数値)。
   # prod 環境で PRODUCTION モードの JWS 検証に必須。
   # dev 環境は SANDBOX モードで appAppleId 不要のため空文字。

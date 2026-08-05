@@ -52,5 +52,7 @@
 	<string>$(API_BASE_URL)</string>
 	<key>ChartsBaseURL</key>
 	<string>$(CHARTS_BASE_URL)</string>
+	<key>IAPPublishProductID</key>
+	<string>$(IAP_PUBLISH_PRODUCT_ID)</string>
 </dict>
 </plist>

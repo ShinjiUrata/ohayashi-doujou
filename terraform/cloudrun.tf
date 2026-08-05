@@ -51,7 +51,7 @@ resource "google_cloud_run_v2_service" "api" {
       }
       env {
         name  = "APPLE_PRODUCT_ID"
-        value = "rhythm.chart.publish.single"
+        value = local.apple_product_id
       }
       env {
         name  = "APPLE_APP_APPLE_ID"

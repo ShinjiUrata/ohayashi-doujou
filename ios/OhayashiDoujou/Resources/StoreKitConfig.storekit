@@ -18,7 +18,7 @@
           "locale" : "en_US"
         }
       ],
-      "productID" : "rhythm.chart.publish.single",
+      "productID" : "rhythm.chart.publish.single.dev",
       "referenceName" : "譜面公開 (1曲)",
       "type" : "Consumable"
     }

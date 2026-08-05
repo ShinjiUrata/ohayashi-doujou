@@ -3,7 +3,7 @@ import StoreKit
 
 /// StoreKit 2 統合の窓口。
 ///
-/// - 単一の Consumable プロダクト `rhythm.chart.publish.single` を扱う
+/// - 単一の Consumable プロダクトを扱う(ID は `AppConfig.iapPublishProductID`)
 /// - 購入成功時は JWS(`verification.jwsRepresentation`)を取り出して返す
 /// - **`finish(_:)` は必ず backend の `/publish` 成功後に呼ぶ**
 ///   (`ios_pitfalls.md` §10 / `client_reliability.md` §2 参照)
@@ -15,8 +15,8 @@ import StoreKit
 public final class StoreKitManager {
   public static let shared = StoreKitManager()
 
-  /// backend / App Store Connect と同じ ID を使う。
-  public static let publishProductID = "rhythm.chart.publish.single"
+  /// backend / App Store Connect と同じ ID を使う(xcconfig で環境ごとに切替)。
+  public static var publishProductID: String { AppConfig.iapPublishProductID }
 
   private var cachedProduct: Product?
   private var updatesTask: Task<Void, Never>?
