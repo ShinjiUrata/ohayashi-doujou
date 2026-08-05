@@ -54,10 +54,14 @@ targets:
       testTargets:
         - OhayashiDoujouTests
       gatherCoverageData: true
-      # Debug ビルドで実 App Store を叩かず、ローカル定義のプロダクトで
-      # StoreKit をテストできるようにする。Sandbox テスターや実端末で
-      # E2E する場合はここを OFF にする。
-      storeKitConfiguration: OhayashiDoujou/Resources/StoreKitConfig.storekit
+      # StoreKit の実行環境について:
+      #   - Sandbox 実機テスト時: この設定を削除(現状)
+      #     → iPhone にサインイン中の Sandbox アカウントで購入、
+      #        Apple の Sandbox サーバーから本物署名の JWS が返る
+      #   - シミュレータで UI 確認だけしたい時: 以下を有効化
+      #        storeKitConfiguration: OhayashiDoujou/Resources/StoreKitConfig.storekit
+      #     → ローカル定義プロダクトでダイアログ確認可、backend の JWS
+      #        検証は Xcode 環境の署名なので必ず TRANSACTION_INVALID になる
 
   OhayashiDoujouTests:
     type: bundle.unit-test
