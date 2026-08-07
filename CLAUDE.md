@@ -414,11 +414,13 @@ URL は Cloud Run と GCS が自動発行するデフォルトを使用。独自
 - [ ] GitHub Actions workflow 整備(terraform-ci / api-ci / api-dev-cd / api-prod-cd / ios-ci)
 
 ### Phase 5: IAP(StoreKit 2)
-- [ ] App Store Connect で Consumable プロダクト登録(`rhythm.chart.publish.single`)
-- [ ] iOS 側: 公開ボタン押下時の StoreKit 2 即時決済フロー
-- [ ] Cloud Run 側: App Store Server API での JWS 検証
-- [ ] サンドボックスでの「公開ボタン→決済→publish 成功」までの疎通テスト
-- [ ] DEBUG 時はバックエンド URL を開発環境に振り向ける(IAP はサンドボックスでOK)
+- [x] App Store Connect で Consumable プロダクト登録
+      (prod: `rhythm.chart.publish.single` / dev: `rhythm.chart.publish.single.dev`。
+       ASC の IAP ID はチーム内一意制約があるため dev / prod で別 ID)
+- [x] iOS 側: 公開ボタン押下時の StoreKit 2 即時決済フロー
+- [x] Cloud Run 側: App Store Server API での JWS 検証
+- [x] サンドボックスでの「公開ボタン→決済→publish 成功」までの疎通テスト(2026-08-07)
+- [x] DEBUG 時はバックエンド URL を開発環境に振り向ける(IAP はサンドボックスでOK)
 
 ### Phase 6: 仕上げ
 - [ ] 視覚エフェクト(波紋・光・判定文字)
@@ -481,6 +483,7 @@ URL は Cloud Run と GCS が自動発行するデフォルトを使用。独自
 | 独自ドメイン取得なし | (1) 維持コスト・DNS 管理・SSL 証明書管理をゼロに、(2) URL は iOS ハードコードでユーザー可視性なし、(3) Cloud Run と GCS が自動発行する URL で全機能が完結する |
 | 両手同時打(`don_both`)を音符として採用 | (1) 実際のお囃子で頻出する「大ドン」を表現、(2) SpriteKit のマルチタッチ検出で技術的に容易、(3) 判定は中央ゾーン左右両側の 50ms 以内の 2 タッチ、(4) スキーマは `type` に 1 種追加するだけで既存譜面の後方互換を維持 |
 | ホールドノート(`duration` フィールド)を採用 | (1) 標準音ゲー表現、視覚的に分かりやすい、(2) 録音時 500ms 閾値で単発と自動判別、(3) スキーマは `duration` Optional 追加で既存譜面の後方互換を維持、(4) 判定は頭 + 尾の 2 段、途中で離した場合の減点も対応 |
+| dev / prod で IAP プロダクト ID を分離 | App Store Connect の IAP プロダクト ID は 1 チーム内で完全一意制約。dev bundle の Sandbox テストのために dev アプリレコード + `.dev` サフィックス付き別 IAP を作成する必要があった。iOS 側 xcconfig と backend Terraform で自動切替(`IAP_PUBLISH_PRODUCT_ID` / `apple_product_id`) |
 
 ---
 

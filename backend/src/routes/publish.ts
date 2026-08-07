@@ -55,7 +55,7 @@ publishRoute.post("/publish", async (c) => {
   const chart = rawChart as Chart;
 
   try {
-    // 4) JWS 検証 (Phase 4 はスタブ、Phase 5 で本実装)
+    // 4) JWS 検証
     const verified = await verifySignedTransaction(jws);
 
     // 5) bundle_id / product_id / environment の整合チェック
