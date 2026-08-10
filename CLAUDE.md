@@ -69,7 +69,7 @@
 | 配布形態 | TestFlight or Ad Hoc、当日は会場の1台で運用想定 |
 | Bundle Identifier(本番) | `com.zembrem.ohayashidoujou` |
 | Bundle Identifier(開発) | `com.zembrem.ohayashidoujou.dev` |
-| 表示名(日本語) | お囃子道場 |
+| 表示名(日本語) | おはやし道場(子ども向けに全てひらがな。プロジェクト内部名は「お囃子道場」で漢字表記のまま) |
 
 ### なぜSpriteKit?
 - リズムゲームの「ノーツ落下 + 当たり判定」が標準APIで素直に書ける
