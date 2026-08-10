@@ -246,7 +246,7 @@ struct ChartEditView: View {
       Button(action: { onPublish(trimmed()) }) {
         HStack(spacing: 8) {
           Text("公開する")
-          Text("¥1,000")
+          Text("¥1,200")
             .font(WafuuUI.num(15, weight: .medium))
             .tracking(1)
             .padding(.horizontal, 6)

@@ -27,7 +27,7 @@ struct ChartPublishView: View {
 
   @State private var publishId: String = ""
   @State private var phase: Phase = .input
-  @State private var displayPrice: String = "¥1,000"
+  @State private var displayPrice: String = "¥1,200"
 
   var body: some View {
     ZStack {
