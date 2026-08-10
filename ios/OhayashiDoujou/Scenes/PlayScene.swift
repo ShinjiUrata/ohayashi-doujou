@@ -64,7 +64,9 @@ final class PlayScene: SKScene {
   private(set) var score = ScoreState()
   private var startTime: TimeInterval = 0
   private var pendingNotes: [PendingNote] = []
-  private var judgeLabel: SKLabelNode?
+  /// 判定文字表示のコンテナ(影 + 本体をぶら下げる)への参照。
+  /// 次の判定が来たら前のコンテナを removeFromParent する用途で保持。
+  private var judgeLabelContainer: SKNode?
 
   /// レーン毎の判定マーカー(◯)への参照。パルスアニメで再利用する。
   /// index = レーン番号 0…3(ka_l, don_l, don_r, ka_r 順)
@@ -1194,13 +1196,12 @@ final class PlayScene: SKScene {
   // MARK: - Judge display
 
   private func showJudge(_ result: JudgeResult) {
-    judgeLabel?.removeFromParent()
     let (text, color, size): (String, SKColor, CGFloat)
     switch result {
     case .good:
-      // 金色、少し大きめで祝う
+      // 濃い金(木目背景に埋もれない濃さ)、少し大きめで祝う
       text = "良!"
-      color = Self.wGoldHi
+      color = Self.wGold
       size = 44
     case .ok:
       // 水色、標準サイズ
@@ -1214,19 +1215,35 @@ final class PlayScene: SKScene {
       size = 36
     }
 
-    let label = SKLabelNode(fontNamed: "HiraMinProN-W6")
+    // container に「墨色の影」+「本体ラベル」をぶら下げて一括アニメ。
+    // 影を敷くことで木目背景に埋もれず輪郭がはっきり見える。
+    let container = SKNode()
+    container.position = CGPoint(x: self.size.width / 2, y: hitLineY + 80)
+    container.setScale(0.6)
+    container.alpha = 0
+    container.zPosition = 100
+    addChild(container)
+
+    let shadow = SKLabelNode(fontNamed: "HiraMinProN-W8")
+    shadow.text = text
+    shadow.fontSize = size
+    shadow.fontColor = SKColor(white: 0, alpha: 0.40)
+    shadow.position = CGPoint(x: 2, y: -2)
+    shadow.zPosition = 0
+    container.addChild(shadow)
+
+    let label = SKLabelNode(fontNamed: "HiraMinProN-W8")
     label.text = text
     label.fontSize = size
     label.fontColor = color
-    label.position = CGPoint(x: self.size.width / 2, y: hitLineY + 80)
-    label.setScale(0.6)
-    label.alpha = 0
-    label.zPosition = 100
-    addChild(label)
+    label.position = .zero
+    label.zPosition = 1
+    container.addChild(label)
+
     // 浮き上がりモーション: 上に 55pt スライドしながら
     //   0.10s フェードイン + 1.35 まで拡大
-    //   0.15s で 1.05 に落ち着き、0.30s 留まり、0.25s でフェードアウト
-    label.run(SKAction.group([
+    //   0.12s で 1.05 に落ち着き、0.28s 留まり、0.25s でフェードアウト
+    container.run(SKAction.group([
       SKAction.moveBy(x: 0, y: 55, duration: 0.90),
       SKAction.sequence([
         SKAction.group([
@@ -1239,7 +1256,10 @@ final class PlayScene: SKScene {
         SKAction.removeFromParent(),
       ]),
     ]))
-    judgeLabel = label
+
+    // 新判定が来たら前の container を消せるように参照だけ保持
+    judgeLabelContainer?.removeFromParent()
+    judgeLabelContainer = container
   }
 
   // MARK: - Visual Effects
