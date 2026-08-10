@@ -60,11 +60,6 @@ struct ContentView: View {
               route = .playing(chart)
             }
           },
-          onRecord: {
-            withAnimation(.easeInOut(duration: 0.2)) {
-              route = .recording
-            }
-          },
           onDownload: {
             withAnimation(.easeInOut(duration: 0.2)) {
               route = .downloading

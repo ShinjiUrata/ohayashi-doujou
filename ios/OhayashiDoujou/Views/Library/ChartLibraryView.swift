@@ -5,15 +5,13 @@ import SwiftUI
 /// 機能:
 /// - ローカル譜面のカードリスト表示
 /// - スワイプで削除
-/// - 「録音」ボタン → 新規譜面録音フロー
 /// - タップ → プレイ
-/// - 「IDで入手」ボタンで検索/DL 画面へ
+/// - 下部の「新しい譜面をダウンロードする」ボタンで ID 検索/DL 画面へ
 /// - 左上に「メニュー」戻るボタン
 ///
 /// mockup: `mockups/02_library_wafuu.html`
 struct ChartLibraryView: View {
   var onPlay: (Chart) -> Void
-  var onRecord: () -> Void
   var onDownload: () -> Void
   var onBack: () -> Void
 
@@ -39,26 +37,7 @@ struct ChartLibraryView: View {
   // MARK: - Header
 
   private var header: some View {
-    AppHeader(title: "譜面ライブラリ", onBack: onBack) {
-      Button(action: onDownload) {
-        HStack(spacing: 4) {
-          Text("＋")
-            .font(.system(size: 10, weight: .bold))
-          Text("DL")
-            .font(WafuuUI.num(11, weight: .semibold))
-            .tracking(2)
-        }
-        .foregroundStyle(WafuuUI.gold)
-        .padding(.horizontal, 10)
-        .padding(.vertical, 5)
-        .background(WafuuUI.gold.opacity(0.1))
-        .overlay(
-          RoundedRectangle(cornerRadius: 12)
-            .stroke(WafuuUI.gold.opacity(0.4), lineWidth: 1)
-        )
-        .clipShape(RoundedRectangle(cornerRadius: 12))
-      }
-    }
+    AppHeader(title: "譜面ライブラリ", onBack: onBack)
   }
 
   private var subheader: some View {
@@ -106,7 +85,7 @@ struct ChartLibraryView: View {
   private var emptyState: some View {
     VStack(spacing: 12) {
       Spacer()
-      Text("最初の譜面を録音してみましょう")
+      Text("譜面をダウンロードしてみましょう")
         .font(WafuuUI.serif(14, weight: .regular))
         .foregroundStyle(WafuuUI.sumiSoft)
       Spacer()
@@ -191,12 +170,12 @@ struct ChartLibraryView: View {
   // MARK: - Footer
 
   private var footer: some View {
-    Button(action: onRecord) {
+    Button(action: onDownload) {
       HStack(spacing: 10) {
         Circle()
           .fill(.white)
           .frame(width: 10, height: 10)
-        Text("新しい譜面を録音する")
+        Text("新しい譜面をダウンロードする")
       }
     }
     .buttonStyle(PrimaryButtonStyleWafuu(fontSize: 15))
@@ -242,7 +221,6 @@ struct ChartLibraryView: View {
 #Preview {
   ChartLibraryView(
     onPlay: { _ in },
-    onRecord: {},
     onDownload: {},
     onBack: {}
   )
