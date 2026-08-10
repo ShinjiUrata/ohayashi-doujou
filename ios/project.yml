@@ -55,7 +55,7 @@ targets:
         - OhayashiDoujouTests
       gatherCoverageData: true
       # StoreKit の実行環境について:
-      #   - Sandbox 実機テスト時: この設定を削除(現状)
+      #   - Sandbox 実機テスト時: この設定をコメントアウト(通常時)
       #     → iPhone にサインイン中の Sandbox アカウントで購入、
       #        Apple の Sandbox サーバーから本物署名の JWS が返る
       #   - シミュレータで UI 確認だけしたい時: 以下を有効化
