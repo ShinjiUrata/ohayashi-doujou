@@ -5,9 +5,9 @@ import SwiftUI
 /// フロー:
 /// 1. 譜面サマリを表示
 /// 2. 公開 ID を入力
-/// 3. 「ID を確認」→ `/check-id` で事前重複チェック
-/// 4. 利用可能なら「公開する」ボタン → StoreKit 2 → `/publish` → 確定 ID 受け取り
-/// 5. 発行 ID を表示、コピー可、ライブラリへ復帰
+/// 3. 「公開する」ボタン → 内部で `/check-id` → 利用可能なら StoreKit 2
+///    → `/publish` → 確定 ID 受け取り(重複時は課金前に停止)
+/// 4. 発行 ID を表示、コピー可、ライブラリへ復帰
 ///
 /// mockup: `mockups/08_publish_wafuu.html`
 struct ChartPublishView: View {
@@ -18,7 +18,6 @@ struct ChartPublishView: View {
   enum Phase: Equatable {
     case input
     case checking
-    case available
     case conflict
     case checkError(String)
     case publishing
@@ -157,7 +156,7 @@ struct ChartPublishView: View {
             $0.isLetter || $0.isNumber || $0 == "-"
           }
           switch phase {
-          case .available, .conflict, .checkError:
+          case .conflict, .checkError:
             phase = .input
           default:
             break
@@ -170,14 +169,6 @@ struct ChartPublishView: View {
         .foregroundStyle(WafuuUI.sumiMist)
 
       checkStatusView
-
-      Button(action: checkId) {
-        Text("この ID が使えるか確認")
-      }
-      .buttonStyle(GhostButtonStyleWafuu(fontSize: 12))
-      .disabled(!canCheck)
-      .opacity(canCheck ? 1.0 : 0.4)
-      .padding(.top, 2)
     }
     .padding(16)
     .background(WafuuUI.paper.opacity(0.55))
@@ -190,7 +181,6 @@ struct ChartPublishView: View {
 
   private var idBorderColor: Color {
     switch phase {
-    case .available: return WafuuUI.moss
     case .conflict, .checkError: return .red.opacity(0.7)
     default: return WafuuUI.woodDark
     }
@@ -207,10 +197,8 @@ struct ChartPublishView: View {
           .foregroundStyle(WafuuUI.sumiSoft)
       }
       .frame(maxWidth: .infinity)
-    case .available:
-      statusBanner(text: "✓ この ID は使用可能です", color: WafuuUI.moss)
     case .conflict:
-      statusBanner(text: "この ID は既に使われています", color: .red)
+      statusBanner(text: "この ID は既に使われています。別の ID にしてください。", color: .red)
     case .checkError(let msg):
       statusBanner(text: msg, color: .red)
     default:
@@ -282,7 +270,9 @@ struct ChartPublishView: View {
       }
       Button(action: publish) {
         HStack(spacing: 10) {
-          if case .publishing = phase {
+          if case .checking = phase {
+            ProgressView().tint(.white)
+          } else if case .publishing = phase {
             ProgressView().tint(.white)
           }
           Text("公開する")
@@ -394,15 +384,14 @@ struct ChartPublishView: View {
     }
   }
 
-  private var canCheck: Bool {
-    if case .checking = phase { return false }
-    return isValidId
-  }
-
   private var canPublish: Bool {
-    if case .publishing = phase { return false }
-    if case .available = phase { return true }
-    return false
+    guard isValidId else { return false }
+    switch phase {
+    case .checking, .conflict, .publishing:
+      return false
+    default:
+      return true
+    }
   }
 
   private func statusBanner(text: String, color: Color) -> some View {
@@ -431,42 +420,46 @@ struct ChartPublishView: View {
 
   // MARK: - Actions
 
-  private func checkId() {
+  /// 「公開する」ボタンから呼ばれる。
+  /// 課金前に `/check-id` で ID の空き確認 → 空きがあれば StoreKit 課金 → `/publish` に進む。
+  /// 事前チェックで衝突していれば課金ダイアログを出さずに停止する
+  /// (=課金だけ完了して公開失敗する事故を防ぐ)。
+  private func publish() {
     let id = publishId
     guard isValidId else { return }
     phase = .checking
-    Task {
-      do {
-        let available = try await APIClient.shared.checkID(id)
-        await MainActor.run {
-          phase = available ? .available : .conflict
-        }
-      } catch let error as APIError {
-        await MainActor.run {
-          phase = .checkError(error.localizedDescription)
-        }
-      } catch {
-        await MainActor.run {
-          phase = .checkError("通信に失敗しました。時間をおいて再試行してください。")
-        }
-      }
-    }
-  }
-
-  private func publish() {
-    let id = publishId
-    guard case .available = phase, isValidId else { return }
-    phase = .publishing
 
     var toPublish = chart
     toPublish.id = id
 
     Task {
+      // 1) ID の空き確認
+      let available: Bool
+      do {
+        available = try await APIClient.shared.checkID(id)
+      } catch let error as APIError {
+        await MainActor.run { phase = .checkError(error.localizedDescription) }
+        return
+      } catch {
+        await MainActor.run {
+          phase = .checkError("通信に失敗しました。時間をおいて再試行してください。")
+        }
+        return
+      }
+
+      guard available else {
+        await MainActor.run { phase = .conflict }
+        return
+      }
+
+      // 2) StoreKit 課金
+      await MainActor.run { phase = .publishing }
+
       let pending: StoreKitManager.PendingPurchase
       do {
         pending = try await StoreKitManager.shared.purchase()
       } catch StoreKitManager.PurchaseError.userCancelled {
-        await MainActor.run { phase = .available }
+        await MainActor.run { phase = .input }
         return
       } catch let purchaseError as StoreKitManager.PurchaseError {
         await MainActor.run {
@@ -482,6 +475,7 @@ struct ChartPublishView: View {
         return
       }
 
+      // 3) /publish 実行 + ローカル保存
       do {
         let confirmedId = try await APIClient.shared.publish(
           signedTransaction: pending.jws,
