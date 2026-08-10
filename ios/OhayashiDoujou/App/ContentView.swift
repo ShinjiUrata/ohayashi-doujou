@@ -117,7 +117,7 @@ struct ContentView: View {
           },
           onCancel: {
             withAnimation(.easeInOut(duration: 0.2)) {
-              route = .library
+              route = .mainMenu
             }
           }
         )
