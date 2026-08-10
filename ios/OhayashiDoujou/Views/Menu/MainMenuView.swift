@@ -10,6 +10,8 @@ struct MainMenuView: View {
   var onSelectLibrary: () -> Void
   var onRecord: () -> Void
 
+  @State private var legalURL: URL?
+
   private var appVersion: String {
     let bundle = Bundle.main
     let short = (bundle.infoDictionary?["CFBundleShortVersionString"] as? String) ?? "1.0.0"
@@ -31,6 +33,7 @@ struct MainMenuView: View {
         footer
       }
     }
+    .legalLinkSheet(url: $legalURL)
   }
 
   // MARK: - Title
@@ -105,17 +108,45 @@ struct MainMenuView: View {
   // MARK: - Footer
 
   private var footer: some View {
-    VStack(spacing: 4) {
-      Text(appVersion)
-        .font(WafuuUI.num(10, weight: .regular))
-        .tracking(2)
-        .foregroundStyle(WafuuUI.sumiMist)
-      Text("© 2026 株式会社ZembREM")
-        .font(WafuuUI.num(9, weight: .regular))
-        .tracking(2)
-        .foregroundStyle(WafuuUI.sumiMist.opacity(0.7))
+    VStack(spacing: 8) {
+      HStack(spacing: 14) {
+        legalLinkButton("利用規約", url: LegalURL.terms)
+        legalDivider
+        legalLinkButton("プライバシー", url: LegalURL.privacy)
+        legalDivider
+        legalLinkButton("特商法表記", url: LegalURL.tokushoho)
+      }
+      VStack(spacing: 3) {
+        Text(appVersion)
+          .font(WafuuUI.num(10, weight: .regular))
+          .tracking(2)
+          .foregroundStyle(WafuuUI.sumiMist)
+        Text("© 2026 株式会社ZembREM")
+          .font(WafuuUI.num(9, weight: .regular))
+          .tracking(2)
+          .foregroundStyle(WafuuUI.sumiMist.opacity(0.7))
+      }
     }
     .padding(.bottom, 24)
+  }
+
+  private func legalLinkButton(_ label: String, url: URL) -> some View {
+    Button {
+      legalURL = url
+    } label: {
+      Text(label)
+        .font(WafuuUI.gothic(10, weight: .medium))
+        .tracking(1)
+        .foregroundStyle(WafuuUI.gold)
+        .underline()
+    }
+    .buttonStyle(.plain)
+  }
+
+  private var legalDivider: some View {
+    Rectangle()
+      .fill(WafuuUI.sumiMist.opacity(0.35))
+      .frame(width: 1, height: 10)
   }
 }
 

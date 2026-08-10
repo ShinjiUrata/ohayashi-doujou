@@ -28,6 +28,7 @@ struct ChartPublishView: View {
   @State private var publishId: String = ""
   @State private var phase: Phase = .input
   @State private var displayPrice: String = "¥1,200"
+  @State private var legalURL: URL?
 
   var body: some View {
     ZStack {
@@ -42,6 +43,7 @@ struct ChartPublishView: View {
         displayPrice = price
       }
     }
+    .legalLinkSheet(url: $legalURL)
   }
 
   @ViewBuilder
@@ -242,7 +244,7 @@ struct ChartPublishView: View {
   }
 
   private var noticeBox: some View {
-    VStack(alignment: .leading, spacing: 4) {
+    VStack(alignment: .leading, spacing: 6) {
       Text("ご注意")
         .font(WafuuUI.serif(11, weight: .bold))
         .foregroundStyle(WafuuUI.sumi)
@@ -251,6 +253,16 @@ struct ChartPublishView: View {
         .tracking(1)
         .foregroundStyle(WafuuUI.sumiSoft)
         .lineSpacing(2)
+      Button {
+        legalURL = LegalURL.tokushoho
+      } label: {
+        Text("→ 特定商取引法に基づく表記を確認する")
+          .font(WafuuUI.gothic(10, weight: .medium))
+          .tracking(1)
+          .foregroundStyle(WafuuUI.gold)
+          .underline()
+      }
+      .buttonStyle(.plain)
     }
     .padding(12)
     .background(WafuuUI.sumi.opacity(0.05))
