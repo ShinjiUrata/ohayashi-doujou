@@ -1,0 +1,458 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<title>おはやし道場 — アプリアイコン案</title>
+<style>
+  :root {
+    --wood-light: #F2E5C5;
+    --wood-cream: #E9D6AC;
+    --wood-mid: #C8A976;
+    --wood-dark: #8B6A3C;
+    --wood-deep: #5C4225;
+    --wood-sumi: #2B1A0E;
+    --paper: #FDF6E3;
+    --skin: #F5EDD8;
+    --don: #FD4720;
+    --don-dim: #B0300F;
+    --gold: #B8935A;
+    --gold-soft: #D8BD85;
+  }
+  body {
+    margin: 0;
+    padding: 40px 20px;
+    font-family: -apple-system, "Hiragino Kaku Gothic ProN", sans-serif;
+    background: #F5F0E5;
+    color: var(--wood-sumi);
+  }
+  h1 { text-align: center; font-weight: 900; letter-spacing: 8px; margin: 0 0 8px; }
+  .subtitle { text-align: center; color: #999; margin-bottom: 40px; letter-spacing: 3px; font-size: 12px; }
+  .grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+    gap: 32px;
+    max-width: 1200px;
+    margin: 0 auto;
+  }
+  .card {
+    background: white;
+    border-radius: 16px;
+    padding: 24px;
+    box-shadow: 0 4px 16px rgba(0,0,0,0.08);
+    text-align: center;
+  }
+  .card h2 {
+    margin: 0 0 4px;
+    font-size: 15px;
+    letter-spacing: 3px;
+    color: var(--wood-deep);
+  }
+  .card .note {
+    font-size: 11px;
+    color: #888;
+    margin-bottom: 16px;
+    letter-spacing: 1px;
+  }
+  .icon-preview {
+    display: flex;
+    gap: 16px;
+    align-items: flex-end;
+    justify-content: center;
+    padding: 16px 0;
+  }
+  .icon-1024 {
+    width: 180px;
+    height: 180px;
+    border-radius: 40px;
+    overflow: hidden;
+    box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+  }
+  .icon-60 {
+    width: 60px;
+    height: 60px;
+    border-radius: 13.5px;
+    overflow: hidden;
+    box-shadow: 0 2px 6px rgba(0,0,0,0.15);
+  }
+  .size-label {
+    font-size: 9px;
+    color: #999;
+    letter-spacing: 1px;
+    margin-top: 6px;
+    text-align: center;
+  }
+  .icon-1024 svg, .icon-60 svg { display: block; width: 100%; height: 100%; }
+</style>
+</head>
+<body>
+
+<h1>おはやし道場</h1>
+<div class="subtitle">APP ICON PROPOSALS · 5 案</div>
+
+<!-- 共通の SVG defs (グラデ / パターン) -->
+<svg width="0" height="0" style="position:absolute" aria-hidden="true">
+  <defs>
+    <!-- 木目背景(基本) -->
+    <linearGradient id="woodBg" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#F2E5C5"/>
+      <stop offset="55%" stop-color="#E9D6AC"/>
+      <stop offset="100%" stop-color="#C8A976"/>
+    </linearGradient>
+    <!-- 木目背景(暗め) -->
+    <linearGradient id="woodBgDark" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#C8A976"/>
+      <stop offset="100%" stop-color="#8B6A3C"/>
+    </linearGradient>
+    <!-- 木目背景(赤茶) -->
+    <linearGradient id="woodBgRed" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#D6A97F"/>
+      <stop offset="100%" stop-color="#8B4A2C"/>
+    </linearGradient>
+    <!-- 太鼓の皮(クリーム、中央明るめ) -->
+    <radialGradient id="skinGrad" cx="0.4" cy="0.35" r="0.7">
+      <stop offset="0%" stop-color="#FFFCEE"/>
+      <stop offset="60%" stop-color="#F5EDD8"/>
+      <stop offset="100%" stop-color="#E4D6B2"/>
+    </radialGradient>
+    <!-- バチの木質グラデ -->
+    <linearGradient id="bachiGrad" x1="0" y1="0" x2="1" y2="0">
+      <stop offset="0%" stop-color="#B48A5E"/>
+      <stop offset="50%" stop-color="#D8B080"/>
+      <stop offset="100%" stop-color="#8B6A3C"/>
+    </linearGradient>
+    <!-- 木目テクスチャ(細い縦線) -->
+    <pattern id="woodGrain" x="0" y="0" width="80" height="1024" patternUnits="userSpaceOnUse">
+      <rect width="80" height="1024" fill="url(#woodBg)"/>
+      <path d="M8 0 Q10 300 8 512 Q6 700 8 1024" stroke="#B8935A" stroke-width="0.6" fill="none" opacity="0.35"/>
+      <path d="M28 0 Q26 200 28 512 Q30 800 28 1024" stroke="#A0824A" stroke-width="0.7" fill="none" opacity="0.28"/>
+      <path d="M52 0 Q54 400 52 512 Q50 750 52 1024" stroke="#8B6A3C" stroke-width="0.5" fill="none" opacity="0.30"/>
+      <path d="M72 0 Q70 250 72 512 Q74 780 72 1024" stroke="#C8A976" stroke-width="0.6" fill="none" opacity="0.35"/>
+    </pattern>
+    <!-- 太鼓のシンボル(<g> で座標そのまま <use> できるように、鋲は静的に埋め込み) -->
+    <g id="drumTop">
+      <!-- 外側の縁(タン色) -->
+      <circle r="100" fill="#C8A976"/>
+      <!-- 縁と皮の境界 -->
+      <circle r="89.7" fill="#8B6A3C"/>
+      <!-- 皮 -->
+      <circle r="87.8" fill="url(#skinGrad)"/>
+      <!-- 鋲(40 個、9°間隔) -->
+      <g id="studs">
+        <circle cx="0.0" cy="-94.9" r="2.5" fill="#2B1A0E"/>
+        <circle cx="14.85" cy="-93.73" r="2.5" fill="#2B1A0E"/>
+        <circle cx="29.33" cy="-90.26" r="2.5" fill="#2B1A0E"/>
+        <circle cx="43.08" cy="-84.56" r="2.5" fill="#2B1A0E"/>
+        <circle cx="55.78" cy="-76.78" r="2.5" fill="#2B1A0E"/>
+        <circle cx="67.1" cy="-67.1" r="2.5" fill="#2B1A0E"/>
+        <circle cx="76.78" cy="-55.78" r="2.5" fill="#2B1A0E"/>
+        <circle cx="84.56" cy="-43.08" r="2.5" fill="#2B1A0E"/>
+        <circle cx="90.26" cy="-29.33" r="2.5" fill="#2B1A0E"/>
+        <circle cx="93.73" cy="-14.85" r="2.5" fill="#2B1A0E"/>
+        <circle cx="94.9" cy="0.0" r="2.5" fill="#2B1A0E"/>
+        <circle cx="93.73" cy="14.85" r="2.5" fill="#2B1A0E"/>
+        <circle cx="90.26" cy="29.33" r="2.5" fill="#2B1A0E"/>
+        <circle cx="84.56" cy="43.08" r="2.5" fill="#2B1A0E"/>
+        <circle cx="76.78" cy="55.78" r="2.5" fill="#2B1A0E"/>
+        <circle cx="67.1" cy="67.1" r="2.5" fill="#2B1A0E"/>
+        <circle cx="55.78" cy="76.78" r="2.5" fill="#2B1A0E"/>
+        <circle cx="43.08" cy="84.56" r="2.5" fill="#2B1A0E"/>
+        <circle cx="29.33" cy="90.26" r="2.5" fill="#2B1A0E"/>
+        <circle cx="14.85" cy="93.73" r="2.5" fill="#2B1A0E"/>
+        <circle cx="0.0" cy="94.9" r="2.5" fill="#2B1A0E"/>
+        <circle cx="-14.85" cy="93.73" r="2.5" fill="#2B1A0E"/>
+        <circle cx="-29.33" cy="90.26" r="2.5" fill="#2B1A0E"/>
+        <circle cx="-43.08" cy="84.56" r="2.5" fill="#2B1A0E"/>
+        <circle cx="-55.78" cy="76.78" r="2.5" fill="#2B1A0E"/>
+        <circle cx="-67.1" cy="67.1" r="2.5" fill="#2B1A0E"/>
+        <circle cx="-76.78" cy="55.78" r="2.5" fill="#2B1A0E"/>
+        <circle cx="-84.56" cy="43.08" r="2.5" fill="#2B1A0E"/>
+        <circle cx="-90.26" cy="29.33" r="2.5" fill="#2B1A0E"/>
+        <circle cx="-93.73" cy="14.85" r="2.5" fill="#2B1A0E"/>
+        <circle cx="-94.9" cy="0.0" r="2.5" fill="#2B1A0E"/>
+        <circle cx="-93.73" cy="-14.85" r="2.5" fill="#2B1A0E"/>
+        <circle cx="-90.26" cy="-29.33" r="2.5" fill="#2B1A0E"/>
+        <circle cx="-84.56" cy="-43.08" r="2.5" fill="#2B1A0E"/>
+        <circle cx="-76.78" cy="-55.78" r="2.5" fill="#2B1A0E"/>
+        <circle cx="-67.1" cy="-67.1" r="2.5" fill="#2B1A0E"/>
+        <circle cx="-55.78" cy="-76.78" r="2.5" fill="#2B1A0E"/>
+        <circle cx="-43.08" cy="-84.56" r="2.5" fill="#2B1A0E"/>
+        <circle cx="-29.33" cy="-90.26" r="2.5" fill="#2B1A0E"/>
+        <circle cx="-14.85" cy="-93.73" r="2.5" fill="#2B1A0E"/>
+      </g>
+    </g>
+  </defs>
+</svg>
+
+<div class="grid">
+
+  <!-- ============================================================= -->
+  <!-- 案 1: 正面から見た太鼓 + バチが左右外側に立つ -->
+  <!-- ============================================================= -->
+  <div class="card">
+    <h2>案 1 · 正面 + 縦バチ左右</h2>
+    <div class="note">太鼓を大きく見せる正統派。バチが左右にスッと立つ道場テイスト</div>
+    <div class="icon-preview">
+      <div>
+        <div class="icon-1024">
+          <svg viewBox="0 0 1024 1024">
+            <rect width="1024" height="1024" fill="url(#woodGrain)"/>
+            <!-- 太鼓 -->
+            <g transform="translate(512 512) scale(3.6)">
+              <use href="#drumTop"/>
+            </g>
+            <!-- バチ 左 -->
+            <g transform="translate(150 512) rotate(-8)">
+              <rect x="-24" y="-330" width="48" height="660" rx="24" fill="url(#bachiGrad)"/>
+              <ellipse cx="0" cy="-330" rx="30" ry="24" fill="#D8B080"/>
+              <ellipse cx="0" cy="330" rx="26" ry="22" fill="#8B6A3C"/>
+            </g>
+            <!-- バチ 右 -->
+            <g transform="translate(874 512) rotate(8)">
+              <rect x="-24" y="-330" width="48" height="660" rx="24" fill="url(#bachiGrad)"/>
+              <ellipse cx="0" cy="-330" rx="30" ry="24" fill="#D8B080"/>
+              <ellipse cx="0" cy="330" rx="26" ry="22" fill="#8B6A3C"/>
+            </g>
+          </svg>
+        </div>
+        <div class="size-label">1024 × 1024</div>
+      </div>
+      <div>
+        <div class="icon-60">
+          <svg viewBox="0 0 1024 1024">
+            <rect width="1024" height="1024" fill="url(#woodGrain)"/>
+            <g transform="translate(512 512) scale(3.6)"><use href="#drumTop"/></g>
+            <g transform="translate(150 512) rotate(-8)">
+              <rect x="-24" y="-330" width="48" height="660" rx="24" fill="url(#bachiGrad)"/>
+              <ellipse cx="0" cy="-330" rx="30" ry="24" fill="#D8B080"/>
+            </g>
+            <g transform="translate(874 512) rotate(8)">
+              <rect x="-24" y="-330" width="48" height="660" rx="24" fill="url(#bachiGrad)"/>
+              <ellipse cx="0" cy="-330" rx="30" ry="24" fill="#D8B080"/>
+            </g>
+          </svg>
+        </div>
+        <div class="size-label">60 × 60</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ============================================================= -->
+  <!-- 案 2: 太鼓中央 + バチ X 交差(太鼓の背後・両端がはみ出す) -->
+  <!-- ============================================================= -->
+  <div class="card">
+    <h2>案 2 · バチ交差(X)</h2>
+    <div class="note">太鼓を中央に据え、背後で X に交差するバチが四隅に伸びる</div>
+    <div class="icon-preview">
+      <div>
+        <div class="icon-1024">
+          <svg viewBox="0 0 1024 1024">
+            <rect width="1024" height="1024" fill="url(#woodGrain)"/>
+            <!-- バチ(太鼓より下の zPosition、両端が四隅方向にはみ出す) -->
+            <g transform="translate(512 512) rotate(35)">
+              <rect x="-460" y="-22" width="920" height="44" rx="22" fill="url(#bachiGrad)"/>
+              <ellipse cx="-460" cy="0" rx="28" ry="22" fill="#D8B080"/>
+              <ellipse cx="460" cy="0" rx="26" ry="22" fill="#8B6A3C"/>
+            </g>
+            <g transform="translate(512 512) rotate(-35)">
+              <rect x="-460" y="-22" width="920" height="44" rx="22" fill="url(#bachiGrad)"/>
+              <ellipse cx="460" cy="0" rx="28" ry="22" fill="#D8B080"/>
+              <ellipse cx="-460" cy="0" rx="26" ry="22" fill="#8B6A3C"/>
+            </g>
+            <!-- 太鼓(中央、バチの上に重なる) -->
+            <g transform="translate(512 512) scale(3.4)">
+              <use href="#drumTop"/>
+            </g>
+          </svg>
+        </div>
+        <div class="size-label">1024 × 1024</div>
+      </div>
+      <div>
+        <div class="icon-60">
+          <svg viewBox="0 0 1024 1024">
+            <rect width="1024" height="1024" fill="url(#woodGrain)"/>
+            <g transform="translate(512 512) rotate(35)">
+              <rect x="-460" y="-22" width="920" height="44" rx="22" fill="url(#bachiGrad)"/>
+            </g>
+            <g transform="translate(512 512) rotate(-35)">
+              <rect x="-460" y="-22" width="920" height="44" rx="22" fill="url(#bachiGrad)"/>
+            </g>
+            <g transform="translate(512 512) scale(3.4)"><use href="#drumTop"/></g>
+          </svg>
+        </div>
+        <div class="size-label">60 × 60</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ============================================================= -->
+  <!-- 案 3: 太鼓中央 + バチ V 字構え(バチが太鼓の背後から上に開く) -->
+  <!-- ============================================================= -->
+  <div class="card">
+    <h2>案 3 · バチ V 字構え</h2>
+    <div class="note">太鼓を中央に、バチが太鼓の背後から V 字に上へ開く構えのポーズ</div>
+    <div class="icon-preview">
+      <div>
+        <div class="icon-1024">
+          <svg viewBox="0 0 1024 1024">
+            <rect width="1024" height="1024" fill="url(#woodGrain)"/>
+            <!-- バチ 左(左上に伸びる、太鼓の背後) -->
+            <g transform="translate(410 512) rotate(-32)">
+              <rect x="-24" y="-360" width="48" height="720" rx="24" fill="url(#bachiGrad)"/>
+              <ellipse cx="0" cy="-360" rx="30" ry="24" fill="#D8B080"/>
+              <ellipse cx="0" cy="360" rx="26" ry="22" fill="#8B6A3C"/>
+            </g>
+            <!-- バチ 右(右上に伸びる、太鼓の背後) -->
+            <g transform="translate(614 512) rotate(32)">
+              <rect x="-24" y="-360" width="48" height="720" rx="24" fill="url(#bachiGrad)"/>
+              <ellipse cx="0" cy="-360" rx="30" ry="24" fill="#D8B080"/>
+              <ellipse cx="0" cy="360" rx="26" ry="22" fill="#8B6A3C"/>
+            </g>
+            <!-- 太鼓(中央、バチの上に重なる) -->
+            <g transform="translate(512 512) scale(3.4)">
+              <use href="#drumTop"/>
+            </g>
+          </svg>
+        </div>
+        <div class="size-label">1024 × 1024</div>
+      </div>
+      <div>
+        <div class="icon-60">
+          <svg viewBox="0 0 1024 1024">
+            <rect width="1024" height="1024" fill="url(#woodGrain)"/>
+            <g transform="translate(410 512) rotate(-32)">
+              <rect x="-24" y="-360" width="48" height="720" rx="24" fill="url(#bachiGrad)"/>
+            </g>
+            <g transform="translate(614 512) rotate(32)">
+              <rect x="-24" y="-360" width="48" height="720" rx="24" fill="url(#bachiGrad)"/>
+            </g>
+            <g transform="translate(512 512) scale(3.4)"><use href="#drumTop"/></g>
+          </svg>
+        </div>
+        <div class="size-label">60 × 60</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ============================================================= -->
+  <!-- 案 4: 太鼓中央(大)+ バチ左右外側(短め、垂直) -->
+  <!-- ============================================================= -->
+  <div class="card">
+    <h2>案 4 · 太鼓中心 + バチ短縦</h2>
+    <div class="note">太鼓を中央に最大化(認識性重視)、バチは左右外側に短めの縦</div>
+    <div class="icon-preview">
+      <div>
+        <div class="icon-1024">
+          <svg viewBox="0 0 1024 1024">
+            <rect width="1024" height="1024" fill="url(#woodGrain)"/>
+            <!-- 太鼓(中央、大きめ) -->
+            <g transform="translate(512 512) scale(3.9)">
+              <use href="#drumTop"/>
+            </g>
+            <!-- バチ 左(短め、太鼓の左外側縦) -->
+            <g transform="translate(80 512)">
+              <rect x="-15" y="-210" width="30" height="420" rx="15" fill="url(#bachiGrad)"/>
+              <ellipse cx="0" cy="-210" rx="20" ry="16" fill="#D8B080"/>
+              <ellipse cx="0" cy="210" rx="18" ry="14" fill="#8B6A3C"/>
+            </g>
+            <!-- バチ 右(短め、太鼓の右外側縦) -->
+            <g transform="translate(944 512)">
+              <rect x="-15" y="-210" width="30" height="420" rx="15" fill="url(#bachiGrad)"/>
+              <ellipse cx="0" cy="-210" rx="20" ry="16" fill="#D8B080"/>
+              <ellipse cx="0" cy="210" rx="18" ry="14" fill="#8B6A3C"/>
+            </g>
+          </svg>
+        </div>
+        <div class="size-label">1024 × 1024</div>
+      </div>
+      <div>
+        <div class="icon-60">
+          <svg viewBox="0 0 1024 1024">
+            <rect width="1024" height="1024" fill="url(#woodGrain)"/>
+            <g transform="translate(512 512) scale(3.9)"><use href="#drumTop"/></g>
+            <g transform="translate(80 512)">
+              <rect x="-15" y="-210" width="30" height="420" rx="15" fill="url(#bachiGrad)"/>
+            </g>
+            <g transform="translate(944 512)">
+              <rect x="-15" y="-210" width="30" height="420" rx="15" fill="url(#bachiGrad)"/>
+            </g>
+          </svg>
+        </div>
+        <div class="size-label">60 × 60</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ============================================================= -->
+  <!-- 案 5: 赤茶背景 + 太鼓中央 + バチ V 構え(祭感強め) -->
+  <!-- ============================================================= -->
+  <div class="card">
+    <h2>案 5 · 赤茶背景 + V 構え</h2>
+    <div class="note">案 3 と同構図で背景を赤茶(祭の朱寄り)に、太鼓・バチが浮き上がる</div>
+    <div class="icon-preview">
+      <div>
+        <div class="icon-1024">
+          <svg viewBox="0 0 1024 1024">
+            <rect width="1024" height="1024" fill="url(#woodBgRed)"/>
+            <!-- 木目縦線(暗背景用) -->
+            <g opacity="0.35" stroke="#5C4225" fill="none" stroke-width="0.7">
+              <path d="M60 0 Q58 400 60 1024"/>
+              <path d="M180 0 Q182 400 180 1024"/>
+              <path d="M340 0 Q338 400 340 1024"/>
+              <path d="M500 0 Q502 400 500 1024"/>
+              <path d="M680 0 Q678 400 680 1024"/>
+              <path d="M840 0 Q842 400 840 1024"/>
+              <path d="M960 0 Q958 400 960 1024"/>
+            </g>
+            <!-- バチ 左(太鼓の背後) -->
+            <g transform="translate(410 512) rotate(-32)">
+              <rect x="-26" y="-380" width="52" height="760" rx="26" fill="url(#bachiGrad)"/>
+              <ellipse cx="0" cy="-380" rx="32" ry="26" fill="#F0D896"/>
+              <ellipse cx="0" cy="380" rx="28" ry="24" fill="#8B6A3C"/>
+            </g>
+            <!-- バチ 右(太鼓の背後) -->
+            <g transform="translate(614 512) rotate(32)">
+              <rect x="-26" y="-380" width="52" height="760" rx="26" fill="url(#bachiGrad)"/>
+              <ellipse cx="0" cy="-380" rx="32" ry="26" fill="#F0D896"/>
+              <ellipse cx="0" cy="380" rx="28" ry="24" fill="#8B6A3C"/>
+            </g>
+            <!-- 太鼓(中央、バチの上に重なる) -->
+            <g transform="translate(512 512) scale(3.4)">
+              <use href="#drumTop"/>
+            </g>
+          </svg>
+        </div>
+        <div class="size-label">1024 × 1024</div>
+      </div>
+      <div>
+        <div class="icon-60">
+          <svg viewBox="0 0 1024 1024">
+            <rect width="1024" height="1024" fill="url(#woodBgRed)"/>
+            <g transform="translate(410 512) rotate(-32)">
+              <rect x="-26" y="-380" width="52" height="760" rx="26" fill="url(#bachiGrad)"/>
+            </g>
+            <g transform="translate(614 512) rotate(32)">
+              <rect x="-26" y="-380" width="52" height="760" rx="26" fill="url(#bachiGrad)"/>
+            </g>
+            <g transform="translate(512 512) scale(3.4)"><use href="#drumTop"/></g>
+          </svg>
+        </div>
+        <div class="size-label">60 × 60</div>
+      </div>
+    </div>
+  </div>
+
+</div>
+
+<div style="max-width:900px; margin:40px auto 0; padding:20px; background:white; border-radius:12px; box-shadow:0 2px 8px rgba(0,0,0,0.05);">
+  <h3 style="margin-top:0">確認ポイント</h3>
+  <ul style="line-height:1.8; color:#555; font-size:13px;">
+    <li>各案の右側の <b>60 × 60</b> プレビューは、実際のホーム画面表示サイズの目安。細部が飛んで大きなシルエットだけになる</li>
+    <li>太鼓の胴(タン色 <code>#C8A976</code>)、皮(クリーム <code>#F5EDD8</code>)、鋲(墨 <code>#2B1A0E</code>)は PlayScene の実装値と一致</li>
+    <li>背景は <b>案 1〜4</b> が明るい木目、<b>案 5</b> が赤茶系(祭の朱寄せ)</li>
+    <li>iOS はアイコンの角丸を自動で適用(mask)するため、SVG は正方形フルサイズで作成</li>
+    <li>「これで進めたい」案が決まったら、その 1 案を 1024×1024 PNG に書き出して、Xcode の <code>Assets.xcassets/AppIcon</code> に投入する流れになります</li>
+  </ul>
+</div>
+
+</body>
+</html>
