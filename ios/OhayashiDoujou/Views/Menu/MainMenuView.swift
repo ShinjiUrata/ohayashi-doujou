@@ -2,7 +2,7 @@ import SwiftUI
 
 /// アプリのルート画面。タイトルとメインメニュー(3 種の入口)。
 ///
-/// - 譜面で遊ぶ → 譜面ライブラリ(選択して再生)
+/// - プレイする → 譜面ライブラリ(選択して再生)
 /// - 譜面を作る → 録音モード
 /// - IDで譜面を入手 → 譜面検索 / ダウンロード
 ///
@@ -88,7 +88,7 @@ struct MainMenuView: View {
   private var menuButtons: some View {
     VStack(spacing: 14) {
       MenuButton(
-        title: "譜面で遊ぶ",
+        title: "プレイする",
         subtitle: "保存した譜面を選んでプレイ",
         icon: "▶",
         style: .primary,
