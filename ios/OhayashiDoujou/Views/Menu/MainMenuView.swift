@@ -60,7 +60,7 @@ struct MainMenuView: View {
         }
       }
 
-      Text("お囃子道場")
+      Text("おはやし道場")
         .font(WafuuUI.serif(42, weight: .black))
         .tracking(12)
         .foregroundStyle(WafuuUI.sumi)
