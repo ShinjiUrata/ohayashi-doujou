@@ -5,7 +5,7 @@ import SwiftUI
 /// - 譜面名 / 地域名 のテキスト入力
 /// - 収録時間・ノーツ数のサマリ
 /// - ノーツリスト(時系列、種別バッジ、ホールドマーク)
-/// - 試遊 / 保存 / 公開する
+/// - 調整 / 保存 / 公開する
 /// - 破棄 → ライブラリへ(保存せず)
 ///
 /// mockup: `mockups/07_edit_wafuu.html`
@@ -235,7 +235,7 @@ struct ChartEditView: View {
           HStack(spacing: 6) {
             Text("▶")
               .font(.system(size: 12, weight: .bold))
-            Text("試遊")
+            Text("調整")
           }
         }
         .buttonStyle(SecondaryButtonStyleWafuu(fontSize: 14))
