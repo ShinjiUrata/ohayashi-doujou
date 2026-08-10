@@ -1,0 +1,210 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>お囃子道場 — 譜面ダウンロード</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Noto+Serif+JP:wght@500;700&family=Zen+Kaku+Gothic+New:wght@400;500;700&family=Bebas+Neue&family=Klee+One:wght@400;600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="assets/wafuu.css">
+<style>
+  .dl-content {
+    flex: 1;
+    padding: 32px 24px 20px;
+    display: flex;
+    flex-direction: column;
+  }
+  .dl-hero {
+    text-align: center;
+    margin-bottom: 28px;
+  }
+  .dl-hero .kanji {
+    font-family: "Noto Serif JP", serif;
+    font-weight: 700;
+    font-size: 26px;
+    letter-spacing: 6px;
+    color: var(--sumi);
+    margin-bottom: 8px;
+  }
+  .dl-hero .desc {
+    font-family: "Klee One", serif;
+    font-size: 13px;
+    color: var(--sumi-soft);
+    letter-spacing: 2px;
+    line-height: 1.6;
+  }
+  .dl-hero .desc code {
+    background: rgba(184, 147, 90, 0.15);
+    color: var(--gold);
+    padding: 1px 6px;
+    border-radius: 3px;
+    font-family: "Bebas Neue", sans-serif;
+    letter-spacing: 1px;
+  }
+
+  .dl-form {
+    background: linear-gradient(180deg, #fbf3dc 0%, #f0e0b0 100%);
+    border: 1.5px solid var(--wood-deep);
+    border-radius: 12px;
+    padding: 20px 20px 24px;
+    box-shadow:
+      inset 0 1px 0 rgba(255, 255, 255, 0.45),
+      0 4px 10px rgba(0, 0, 0, 0.12);
+  }
+  .dl-form .field-label {
+    display: block;
+    text-align: center;
+    margin-bottom: 8px;
+  }
+  .id-input {
+    width: 100%;
+    padding: 14px 14px;
+    background: #fdf6e3;
+    border: 1.5px solid var(--wood-dark);
+    border-radius: 6px;
+    color: var(--sumi);
+    font-family: "Bebas Neue", sans-serif;
+    font-size: 20px;
+    letter-spacing: 3px;
+    text-align: center;
+    outline: none;
+    box-shadow: inset 0 2px 4px rgba(139, 106, 60, 0.15);
+  }
+  .dl-hint {
+    text-align: center;
+    font-size: 10px;
+    color: var(--sumi-mist);
+    margin-top: 8px;
+    letter-spacing: 1px;
+  }
+
+  .dl-action {
+    margin-top: 20px;
+  }
+  .dl-btn {
+    width: 100%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 10px;
+    padding: 14px;
+    background: linear-gradient(180deg, var(--red-hi) 0%, var(--red) 60%, var(--red-dim) 100%);
+    color: #fff;
+    border: 1.5px solid var(--red-dim);
+    border-radius: 10px;
+    font-family: "Noto Serif JP", serif;
+    font-size: 15px;
+    font-weight: 700;
+    letter-spacing: 4px;
+    box-shadow:
+      inset 0 1px 0 rgba(255, 255, 255, 0.25),
+      0 4px 10px rgba(200, 33, 29, 0.35);
+    cursor: pointer;
+  }
+
+  .dl-recent {
+    margin-top: 24px;
+  }
+  .dl-recent h3 {
+    font-family: "Bebas Neue", sans-serif;
+    font-size: 11px;
+    letter-spacing: 3px;
+    color: var(--sumi-mist);
+    margin: 0 0 8px;
+    padding-bottom: 6px;
+    border-bottom: 1px solid var(--line);
+  }
+  .recent-list {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+  }
+  .recent-item {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 8px 10px;
+    background: rgba(253, 246, 227, 0.55);
+    border: 1px solid var(--line);
+    border-radius: 6px;
+    font-size: 12px;
+    color: var(--sumi);
+    cursor: pointer;
+  }
+  .recent-item .id {
+    font-family: "Bebas Neue", sans-serif;
+    letter-spacing: 2px;
+    color: var(--gold);
+    flex-shrink: 0;
+  }
+  .recent-item .name { color: var(--sumi-soft); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+</style>
+</head>
+<body>
+
+<div class="stage">
+  <div>
+    <div class="stage-title">お囃子道場 — 譜面ダウンロード</div>
+    <div class="stage-subtitle">WAFUU MODERN · CHART DOWNLOAD</div>
+  </div>
+
+  <div class="phone"><div class="screen"><div class="screen-inner">
+
+    <div class="app-header">
+      <button class="back-btn">戻る</button>
+      <div class="app-title">譜面をダウンロード</div>
+      <div class="header-action"></div>
+    </div>
+
+    <div class="dl-content">
+      <div class="dl-hero">
+        <div class="kanji">譜面 ID を入力</div>
+        <div class="desc">
+          制作者から共有された <code>id</code> を入力してダウンロード。
+        </div>
+      </div>
+
+      <div class="dl-form">
+        <label class="field-label">CHART ID</label>
+        <input class="id-input" placeholder="shimoda-2026-a7Kp" value="shimoda-2026-a7Kp">
+        <div class="dl-hint">3〜64 文字 / 小文字英字・数字・ハイフン</div>
+
+        <div class="dl-action">
+          <button class="dl-btn">
+            ↓ 譜面を取得する
+          </button>
+        </div>
+      </div>
+
+      <div class="dl-recent">
+        <h3>Recent</h3>
+        <div class="recent-list">
+          <div class="recent-item">
+            <span class="id">kamo-2026-irihayashi</span>
+            <span class="name">獅子舞 入り囃子</span>
+          </div>
+          <div class="recent-item">
+            <span class="id">iwata-akimatsuri-01</span>
+            <span class="name">秋祭り 本囃子</span>
+          </div>
+        </div>
+      </div>
+    </div>
+
+  </div></div></div>
+</div>
+
+<div class="legend">
+  <h2>譜面ダウンロード 設計メモ</h2>
+  <ul>
+    <li>大きな見出し「譜面 ID を入力」で目的を明確化(<code>Noto Serif JP 700</code>、letter-spacing 6px)</li>
+    <li>フォーム全体を木札風のカードに包む。中央に大きな ID 入力欄(<code>Bebas Neue 20px</code>)</li>
+    <li>入力条件(3〜64 文字、小英・数字・ハイフン)を hint として下に小さく表示</li>
+    <li>「取得する」は主 CTA、朱のプライマリボタン</li>
+    <li>Recent 履歴:同じ譜面を再取得しやすいよう、直近の ID をリスト化</li>
+  </ul>
+</div>
+
+</body>
+</html>

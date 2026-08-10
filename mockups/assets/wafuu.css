@@ -1,0 +1,376 @@
+/* ==============================================================
+   お囃子道場 和風モダン UI 共通トークン
+   確定版 play_wafuu_modern.html から抽出
+   全画面(タイトル / ライブラリ / DL / 録音 / 編集 / リザルト / 公開)で共有
+   ============================================================== */
+
+:root {
+  /* 木・和紙 */
+  --wood-light:  #f2e5c5;
+  --wood-cream:  #e9d6ac;
+  --wood-mid:    #c8a976;
+  --wood-dark:   #8b6a3c;
+  --wood-deep:   #5c4225;
+  --wood-sumi:   #2b1a0e;
+  --paper:       #fdf6e3;
+
+  /* 墨・文字 */
+  --sumi:        #2a2620;
+  --sumi-soft:   #5c5248;
+  --sumi-mist:   #8a7f70;
+
+  /* 金 */
+  --gold:        #b8935a;
+  --gold-soft:   #d8bd85;
+  --gold-hi:     #f0d896;
+
+  /* 緑(畳の縁) */
+  --moss:        #4d6c3e;
+  --moss-mid:    #6b8556;
+  --moss-soft:   #9ab08b;
+
+  /* ドン・カッ */
+  --red:         #FD4720;
+  --red-dim:     #B0300F;
+  --red-hi:      #FF7051;
+  --blue:        #44C2C1;
+  --blue-dim:    #268786;
+  --blue-hi:     #78D6D5;
+
+  /* 線 */
+  --line:        rgba(42, 26, 14, 0.12);
+  --line-strong: rgba(42, 26, 14, 0.28);
+}
+
+* { box-sizing: border-box; }
+
+html, body {
+  margin: 0;
+  padding: 0;
+  background: #1a1611;
+  color: var(--sumi);
+  font-family: "Zen Kaku Gothic New", -apple-system, "Hiragino Sans", sans-serif;
+  min-height: 100vh;
+}
+
+/* --- Stage(mockup 展示用) --- */
+.stage {
+  min-height: 100vh;
+  padding: 40px 20px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 36px;
+  background: radial-gradient(ellipse at top, #302820 0%, #14100c 80%);
+}
+.stage-title {
+  color: var(--gold-soft);
+  font-family: "Noto Serif JP", serif;
+  font-weight: 700;
+  font-size: 22px;
+  letter-spacing: 8px;
+  text-shadow: 0 2px 12px rgba(0, 0, 0, 0.6);
+  text-align: center;
+}
+.stage-subtitle {
+  color: #756449;
+  font-size: 10px;
+  letter-spacing: 6px;
+  margin-top: -14px;
+  text-transform: uppercase;
+  font-family: "Bebas Neue", sans-serif;
+  text-align: center;
+}
+
+/* --- iPhone frame --- */
+.phone {
+  width: 390px;
+  height: 844px;
+  border-radius: 52px;
+  background: #0a0805;
+  padding: 12px;
+  box-shadow:
+    0 40px 80px rgba(0, 0, 0, 0.7),
+    0 0 0 1px #3a2b18,
+    inset 0 0 0 2px #1a130c;
+  position: relative;
+}
+.phone::before {
+  content: "";
+  position: absolute;
+  top: 22px;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 110px;
+  height: 32px;
+  background: #000;
+  border-radius: 20px;
+  z-index: 10;
+}
+.screen {
+  width: 100%;
+  height: 100%;
+  border-radius: 42px;
+  overflow: hidden;
+  position: relative;
+  background: var(--wood-cream);
+}
+.screen::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background:
+    radial-gradient(ellipse 20px 3px at 26% 22%, rgba(90, 60, 30, 0.14), transparent 70%),
+    radial-gradient(ellipse 22px 3px at 72% 68%, rgba(90, 60, 30, 0.11), transparent 70%),
+    repeating-linear-gradient(90deg,
+      transparent 0 6px,
+      rgba(139, 106, 60, 0.04) 6px 7px,
+      transparent 7px 14px,
+      rgba(92, 66, 37, 0.05) 14px 15px,
+      transparent 15px 22px),
+    linear-gradient(180deg, var(--wood-light) 0%, var(--wood-cream) 100%);
+  z-index: 0;
+  pointer-events: none;
+}
+
+/* --- 画面全体レイアウト --- */
+.screen-inner {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  z-index: 1;
+}
+
+/* --- 共通ヘッダ(戻る + タイトル + オプション右) --- */
+.app-header {
+  padding: 58px 16px 12px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  border-bottom: 1px solid var(--line);
+  background:
+    linear-gradient(180deg,
+      rgba(74, 108, 58, 0.06) 0%,
+      transparent 100%);
+}
+.app-header .back-btn {
+  background: none;
+  border: none;
+  color: var(--sumi-soft);
+  font-family: "Zen Kaku Gothic New", sans-serif;
+  font-size: 11px;
+  letter-spacing: 2px;
+  padding: 6px 8px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+.app-header .back-btn::before {
+  content: "‹";
+  font-size: 20px;
+  line-height: 1;
+  font-weight: bold;
+}
+.app-header .app-title {
+  flex: 1;
+  text-align: center;
+  font-family: "Noto Serif JP", serif;
+  font-weight: 700;
+  font-size: 15px;
+  color: var(--sumi);
+  letter-spacing: 4px;
+}
+.app-header .header-action {
+  min-width: 60px;
+  text-align: right;
+}
+
+/* --- 木札風カード(汎用) --- */
+.wood-card {
+  background:
+    linear-gradient(180deg, #f6e9c9 0%, #ead7a4 100%);
+  border: 1.5px solid var(--wood-deep);
+  border-radius: 6px;
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.5),
+    inset 0 -1px 2px rgba(139, 106, 60, 0.15),
+    0 2px 4px rgba(0, 0, 0, 0.15);
+}
+
+/* --- 木の縦掛け札(スコア・数値表示) --- */
+.wood-plate {
+  background:
+    linear-gradient(180deg, var(--wood-light) 0%, var(--wood-mid) 100%);
+  border: 1.5px solid var(--wood-deep);
+  border-radius: 4px 4px 8px 8px;
+  padding: 6px 8px 8px;
+  text-align: center;
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.4),
+    0 2px 4px rgba(0, 0, 0, 0.18);
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  gap: 2px;
+}
+.wood-plate::before {
+  content: "";
+  position: absolute;
+  top: -3px;
+  left: 50%;
+  width: 4px;
+  height: 4px;
+  border-radius: 50%;
+  background: #0a0805;
+  transform: translateX(-50%);
+  box-shadow: 0 0 0 1.5px var(--wood-deep);
+}
+.wood-plate .k {
+  font-family: "Bebas Neue", sans-serif;
+  font-size: 8px;
+  color: var(--sumi-mist);
+  letter-spacing: 3px;
+}
+.wood-plate .v {
+  font-family: "Bebas Neue", sans-serif;
+  font-size: 22px;
+  line-height: 1;
+  color: var(--sumi);
+  letter-spacing: 1px;
+}
+
+/* --- ボタン(汎用) --- */
+.btn-primary {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 14px 20px;
+  background: linear-gradient(180deg, var(--red-hi) 0%, var(--red) 60%, var(--red-dim) 100%);
+  color: #fff;
+  border: 1.5px solid var(--red-dim);
+  border-radius: 8px;
+  font-family: "Noto Serif JP", serif;
+  font-size: 15px;
+  font-weight: 700;
+  letter-spacing: 4px;
+  cursor: pointer;
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.25),
+    0 3px 8px rgba(200, 33, 29, 0.35);
+  text-decoration: none;
+}
+.btn-primary:hover { filter: brightness(1.05); }
+
+.btn-secondary {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 12px 20px;
+  background: linear-gradient(180deg, var(--wood-light) 0%, var(--wood-cream) 100%);
+  color: var(--sumi);
+  border: 1.5px solid var(--wood-deep);
+  border-radius: 8px;
+  font-family: "Noto Serif JP", serif;
+  font-size: 14px;
+  font-weight: 500;
+  letter-spacing: 3px;
+  cursor: pointer;
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.4),
+    0 2px 4px rgba(0, 0, 0, 0.15);
+  text-decoration: none;
+}
+.btn-secondary:hover { filter: brightness(1.03); }
+
+.btn-ghost {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  padding: 10px 16px;
+  background: transparent;
+  color: var(--sumi-soft);
+  border: 1px solid var(--line-strong);
+  border-radius: 6px;
+  font-family: "Noto Serif JP", serif;
+  font-size: 13px;
+  letter-spacing: 2px;
+  cursor: pointer;
+}
+
+/* --- 入力フィールド(汎用) --- */
+.field-input {
+  width: 100%;
+  padding: 10px 14px;
+  background: rgba(253, 246, 227, 0.6);
+  border: 1.5px solid var(--wood-dark);
+  border-radius: 4px;
+  color: var(--sumi);
+  font-family: "Zen Kaku Gothic New", sans-serif;
+  font-size: 14px;
+  outline: none;
+  box-shadow: inset 0 2px 4px rgba(139, 106, 60, 0.15);
+}
+.field-input:focus {
+  border-color: var(--gold);
+}
+.field-label {
+  font-family: "Bebas Neue", sans-serif;
+  font-size: 9px;
+  letter-spacing: 3px;
+  color: var(--sumi-mist);
+  margin-bottom: 4px;
+}
+
+/* --- 金の hairline セパレーター --- */
+.gold-hr {
+  height: 1px;
+  border: none;
+  margin: 8px 0;
+  background: linear-gradient(90deg,
+    transparent 0%,
+    var(--gold-soft) 15%,
+    var(--gold) 50%,
+    var(--gold-soft) 85%,
+    transparent 100%);
+}
+
+/* --- 太鼓 SVG(小サイズプレビュー用ヘルパー) --- */
+.taiko-svg { display: block; }
+
+/* --- レジェンド(mockup 説明) --- */
+.legend {
+  max-width: 760px;
+  background: #1e1a15;
+  border: 1px solid #4a3826;
+  border-radius: 14px;
+  padding: 22px 26px;
+  color: #c8b48c;
+  font-size: 13px;
+  line-height: 1.8;
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5);
+}
+.legend h2 {
+  color: var(--gold-soft);
+  font-family: "Noto Serif JP", serif;
+  font-weight: 700;
+  font-size: 15px;
+  letter-spacing: 4px;
+  margin: 0 0 12px;
+  padding-bottom: 8px;
+  border-bottom: 1px solid #4a3826;
+}
+.legend ul { margin: 4px 0; padding-left: 22px; }
+.legend li { margin: 3px 0; }
+.legend code {
+  background: #0e0b07;
+  color: var(--gold-soft);
+  padding: 2px 6px;
+  border-radius: 3px;
+  font-size: 11px;
+}

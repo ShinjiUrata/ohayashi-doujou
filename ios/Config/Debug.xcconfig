@@ -9,6 +9,10 @@ PRODUCT_BUNDLE_IDENTIFIER = com.zembrem.ohayashidoujou.dev
 API_BASE_URL = https:/$()/api-y24cifx6uq-an.a.run.app
 CHARTS_BASE_URL = https:/$()/storage.googleapis.com/ohayashi-charts-dev
 
+// IAP プロダクト ID(App Store Connect のチーム内で一意制約があるため
+// dev アプリレコード用に別 ID を使う)
+IAP_PUBLISH_PRODUCT_ID = rhythm.chart.publish.single.dev
+
 // Debug ビルド向けフラグ
 SWIFT_ACTIVE_COMPILATION_CONDITIONS = $(inherited) DEBUG
 GCC_PREPROCESSOR_DEFINITIONS = $(inherited) DEBUG=1

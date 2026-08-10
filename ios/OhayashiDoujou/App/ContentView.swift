@@ -43,11 +43,6 @@ struct ContentView: View {
             withAnimation(.easeInOut(duration: 0.25)) {
               route = .recording
             }
-          },
-          onDownload: {
-            withAnimation(.easeInOut(duration: 0.25)) {
-              route = .downloading
-            }
           }
         )
         .transition(.opacity)
@@ -58,11 +53,6 @@ struct ContentView: View {
             playRunID = UUID()
             withAnimation(.easeInOut(duration: 0.2)) {
               route = .playing(chart)
-            }
-          },
-          onRecord: {
-            withAnimation(.easeInOut(duration: 0.2)) {
-              route = .recording
             }
           },
           onDownload: {
@@ -122,7 +112,7 @@ struct ContentView: View {
           },
           onCancel: {
             withAnimation(.easeInOut(duration: 0.2)) {
-              route = .library
+              route = .mainMenu
             }
           }
         )
@@ -161,17 +151,17 @@ struct ContentView: View {
         .transition(.opacity)
 
       case .previewingDraft(let draft):
+        // 試遊 = 自動再生プレビュー(タッチ判定なし、譜面通りに音のみ再生)
+        // 停止中はノーツ位置微調整が可能。編集された chart は onAutoPlayExit
+        // で受け取り、編集画面へ復帰する際に反映する。
         PlayView(
           chart: draft,
-          onFinished: { finalScore in
+          mode: .autoPlay,
+          onFinished: { _ in },  // autoPlay では未使用
+          onQuit: {},            // autoPlay では未使用
+          onAutoPlayExit: { editedChart in
             withAnimation(.easeInOut(duration: 0.25)) {
-              route = .previewResult(draft, finalScore)
-            }
-          },
-          onQuit: {
-            // 試遊中の中断は編集画面に戻る(録音した内容を失わない)
-            withAnimation(.easeInOut(duration: 0.2)) {
-              route = .editing(draft)
+              route = .editing(editedChart)
             }
           }
         )
@@ -179,6 +169,8 @@ struct ContentView: View {
         .transition(.opacity)
 
       case .previewResult(let draft, let score):
+        // 現状の自動再生プレビューでは経由しないが、Route enum の
+        // 互換性維持のため case は残す。到達したら編集画面へ復帰。
         ResultView(
           chart: draft,
           score: score,
@@ -189,7 +181,6 @@ struct ContentView: View {
             }
           },
           onDismiss: {
-            // 試遊のリザルトから戻ると編集画面へ復帰
             withAnimation(.easeInOut(duration: 0.25)) {
               route = .editing(draft)
             }

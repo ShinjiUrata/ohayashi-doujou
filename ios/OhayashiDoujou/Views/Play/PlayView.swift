@@ -3,14 +3,30 @@ import SpriteKit
 
 /// プレイ画面。
 ///
-/// Phase 2:
 /// - `Chart` を受け取って再生
-/// - ヘッダにスコア + コンボ表示
+/// - 開始前に 3-2-1 カウントダウンを表示、終わってから `PlayScene` に load
+/// - **mode: .interactive** → 通常プレイ(タッチ判定・スコア加算)
+/// - **mode: .autoPlay**   → 自動再生プレビュー(タッチ判定なし、譜面通りに
+///                            音のみ再生。画面下部に再生/停止ボタン)
 /// - `PlayScene` からの終了コールバックで onFinished を呼ぶ
+///
+/// mockup: `mockups/play_wafuu_modern.html`
 struct PlayView: View {
   let chart: Chart
+  var mode: PlayScene.Mode = .interactive
   var onFinished: (ScoreState) -> Void
   var onQuit: () -> Void
+  /// 自動再生プレビューを離れる時に呼ばれる。停止中に編集された調整が
+  /// 反映済みの Chart を受け取る。autoPlay モードでのみ意味を持つ。
+  /// 呼ばれるタイミング:
+  ///  - ×(戻る)ボタン
+  ///  - 譜面終端に達して自動的に完了
+  var onAutoPlayExit: (Chart) -> Void = { _ in }
+
+  enum Phase: Equatable {
+    case countdown(Int)
+    case playing
+  }
 
   @State private var score = ScoreState()
   @State private var scene: PlayScene = {
@@ -19,72 +35,732 @@ struct PlayView: View {
     return s
   }()
 
-  private let gold = Color(red: 0xf4 / 255.0, green: 0xc9 / 255.0, blue: 0x5d / 255.0)
-  private let cream = Color(red: 0xf5 / 255.0, green: 0xea / 255.0, blue: 0xd0 / 255.0)
+  @State private var phase: Phase = .countdown(3)
+  @State private var countdownTask: Task<Void, Never>?
+
+  /// 自動再生モード時の再生/停止トグル状態。
+  @State private var isPaused: Bool = false
+
+  /// 自動再生モード時のシークバー表示・操作用状態。
+  /// SwiftUI Slider は Double バインディングが必要。
+  @State private var sliderSec: Double = 0
+  @State private var isSliderDragging: Bool = false
+  @State private var playbackTimerTask: Task<Void, Never>?
+  /// スクラブ(ドラッグ)開始時点の再生状態(true = 元は再生中だった)。
+  /// ドラッグ終了時に元の状態に戻すために使う。
+  @State private var wasPlayingBeforeScrub: Bool = false
+
+  /// 最後にスライダーが変化した時刻(sliderSec が更新された wall clock 時刻)。
+  /// SwiftUI Slider の onEditingChanged(false) が発火しない既知の問題への
+  /// 保険として、isSliderDragging = true のまま長時間スライダー変化が無い
+  /// 場合は「ドラッグが終わっている」とみなして endScrub を強制発火するのに使う。
+  @State private var lastSliderChangeAt: TimeInterval = 0
+
+  /// 停止中に選択されているノーツの情報(SwiftUI の ± ボタン表示用)。
+  /// nil = 未選択(ボタンは非表示)。
+  @State private var selectedNoteInfo: PlayScene.NoteSelectionInfo? = nil
+
+  /// 保存済みの chart(nil = まだ一度も保存していない)。
+  /// × ボタンで編集画面に戻る時、これがあれば返す。無ければ元の chart を返す。
+  /// 保存を経ないと adjustments は破棄される仕組み。
+  @State private var lastSavedChart: Chart? = nil
+
+  /// 保存されていない編集がある(前回保存以降 or 初期状態からの adjustment あり)。
+  @State private var hasUnsavedChanges: Bool = false
+
+  /// 保存直後の視覚フィードバック(短時間だけ ✓ を出す)。
+  @State private var showSavedFeedback: Bool = false
+  @State private var savedFeedbackTask: Task<Void, Never>?
+
+  // MARK: - エフェクト用状態
+
+  /// コンボ数字のパルス倍率(更新時に一瞬拡大 → 戻る)。
+  @State private var comboScale: CGFloat = 1.0
+
+  /// コンボミルストーン(10 / 25 / 50 / 100)達成バナーのテキスト。
+  /// nil で非表示、値ありで表示 → 1 秒後に自動で nil に戻す。
+  @State private var comboMilestoneText: String? = nil
+  @State private var comboMilestoneTask: Task<Void, Never>?
+
+  /// 譜面終端で走らせる金明滅 → 白フェードの不透明度と色。
+  @State private var finishOverlayColor: Color = .clear
+  @State private var finishOverlayOpacity: Double = 0
 
   var body: some View {
     ZStack {
-      Color(red: 0x14 / 255.0, green: 0x12 / 255.0, blue: 0x1d / 255.0)
-        .ignoresSafeArea()
+      WafuuBackground()
 
-      SpriteView(scene: scene, options: [.ignoresSiblingOrder])
+      SpriteView(scene: scene, options: [.ignoresSiblingOrder, .allowsTransparency])
         .ignoresSafeArea()
+        .background(Color.clear)
 
       VStack {
         header
+        // 自動再生モードで停止中のみ、ヘッダー直下にレーン別ボタン列を表示。
+        // 選択中ノーツがあれば、そのレーンだけ「削除」ボタンに切替、
+        // 他レーンは「追加」ボタンのまま。
+        if mode == .autoPlay && phase == .playing && isPaused {
+          topButtonsRow
+        }
         Spacer()
       }
-      .padding(.horizontal, 20)
-      .padding(.top, 8)
+
+      // コンボミルストーンバナー(10 / 25 / 50 / 100 コンボ達成時)
+      if let text = comboMilestoneText {
+        VStack {
+          Spacer().frame(height: 130)
+          Text(text)
+            .font(WafuuUI.serif(28, weight: .black))
+            .tracking(6)
+            .foregroundStyle(WafuuUI.goldHi)
+            .shadow(color: WafuuUI.gold.opacity(0.6), radius: 6, x: 0, y: 3)
+            .padding(.horizontal, 22)
+            .padding(.vertical, 10)
+            .background(
+              RoundedRectangle(cornerRadius: 8)
+                .fill(WafuuUI.sumi.opacity(0.75))
+                .overlay(
+                  RoundedRectangle(cornerRadius: 8)
+                    .stroke(WafuuUI.goldHi, lineWidth: 1.5)
+                )
+            )
+            .transition(.asymmetric(
+              insertion: .scale(scale: 0.4).combined(with: .opacity),
+              removal: .scale(scale: 1.4).combined(with: .opacity)
+            ))
+          Spacer()
+        }
+        .allowsHitTesting(false)
+      }
+
+      countdownOverlay
+
+      // 自動再生モードのコントロール(画面下部、太鼓と被って OK)
+      if mode == .autoPlay && phase == .playing {
+        VStack {
+          Spacer()
+          // ノーツ選択中はシークバーの真上に ± 調整ボタンを表示
+          if let info = selectedNoteInfo {
+            noteAdjustControls(for: info)
+              .padding(.horizontal, 16)
+              .padding(.bottom, 8)
+              .transition(.move(edge: .bottom).combined(with: .opacity))
+          }
+          autoPlayControls
+            .padding(.bottom, 36)
+        }
+      }
+
+      // 譜面終端で金 → 白のフェード(interactive モードでリザルトへ抜ける前)
+      finishOverlayColor
+        .opacity(finishOverlayOpacity)
+        .ignoresSafeArea()
+        .allowsHitTesting(false)
     }
     .statusBarHidden(true)
     .onAppear {
       AudioEngine.shared.start()
       Haptics.shared.prepare()
+      scene.mode = mode
       wireScene()
-      scene.load(chart: chart)
+      startCountdown()
+    }
+    .onDisappear {
+      countdownTask?.cancel()
+      playbackTimerTask?.cancel()
+      comboMilestoneTask?.cancel()
+    }
+    .onChange(of: score.combo) { oldValue, newValue in
+      handleComboChange(from: oldValue, to: newValue)
     }
   }
 
-  private var header: some View {
-    HStack(alignment: .top) {
-      Button(action: onQuit) {
-        Image(systemName: "xmark")
-          .font(.system(size: 14, weight: .bold))
-          .foregroundStyle(gold.opacity(0.7))
-          .frame(width: 32, height: 32)
-          .background(Color.black.opacity(0.3))
-          .clipShape(Circle())
+  // MARK: - Countdown overlay
+
+  @ViewBuilder
+  private var countdownOverlay: some View {
+    switch phase {
+    case .countdown(let n):
+      Text("\(n)")
+        .font(WafuuUI.serif(140, weight: .black))
+        .foregroundStyle(WafuuUI.don)
+        .shadow(color: WafuuUI.don.opacity(0.35), radius: 16, x: 0, y: 6)
+        .transition(.asymmetric(
+          insertion: .scale(scale: 0.4).combined(with: .opacity),
+          removal: .scale(scale: 1.6).combined(with: .opacity)
+        ))
+        .id("count-\(n)")
+    case .playing:
+      EmptyView()
+    }
+  }
+
+  // MARK: - Countdown logic
+
+  private func startCountdown() {
+    countdownTask?.cancel()
+    countdownTask = Task { @MainActor in
+      for n in [3, 2, 1] {
+        withAnimation(.spring(response: 0.35, dampingFraction: 0.65)) {
+          phase = .countdown(n)
+        }
+        try? await Task.sleep(nanoseconds: 1_000_000_000)
+        if Task.isCancelled { return }
+      }
+      withAnimation(.easeInOut(duration: 0.2)) {
+        phase = .playing
+      }
+      // カウントダウン完了後に譜面をロード → PlayScene が startTime を CACurrentMediaTime() で
+      // 記録し、ノーツのスケジューリング(および autoPlay 時の音再生)を開始する
+      scene.load(chart: chart)
+      // 自動再生モードではシークバー用に再生時間ポーリングを開始
+      if mode == .autoPlay {
+        startPlaybackTimePolling()
+      }
+    }
+  }
+
+  // MARK: - Auto-play controls(再生/停止トグル + シークバー)
+
+  private var autoPlayControls: some View {
+    HStack(spacing: 14) {
+      playPauseToggle
+      seekBar
+    }
+    .padding(.horizontal, 16)
+    .padding(.vertical, 10)
+    .background(
+      RoundedRectangle(cornerRadius: 16)
+        .fill(WafuuUI.paper.opacity(0.92))
+        .shadow(color: .black.opacity(0.25), radius: 8, x: 0, y: 4)
+    )
+    .overlay(
+      RoundedRectangle(cornerRadius: 16)
+        .stroke(WafuuUI.woodDeep, lineWidth: 1.5)
+    )
+    .padding(.horizontal, 16)
+  }
+
+  /// 左端の再生/停止トグル(1 個のボタンでアイコン切替)。
+  private var playPauseToggle: some View {
+    Button(action: togglePlayPause) {
+      Text(isPaused ? "▶" : "❚❚")
+        .font(.system(size: 20, weight: .bold))
+        .foregroundStyle(.white)
+        .frame(width: 54, height: 54)
+        .background(
+          Circle()
+            .fill(
+              LinearGradient(
+                colors: [WafuuUI.donHi, WafuuUI.don, WafuuUI.donDim],
+                startPoint: .top,
+                endPoint: .bottom
+              )
+            )
+        )
+        .overlay(Circle().stroke(WafuuUI.donDim, lineWidth: 1.5))
+        .shadow(color: WafuuUI.don.opacity(0.35), radius: 4, x: 0, y: 2)
+    }
+    .buttonStyle(.plain)
+  }
+
+  /// 右側のシークバー + 経過時刻 / 総時間表示。
+  /// ドラッグ中はスライダー位置に合わせて譜面もリアルタイムで動く
+  /// (音は鳴らさず、視覚のみ更新)。YouTube のシーク挙動と同じ。
+  private var seekBar: some View {
+    let totalSec = Double(chart.durationMs) / 1000.0
+    return VStack(spacing: 4) {
+      Slider(
+        value: $sliderSec,
+        in: 0...max(totalSec, 0.001),
+        onEditingChanged: { editing in
+          if editing {
+            beginScrub()
+          } else {
+            endScrub()
+          }
+        }
+      )
+      .tint(WafuuUI.donDim)
+      .onChange(of: sliderSec) { _, new in
+        // スライダー変化時刻を記録(onEditingChanged の欠落検出用)
+        lastSliderChangeAt = CACurrentMediaTime()
+        // ドラッグ中はスライダー移動に追従して scene を silent seek
+        // (視覚だけ更新、音は鳴らさない)
+        if isSliderDragging {
+          scene.seek(toSec: new, silent: true)
+        }
       }
 
-      VStack(alignment: .leading, spacing: 2) {
-        Text("♪ お囃子の練習")
-          .font(.system(size: 13, weight: .semibold))
+      HStack {
+        Text(formatMSS(sliderSec))
+        Spacer()
+        Text(formatMSS(totalSec))
+      }
+      .font(WafuuUI.num(10, weight: .medium))
+      .tracking(1)
+      .foregroundStyle(WafuuUI.sumiSoft)
+    }
+  }
+
+  /// スクラブ開始: 元が再生中だったら pause(scene.speed = 0 で SKAction 停止)。
+  /// 元の再生状態を記憶して、endScrub で復元する。
+  private func beginScrub() {
+    isSliderDragging = true
+    lastSliderChangeAt = CACurrentMediaTime()
+    wasPlayingBeforeScrub = !isPaused
+    if !isPaused {
+      // 再生中 → 一時停止(スクラブ中は音を止めた状態で視覚だけ動かす)
+      scene.pauseGame()
+      isPaused = true
+    }
+  }
+
+  /// スクラブ終了: 最終位置に音付きで seek 再スケジュール。
+  /// 元が再生中だったら再開、停止中だったらそのまま。
+  private func endScrub() {
+    isSliderDragging = false
+    // 音付きで最終位置に再スケジュール(silent = false)
+    scene.seek(toSec: sliderSec, silent: false)
+    if wasPlayingBeforeScrub {
+      scene.resumeGame()
+      isPaused = false
+    }
+  }
+
+  private func togglePlayPause() {
+    // セーフガード: SwiftUI Slider の onEditingChanged(false) が発火
+    // しないケース(特に slider 最小値でリリースした時)で isSliderDragging
+    // が true のまま残ることがある。この時 polling が sliderSec を更新
+    // しなくなるため、play/pause ボタンが押されたタイミングでも念のため
+    // スクラブ状態を強制解除する(ユーザーはボタンを押すには slider から
+    // 指を離しているはずなので、reset は常に安全)。
+    if isSliderDragging {
+      forceEndStaleScrub()
+    }
+
+    if isPaused {
+      isPaused = false
+      scene.resumeGame()
+    } else {
+      isPaused = true
+      scene.pauseGame()
+    }
+  }
+
+  /// isSliderDragging = true のまま長期間放置された状態を強制解除する。
+  /// endScrub と同じ振る舞い(seek 音付き + 元が再生中なら resume)。
+  private func forceEndStaleScrub() {
+    isSliderDragging = false
+    scene.seek(toSec: sliderSec, silent: false)
+    if wasPlayingBeforeScrub && isPaused {
+      scene.resumeGame()
+      isPaused = false
+    }
+  }
+
+  /// 再生時間を 100ms 毎にポーリングしてスライダー位置を更新。
+  /// ドラッグ中はユーザー操作を優先(更新しない)。
+  ///
+  /// セーフガード:
+  /// isSliderDragging = true のまま lastSliderChangeAt から 400ms 以上
+  /// 経過している場合、SwiftUI Slider の onEditingChanged(false) が発火
+  /// せずスクラブ状態が「取り残された」と判定して強制解除する。
+  private func startPlaybackTimePolling() {
+    playbackTimerTask?.cancel()
+    playbackTimerTask = Task { @MainActor in
+      while !Task.isCancelled {
+        // 取り残されたスクラブを検出して強制解除
+        if isSliderDragging,
+           CACurrentMediaTime() - lastSliderChangeAt > 0.4 {
+          forceEndStaleScrub()
+        }
+        if !isSliderDragging {
+          sliderSec = scene.currentPlaybackTimeSec()
+        }
+        try? await Task.sleep(nanoseconds: 100_000_000)
+      }
+    }
+  }
+
+  private func formatMSS(_ sec: Double) -> String {
+    let total = Int(sec.rounded())
+    return String(format: "%d:%02d", total / 60, total % 60)
+  }
+
+  // MARK: - Note adjust controls(選択中ノーツの ± ボタン)
+
+  /// シークバー真上に表示する ± 調整ボタン。
+  /// - 右矢印 ▶ = 0.1s 早める(deltaMs = -100)
+  /// - 左矢印 ◀ = 0.1s 遅らせる(deltaMs = +100)
+  @ViewBuilder
+  private func noteAdjustControls(for info: PlayScene.NoteSelectionInfo) -> some View {
+    HStack(spacing: 12) {
+      // 左矢印: 遅らせる
+      Button(action: {
+        scene.applyExternalAdjustment(deltaMs: 100)
+        markUnsaved()
+      }) {
+        Text("◀")
+          .font(.system(size: 22, weight: .bold))
+          .foregroundStyle(.white)
+          .frame(width: 60, height: 48)
+          .background(
+            LinearGradient(
+              colors: [WafuuUI.donHi, WafuuUI.don, WafuuUI.donDim],
+              startPoint: .top,
+              endPoint: .bottom
+            )
+          )
+          .overlay(RoundedRectangle(cornerRadius: 12).stroke(WafuuUI.donDim, lineWidth: 1.5))
+          .clipShape(RoundedRectangle(cornerRadius: 12))
+          .shadow(color: WafuuUI.don.opacity(0.35), radius: 3, x: 0, y: 2)
+      }
+      .buttonStyle(.plain)
+
+      // 中央: ノーツ種別 + 累積調整量
+      VStack(spacing: 2) {
+        Text(noteTypeLabel(info.typeRawValue))
+          .font(WafuuUI.serif(11, weight: .bold))
+          .tracking(1)
+          .foregroundStyle(WafuuUI.sumi)
+        Text(formatDelta(info.deltaMs))
+          .font(WafuuUI.num(15, weight: .medium))
+          .tracking(1)
+          .foregroundStyle(info.deltaMs == 0 ? WafuuUI.sumiSoft : WafuuUI.donDim)
+      }
+      .frame(maxWidth: .infinity)
+
+      // 右矢印: 早める
+      Button(action: {
+        scene.applyExternalAdjustment(deltaMs: -100)
+        markUnsaved()
+      }) {
+        Text("▶")
+          .font(.system(size: 22, weight: .bold))
+          .foregroundStyle(.white)
+          .frame(width: 60, height: 48)
+          .background(
+            LinearGradient(
+              colors: [WafuuUI.donHi, WafuuUI.don, WafuuUI.donDim],
+              startPoint: .top,
+              endPoint: .bottom
+            )
+          )
+          .overlay(RoundedRectangle(cornerRadius: 12).stroke(WafuuUI.donDim, lineWidth: 1.5))
+          .clipShape(RoundedRectangle(cornerRadius: 12))
+          .shadow(color: WafuuUI.don.opacity(0.35), radius: 3, x: 0, y: 2)
+      }
+      .buttonStyle(.plain)
+    }
+    .padding(.horizontal, 14)
+    .padding(.vertical, 10)
+    .background(
+      RoundedRectangle(cornerRadius: 16)
+        .fill(WafuuUI.paper.opacity(0.92))
+        .shadow(color: .black.opacity(0.25), radius: 8, x: 0, y: 4)
+    )
+    .overlay(
+      RoundedRectangle(cornerRadius: 16)
+        .stroke(WafuuUI.woodDeep, lineWidth: 1.5)
+    )
+  }
+
+  // MARK: - Add note buttons(ヘッダー直下、4 レーン分)
+
+  /// 各レーンの最上部に配置されるボタン列(追加 or 削除)。
+  /// autoPlay モード && 停止中に表示。
+  /// - 通常時: 4 レーン分の「＋ 追加」ボタン
+  /// - 選択中ノーツがある時: そのレーンだけ「× 削除」ボタンに切替
+  ///   (don_both の場合は don_l と don_r の 2 レーンが削除に切替)
+  private var topButtonsRow: some View {
+    HStack(spacing: 0) {
+      topButton(laneIndex: 0, typeRaw: "ka_l", color: WafuuUI.ka, dimColor: WafuuUI.kaDim, label: "左カ")
+      topButton(laneIndex: 1, typeRaw: "don_l", color: WafuuUI.don, dimColor: WafuuUI.donDim, label: "左ド")
+      topButton(laneIndex: 2, typeRaw: "don_r", color: WafuuUI.don, dimColor: WafuuUI.donDim, label: "右ド")
+      topButton(laneIndex: 3, typeRaw: "ka_r", color: WafuuUI.ka, dimColor: WafuuUI.kaDim, label: "右カ")
+    }
+    .padding(.top, 4)
+  }
+
+  /// レーンごとに追加 or 削除ボタンを返す。
+  @ViewBuilder
+  private func topButton(laneIndex: Int, typeRaw: String, color: Color, dimColor: Color, label: String) -> some View {
+    if let info = selectedNoteInfo, laneIndicesForType(info.typeRawValue).contains(laneIndex) {
+      // このレーンに選択中ノーツがある → 削除ボタン
+      deleteNoteButton()
+    } else {
+      // それ以外 → 追加ボタン(通常)
+      addNoteButton(typeRaw: typeRaw, color: color, dimColor: dimColor, label: label)
+    }
+  }
+
+  /// NoteType の rawValue から、それが属するレーン index の集合を返す。
+  /// don_both は 2 レーンにまたがる(don_l と don_r の位置)。
+  private func laneIndicesForType(_ typeRaw: String) -> Set<Int> {
+    switch typeRaw {
+    case "ka_l":     return [0]
+    case "don_l":    return [1]
+    case "don_r":    return [2]
+    case "ka_r":     return [3]
+    case "don_both": return [1, 2]
+    default:         return []
+    }
+  }
+
+  private func deleteNoteButton() -> some View {
+    Button(action: {
+      scene.deleteSelectedNote()
+      markUnsaved()
+    }) {
+      VStack(spacing: 2) {
+        Text("×")
+          .font(.system(size: 22, weight: .bold))
+          .foregroundStyle(.white)
+        Text("削除")
+          .font(WafuuUI.serif(9, weight: .bold))
+          .tracking(1)
+          .foregroundStyle(.white.opacity(0.85))
+      }
+      .frame(maxWidth: .infinity)
+      .frame(height: 42)
+      .background(
+        LinearGradient(
+          colors: [Color(hex: 0x6A5248), Color(hex: 0x3E2E24)],
+          startPoint: .top,
+          endPoint: .bottom
+        )
+      )
+      .overlay(
+        RoundedRectangle(cornerRadius: 6)
+          .stroke(Color(hex: 0x3E2E24), lineWidth: 1)
+      )
+      .clipShape(RoundedRectangle(cornerRadius: 6))
+      .shadow(color: .black.opacity(0.18), radius: 1.5, x: 0, y: 1)
+      .padding(.horizontal, 2)
+    }
+    .buttonStyle(.plain)
+  }
+
+  private func addNoteButton(typeRaw: String, color: Color, dimColor: Color, label: String) -> some View {
+    Button(action: {
+      scene.addNoteAtCurrentTime(typeRawValue: typeRaw)
+      markUnsaved()
+    }) {
+      VStack(spacing: 2) {
+        Text("＋")
+          .font(.system(size: 20, weight: .bold))
+          .foregroundStyle(.white)
+        Text(label)
+          .font(WafuuUI.serif(9, weight: .bold))
+          .tracking(1)
+          .foregroundStyle(.white.opacity(0.85))
+      }
+      .frame(maxWidth: .infinity)
+      .frame(height: 42)
+      .background(
+        LinearGradient(
+          colors: [color, dimColor],
+          startPoint: .top,
+          endPoint: .bottom
+        )
+      )
+      .overlay(
+        RoundedRectangle(cornerRadius: 6)
+          .stroke(dimColor, lineWidth: 1)
+      )
+      .clipShape(RoundedRectangle(cornerRadius: 6))
+      .shadow(color: .black.opacity(0.15), radius: 1.5, x: 0, y: 1)
+      .padding(.horizontal, 2)
+    }
+    .buttonStyle(.plain)
+  }
+
+  // MARK: - Save button(autoPlay モード時、ヘッダー右端)
+
+  /// 保存ボタン。押すと現在の adjustments を lastSavedChart に commit する。
+  /// hasUnsavedChanges = false なら disabled(押しても意味なし)。
+  private var saveButton: some View {
+    Button(action: saveAdjustments) {
+      VStack(spacing: 2) {
+        Text(showSavedFeedback ? "✓" : "保存")
+          .font(WafuuUI.serif(13, weight: .bold))
           .tracking(2)
-          .foregroundStyle(gold)
-        Text("\(chart.name) / \(chart.region)")
-          .font(.system(size: 10))
-          .foregroundStyle(cream.opacity(0.6))
+          .foregroundStyle(showSavedFeedback ? WafuuUI.moss : WafuuUI.sumi)
+        Text("SAVE")
+          .font(WafuuUI.num(8, weight: .semibold))
+          .tracking(3)
+          .foregroundStyle(WafuuUI.sumiMist)
       }
-      .padding(.leading, 4)
+      .frame(width: 62)
+      .padding(.vertical, 8)
+      .background(
+        LinearGradient(
+          colors: [WafuuUI.woodLight, WafuuUI.woodMid],
+          startPoint: .top,
+          endPoint: .bottom
+        )
+      )
+      .overlay(
+        RoundedRectangle(cornerRadius: 6)
+          .stroke(WafuuUI.woodDeep, lineWidth: 1.5)
+      )
+      .clipShape(RoundedRectangle(cornerRadius: 6))
+      .shadow(color: .black.opacity(0.15), radius: 1.5, x: 0, y: 2)
+    }
+    .buttonStyle(.plain)
+    .disabled(!hasUnsavedChanges && !showSavedFeedback)
+    .opacity(hasUnsavedChanges || showSavedFeedback ? 1 : 0.45)
+  }
 
-      Spacer()
+  /// ± ボタン押下時に呼ばれる。未保存フラグを立てる。
+  private func markUnsaved() {
+    hasUnsavedChanges = true
+    // 直前の "✓" フィードバックが残っていたら消す
+    if showSavedFeedback {
+      savedFeedbackTask?.cancel()
+      showSavedFeedback = false
+    }
+  }
 
-      VStack(alignment: .trailing, spacing: 2) {
-        Text(formattedScore(score.totalScore))
-          .font(.system(size: 20, weight: .bold, design: .monospaced))
-          .foregroundStyle(gold)
-        HStack(spacing: 6) {
-          Text("COMBO")
-            .font(.system(size: 9))
-            .tracking(1)
-            .foregroundStyle(cream.opacity(0.6))
-          Text("\(score.combo)")
-            .font(.system(size: 14, weight: .bold, design: .monospaced))
-            .foregroundStyle(gold)
+  /// 保存ボタン押下時。現在の scene の chart を lastSavedChart に commit。
+  /// これで × / 完了時に adjustments が編集画面へ持ち帰られる。
+  private func saveAdjustments() {
+    lastSavedChart = scene.currentAdjustedChart() ?? chart
+    hasUnsavedChanges = false
+    // 短時間だけ ✓ を表示して保存できたことを可視化
+    savedFeedbackTask?.cancel()
+    withAnimation(.easeInOut(duration: 0.15)) {
+      showSavedFeedback = true
+    }
+    savedFeedbackTask = Task { @MainActor in
+      try? await Task.sleep(nanoseconds: 1_500_000_000)
+      if !Task.isCancelled {
+        withAnimation(.easeInOut(duration: 0.25)) {
+          showSavedFeedback = false
         }
       }
     }
+  }
+
+  /// 編集画面に持ち帰る chart(保存済みが無ければ元の chart)。
+  private func chartToReturnOnExit() -> Chart {
+    return lastSavedChart ?? chart
+  }
+
+  private func noteTypeLabel(_ raw: String) -> String {
+    switch raw {
+    case "don_l": return "左ドン"
+    case "don_r": return "右ドン"
+    case "don_both": return "両手ドン"
+    case "ka_l": return "左カッ"
+    case "ka_r": return "右カッ"
+    default: return raw
+    }
+  }
+
+  private func formatDelta(_ ms: Int) -> String {
+    if ms == 0 { return "±0.0s" }
+    let sign = ms > 0 ? "+" : "-"
+    let sec = Double(abs(ms)) / 1000.0
+    return String(format: "%@%.1fs", sign, sec)
+  }
+
+  // MARK: - Header
+
+  private var header: some View {
+    HStack(alignment: .center, spacing: 10) {
+      Button(action: handleQuit) {
+        Text("×")
+          .font(.system(size: 22, weight: .bold))
+          .foregroundStyle(WafuuUI.sumiSoft)
+          .frame(width: 32, height: 32)
+      }
+
+      if mode == .interactive {
+        // SCORE 掛け札(通常プレイ時のみ)
+        WoodPlate(width: 68) {
+          Text("SCORE")
+            .font(WafuuUI.num(8, weight: .semibold))
+            .tracking(3)
+            .foregroundStyle(WafuuUI.sumiMist)
+          Text(formattedScore(score.totalScore))
+            .font(WafuuUI.num(18, weight: .medium))
+            .tracking(1)
+            .foregroundStyle(WafuuUI.sumi)
+            .lineLimit(1)
+            .minimumScaleFactor(0.6)
+        }
+      }
+
+      // 曲名バナー(両モードで表示)
+      VStack(spacing: 2) {
+        Text(mode == .autoPlay ? "PREVIEW" : "NOW PLAYING")
+          .font(WafuuUI.num(8, weight: .semibold))
+          .tracking(3)
+          .foregroundStyle(WafuuUI.sumiMist)
+        Text(chart.name.isEmpty ? "無題" : chart.name)
+          .font(WafuuUI.serif(14, weight: .bold))
+          .tracking(2)
+          .foregroundStyle(WafuuUI.sumi)
+          .lineLimit(1)
+          .minimumScaleFactor(0.7)
+        Text(chart.region.isEmpty ? "—" : chart.region)
+          .font(WafuuUI.gothic(9))
+          .tracking(1)
+          .foregroundStyle(WafuuUI.sumiSoft)
+      }
+      .padding(.horizontal, 10)
+      .padding(.vertical, 6)
+      .frame(maxWidth: .infinity)
+      .background(
+        LinearGradient(
+          colors: [Color(hex: 0xF6E9C9), Color(hex: 0xEAD7A4)],
+          startPoint: .top,
+          endPoint: .bottom
+        )
+      )
+      .overlay(
+        RoundedRectangle(cornerRadius: 5)
+          .stroke(WafuuUI.woodDeep, lineWidth: 1.5)
+      )
+      .clipShape(RoundedRectangle(cornerRadius: 5))
+      .shadow(color: .black.opacity(0.15), radius: 1.5, x: 0, y: 2)
+
+      if mode == .interactive {
+        // COMBO 掛け札(通常プレイ時のみ)
+        WoodPlate(width: 68) {
+          Text("COMBO")
+            .font(WafuuUI.num(8, weight: .semibold))
+            .tracking(3)
+            .foregroundStyle(WafuuUI.sumiMist)
+          Text("\(score.combo)")
+            .font(WafuuUI.num(18, weight: .medium))
+            .tracking(1)
+            .foregroundStyle(WafuuUI.donDim)
+            .scaleEffect(comboScale)
+        }
+      } else {
+        // autoPlay モードでは右端に保存ボタン
+        saveButton
+      }
+    }
+    .padding(.horizontal, 12)
+    .padding(.top, 12)
+    .padding(.bottom, 8)
+    .background(
+      LinearGradient(
+        colors: [WafuuUI.moss.opacity(0.06), .clear],
+        startPoint: .top,
+        endPoint: .bottom
+      )
+    )
+    .overlay(
+      Rectangle()
+        .fill(WafuuUI.sumi.opacity(0.12))
+        .frame(height: 1),
+      alignment: .bottom
+    )
   }
 
   private func wireScene() {
@@ -92,8 +768,98 @@ struct PlayView: View {
       score = newScore
     }
     scene.onFinished = { finalScore in
-      score = finalScore
-      onFinished(finalScore)
+      if mode == .autoPlay {
+        // 自動再生プレビュー: 譜面終端で編集画面には抜けず、末尾で
+        // 停止して留まる。ユーザーは slider を戻して再度再生 or × で
+        // 明示的に戻る。
+        handleAutoPlayFinish()
+      } else {
+        score = finalScore
+        // 明滅フェード → 完了後にリザルトへ
+        runFinishFade { onFinished(finalScore) }
+      }
+    }
+    scene.onNoteSelectionChanged = { info in
+      withAnimation(.easeInOut(duration: 0.15)) {
+        selectedNoteInfo = info
+      }
+    }
+  }
+
+  // MARK: - Effect helpers
+
+  /// コンボ数字の更新時: 一瞬拡大 + 節目(10 / 25 / 50 / 100)でバナー。
+  private func handleComboChange(from oldValue: Int, to newValue: Int) {
+    // 0 への reset(不可判定)ではパルスさせない
+    guard newValue > 0, newValue != oldValue else { return }
+    comboScale = 1.5
+    withAnimation(.spring(response: 0.35, dampingFraction: 0.5)) {
+      comboScale = 1.0
+    }
+    if [10, 25, 50, 100].contains(newValue) {
+      showComboMilestone("\(newValue) コンボ!")
+    }
+  }
+
+  private func showComboMilestone(_ text: String) {
+    comboMilestoneTask?.cancel()
+    withAnimation(.spring(response: 0.35, dampingFraction: 0.6)) {
+      comboMilestoneText = text
+    }
+    comboMilestoneTask = Task { @MainActor in
+      try? await Task.sleep(nanoseconds: 900_000_000)
+      if Task.isCancelled { return }
+      withAnimation(.easeOut(duration: 0.35)) {
+        comboMilestoneText = nil
+      }
+    }
+  }
+
+  /// 譜面終端で走らせるフィナーレ:金 3 発の明滅 → 白フェード → completion。
+  /// - completion 呼び出し後は View 全体が入れ替わるので、この関数内で
+  ///   状態を残しておく必要はない(遷移先で新しい PlayView / ResultView が作られる)。
+  private func runFinishFade(completion: @escaping @MainActor () -> Void) {
+    Task { @MainActor in
+      finishOverlayColor = WafuuUI.goldHi
+      for _ in 0..<3 {
+        withAnimation(.easeInOut(duration: 0.10)) { finishOverlayOpacity = 0.55 }
+        try? await Task.sleep(nanoseconds: 110_000_000)
+        withAnimation(.easeInOut(duration: 0.10)) { finishOverlayOpacity = 0 }
+        try? await Task.sleep(nanoseconds: 110_000_000)
+      }
+      finishOverlayColor = .white
+      withAnimation(.easeInOut(duration: 0.35)) { finishOverlayOpacity = 1.0 }
+      try? await Task.sleep(nanoseconds: 360_000_000)
+      completion()
+    }
+  }
+
+  /// autoPlay モードで譜面終端に到達した時のハンドラ。
+  /// 編集画面には戻らず、末尾で停止して留まる。
+  ///
+  /// 挙動:
+  /// - scene を末尾時刻に seek し直す(silent、位置を明示的に確定)
+  /// - scene を pause(SKAction 停止)
+  /// - SwiftUI 側の isPaused / sliderSec を末尾に同期
+  private func handleAutoPlayFinish() {
+    let endSec = scene.durationSec()
+    // 末尾に seek(silent = 音は既に鳴り終わっているので不要)
+    scene.seek(toSec: endSec, silent: true)
+    // 一時停止
+    scene.pauseGame()
+    // SwiftUI 側の状態を同期
+    isPaused = true
+    sliderSec = endSec
+    lastSliderChangeAt = CACurrentMediaTime()
+  }
+
+  /// ×(戻る)ボタンハンドラ。
+  /// autoPlay 時は保存済み chart を返す(未保存の adjustments は破棄)。
+  private func handleQuit() {
+    if mode == .autoPlay {
+      onAutoPlayExit(chartToReturnOnExit())
+    } else {
+      onQuit()
     }
   }
 
@@ -104,9 +870,18 @@ struct PlayView: View {
   }
 }
 
-#Preview {
+#Preview("Interactive") {
   PlayView(
     chart: DemoChart.phase2Demo,
+    onFinished: { _ in },
+    onQuit: {}
+  )
+}
+
+#Preview("AutoPlay") {
+  PlayView(
+    chart: DemoChart.phase2Demo,
+    mode: .autoPlay,
     onFinished: { _ in },
     onQuit: {}
   )

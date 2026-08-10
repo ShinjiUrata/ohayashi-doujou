@@ -2,15 +2,13 @@ import SwiftUI
 
 /// 譜面編集画面。
 ///
-/// Phase 3 の最小機能:
 /// - 譜面名 / 地域名 のテキスト入力
 /// - 収録時間・ノーツ数のサマリ
 /// - ノーツリスト(時系列、種別バッジ、ホールドマーク)
-/// - 保存 → ライブラリへ
+/// - 調整 / 保存 / 公開する
 /// - 破棄 → ライブラリへ(保存せず)
 ///
-/// Phase 4 で公開ボタン → PublishView への遷移を追加。
-/// Phase 6 でノーツ個別削除 UI を追加。
+/// mockup: `mockups/07_edit_wafuu.html`
 struct ChartEditView: View {
   @State private var chart: Chart
   var onSave: (Chart) -> Void
@@ -32,311 +30,251 @@ struct ChartEditView: View {
     self.onDiscard = onDiscard
   }
 
-  private let gold = Color(red: 0xf4 / 255.0, green: 0xc9 / 255.0, blue: 0x5d / 255.0)
-  private let goldDim = Color(red: 0xb8 / 255.0, green: 0x93 / 255.0, blue: 0x5a / 255.0)
-  private let cream = Color(red: 0xf5 / 255.0, green: 0xea / 255.0, blue: 0xd0 / 255.0)
-  private let panel = Color(red: 0x1d / 255.0, green: 0x1a / 255.0, blue: 0x2a / 255.0)
-  private let bg = Color(red: 0x14 / 255.0, green: 0x12 / 255.0, blue: 0x1d / 255.0)
-
   var body: some View {
     ZStack {
-      bg.ignoresSafeArea()
+      WafuuBackground()
 
       VStack(spacing: 0) {
-        header
-        body_
+        AppHeader(title: "譜面を編集", onBack: onDiscard) {
+          Button(action: onDiscard) {
+            Text("破棄")
+              .font(WafuuUI.gothic(11))
+              .tracking(2)
+              .foregroundStyle(.red.opacity(0.75))
+          }
+        }
+        editBody
         footer
       }
     }
-    .foregroundStyle(cream)
-  }
-
-  // MARK: - Header
-
-  private var header: some View {
-    HStack {
-      Button(action: onDiscard) {
-        Image(systemName: "chevron.left")
-          .font(.system(size: 14, weight: .bold))
-          .foregroundStyle(gold.opacity(0.7))
-          .frame(width: 32, height: 32)
-          .background(Color.black.opacity(0.3))
-          .clipShape(Circle())
-      }
-      Spacer()
-      Text("譜面編集")
-        .font(.system(size: 14, weight: .bold))
-        .tracking(2)
-        .foregroundStyle(gold)
-      Spacer()
-      Button(action: onDiscard) {
-        Text("破棄")
-          .font(.system(size: 12))
-          .foregroundStyle(Color(red: 1.0, green: 0.23, blue: 0.23).opacity(0.75))
-          .tracking(1)
-      }
-      .padding(.trailing, 4)
-    }
-    .padding(.horizontal, 16)
-    .padding(.top, 12)
-    .padding(.bottom, 10)
-    .background(
-      LinearGradient(
-        colors: [Color(red: 0x4e / 255.0, green: 0xa7 / 255.0, blue: 0xd9 / 255.0).opacity(0.12), .clear],
-        startPoint: .top,
-        endPoint: .bottom
-      )
-    )
   }
 
   // MARK: - Body
 
-  private var body_: some View {
+  private var editBody: some View {
     ScrollView {
       VStack(alignment: .leading, spacing: 14) {
-        formBlock(label: "譜面名") {
+        infoSection
+        summarySection
+        noteListSection
+      }
+      .padding(.horizontal, 18)
+      .padding(.top, 14)
+      .padding(.bottom, 20)
+    }
+  }
+
+  private var infoSection: some View {
+    section(title: "CHART INFO") {
+      VStack(alignment: .leading, spacing: 10) {
+        VStack(alignment: .leading, spacing: 4) {
+          Text("譜面名")
+            .font(WafuuUI.num(9, weight: .semibold))
+            .tracking(3)
+            .foregroundStyle(WafuuUI.sumiMist)
           TextField("例: 獅子舞 入り囃子", text: $chart.name)
             .textFieldStyle(.plain)
-            .foregroundStyle(cream)
+            .font(WafuuUI.gothic(14))
+            .foregroundStyle(WafuuUI.sumi)
             .padding(10)
-            .background(panel)
+            .background(WafuuUI.paper.opacity(0.7))
             .overlay(
-              RoundedRectangle(cornerRadius: 10)
-                .stroke(chart.name.isEmpty ? gold.opacity(0.15) : gold.opacity(0.35), lineWidth: 1)
+              RoundedRectangle(cornerRadius: 4)
+                .stroke(WafuuUI.woodDark, lineWidth: 1)
             )
-            .clipShape(RoundedRectangle(cornerRadius: 10))
+            .clipShape(RoundedRectangle(cornerRadius: 4))
         }
-
-        formBlock(label: "地域") {
+        VStack(alignment: .leading, spacing: 4) {
+          Text("地域")
+            .font(WafuuUI.num(9, weight: .semibold))
+            .tracking(3)
+            .foregroundStyle(WafuuUI.sumiMist)
           TextField("例: 下田町", text: $chart.region)
             .textFieldStyle(.plain)
-            .foregroundStyle(cream)
+            .font(WafuuUI.gothic(14))
+            .foregroundStyle(WafuuUI.sumi)
             .padding(10)
-            .background(panel)
+            .background(WafuuUI.paper.opacity(0.7))
             .overlay(
-              RoundedRectangle(cornerRadius: 10)
-                .stroke(chart.region.isEmpty ? gold.opacity(0.15) : gold.opacity(0.35), lineWidth: 1)
+              RoundedRectangle(cornerRadius: 4)
+                .stroke(WafuuUI.woodDark, lineWidth: 1)
             )
-            .clipShape(RoundedRectangle(cornerRadius: 10))
+            .clipShape(RoundedRectangle(cornerRadius: 4))
         }
-
-        summaryBox
-
-        Text("ノーツ(時系列)")
-          .font(.system(size: 10))
-          .tracking(3)
-          .foregroundStyle(gold.opacity(0.7))
-          .padding(.top, 4)
-
-        noteList
       }
-      .padding(.horizontal, 16)
-      .padding(.top, 12)
-      .padding(.bottom, 16)
     }
   }
 
-  private func formBlock<Content: View>(
-    label: String,
-    @ViewBuilder content: () -> Content
-  ) -> some View {
-    VStack(alignment: .leading, spacing: 6) {
-      Text(label)
-        .font(.system(size: 10))
-        .tracking(2)
-        .foregroundStyle(gold)
-      content()
+  private var summarySection: some View {
+    section(title: "SUMMARY") {
+      HStack(spacing: 14) {
+        summaryCell(k: "時間", v: formatDuration(chart.durationMs))
+        summaryCell(k: "ノーツ数", v: "\(chart.notes.count)")
+      }
     }
   }
 
-  private var summaryBox: some View {
-    HStack(spacing: 14) {
-      summaryCell(k: "時間", v: formatDuration(chart.durationMs))
-      summaryCell(k: "ノーツ数", v: "\(chart.notes.count)")
-      summaryCell(k: "状態", v: "ドラフト", vColor: Color(red: 0x6b / 255.0, green: 0xc9 / 255.0, blue: 0x8a / 255.0))
-    }
-    .padding(10)
-    .background(panel)
-    .overlay(
-      RoundedRectangle(cornerRadius: 10)
-        .stroke(gold.opacity(0.15), lineWidth: 1)
-    )
-    .clipShape(RoundedRectangle(cornerRadius: 10))
-  }
-
-  private func summaryCell(k: String, v: String, vColor: Color? = nil) -> some View {
+  private func summaryCell(k: String, v: String) -> some View {
     VStack(alignment: .leading, spacing: 2) {
       Text(k)
-        .font(.system(size: 10))
-        .tracking(1)
-        .foregroundStyle(cream.opacity(0.5))
+        .font(WafuuUI.num(9, weight: .semibold))
+        .tracking(2)
+        .foregroundStyle(WafuuUI.sumiMist)
       Text(v)
-        .font(.system(size: 13, weight: .bold, design: .monospaced))
-        .foregroundStyle(vColor ?? gold)
+        .font(WafuuUI.num(15, weight: .medium))
+        .tracking(1)
+        .foregroundStyle(WafuuUI.sumi)
     }
     .frame(maxWidth: .infinity, alignment: .leading)
   }
 
-  private var noteList: some View {
-    VStack(spacing: 0) {
-      ForEach(Array(chart.notes.enumerated()), id: \.offset) { _, note in
-        HStack(spacing: 10) {
-          Text(formatTime(note.t))
-            .font(.system(size: 11, design: .monospaced))
-            .foregroundStyle(cream.opacity(0.75))
-            .frame(width: 70, alignment: .leading)
-          typeBadge(note.type)
-          Spacer()
-          if note.isHold, let duration = note.duration {
-            HStack(spacing: 4) {
-              Rectangle()
-                .fill(gold)
-                .frame(width: 18, height: 3)
-                .clipShape(Capsule())
-              Text("\(duration)ms")
-                .font(.system(size: 10, design: .monospaced))
-                .foregroundStyle(gold)
-                .tracking(1)
+  private var noteListSection: some View {
+    section(title: "NOTES · 時系列") {
+      if chart.notes.isEmpty {
+        Text("ノーツがまだ記録されていません")
+          .font(WafuuUI.gothic(12))
+          .foregroundStyle(WafuuUI.sumiSoft)
+          .frame(maxWidth: .infinity, alignment: .center)
+          .padding(.vertical, 12)
+      } else {
+        VStack(spacing: 0) {
+          ForEach(Array(chart.notes.enumerated()), id: \.offset) { _, note in
+            HStack(spacing: 10) {
+              Text(formatTime(note.t))
+                .font(WafuuUI.num(11, weight: .medium))
+                .foregroundStyle(WafuuUI.sumiSoft)
+                .frame(width: 70, alignment: .leading)
+              typeBadge(note.type)
+              Spacer()
+              if note.isHold, let duration = note.duration {
+                HStack(spacing: 4) {
+                  Rectangle()
+                    .fill(WafuuUI.gold)
+                    .frame(width: 18, height: 3)
+                    .clipShape(Capsule())
+                  Text("\(duration)ms")
+                    .font(WafuuUI.num(10, weight: .medium))
+                    .foregroundStyle(WafuuUI.gold)
+                    .tracking(1)
+                }
+                .padding(.horizontal, 6)
+                .padding(.vertical, 2)
+                .background(WafuuUI.gold.opacity(0.12))
+                .clipShape(RoundedRectangle(cornerRadius: 6))
+              }
             }
-            .padding(.horizontal, 6)
-            .padding(.vertical, 2)
-            .background(gold.opacity(0.12))
-            .clipShape(RoundedRectangle(cornerRadius: 6))
+            .padding(.horizontal, 10)
+            .padding(.vertical, 6)
+            .overlay(
+              Rectangle()
+                .fill(WafuuUI.sumi.opacity(0.06))
+                .frame(height: 1),
+              alignment: .bottom
+            )
           }
         }
-        .padding(.horizontal, 10)
-        .padding(.vertical, 5)
-        .overlay(
-          Rectangle()
-            .fill(Color.white.opacity(0.04))
-            .frame(height: 1),
-          alignment: .bottom
-        )
+        .padding(.vertical, 4)
       }
     }
-    .padding(.vertical, 6)
-    .background(panel)
-    .overlay(
-      RoundedRectangle(cornerRadius: 10)
-        .stroke(gold.opacity(0.15), lineWidth: 1)
-    )
-    .clipShape(RoundedRectangle(cornerRadius: 10))
   }
 
   private func typeBadge(_ type: NoteType) -> some View {
     let text = type.rawValue
-    let (bg, fg): (Color, Color)
+    let (bgColor, fg): (Color, Color)
     switch type {
     case .don_l, .don_r:
-      bg = Color(red: 0xe2 / 255.0, green: 0x3b / 255.0, blue: 0x3b / 255.0).opacity(0.2)
-      fg = Color(red: 1.0, green: 0.42, blue: 0.42)
+      bgColor = WafuuUI.don.opacity(0.15)
+      fg = WafuuUI.donDim
     case .don_both:
-      bg = Color(red: 0xe2 / 255.0, green: 0x3b / 255.0, blue: 0x3b / 255.0).opacity(0.35)
-      fg = Color(red: 1.0, green: 0.85, blue: 0.85)
+      bgColor = WafuuUI.don.opacity(0.3)
+      fg = WafuuUI.donDim
     case .ka_l, .ka_r:
-      bg = Color(red: 0x4e / 255.0, green: 0xa7 / 255.0, blue: 0xd9 / 255.0).opacity(0.2)
-      fg = Color(red: 0.56, green: 0.82, blue: 0.96)
+      bgColor = WafuuUI.ka.opacity(0.15)
+      fg = WafuuUI.kaDim
     }
     return Text(text)
-      .font(.system(size: 10, weight: .semibold, design: .monospaced))
+      .font(WafuuUI.num(10, weight: .semibold))
       .tracking(1)
       .foregroundStyle(fg)
       .padding(.horizontal, 8)
       .padding(.vertical, 3)
-      .background(bg)
-      .clipShape(RoundedRectangle(cornerRadius: 10))
+      .background(bgColor)
+      .clipShape(RoundedRectangle(cornerRadius: 8))
+  }
+
+  private func section<Content: View>(
+    title: String,
+    @ViewBuilder _ content: () -> Content
+  ) -> some View {
+    VStack(alignment: .leading, spacing: 8) {
+      HStack(spacing: 6) {
+        Rectangle().fill(WafuuUI.gold).frame(width: 3, height: 10)
+        Text(title)
+          .font(WafuuUI.num(10, weight: .semibold))
+          .tracking(3)
+          .foregroundStyle(WafuuUI.sumiMist)
+      }
+      content()
+    }
+    .padding(12)
+    .background(WafuuUI.cardBackground)
+    .overlay(
+      RoundedRectangle(cornerRadius: 10)
+        .stroke(WafuuUI.woodDeep, lineWidth: 1.5)
+    )
+    .clipShape(RoundedRectangle(cornerRadius: 10))
+    .shadow(color: .black.opacity(0.12), radius: 2, x: 0, y: 2)
   }
 
   // MARK: - Footer
 
   private var footer: some View {
-    VStack(spacing: 0) {
-      Rectangle().fill(Color.white.opacity(0.05)).frame(height: 1)
-      VStack(spacing: 8) {
-        HStack(spacing: 8) {
-          Button(action: {
-            onPreview(trimmed())
-          }) {
-            HStack(spacing: 6) {
-              Image(systemName: "play.fill")
-                .font(.system(size: 10))
-              Text("試遊")
-                .font(.system(size: 14, weight: .bold))
-                .tracking(2)
-            }
-            .foregroundStyle(gold)
-            .frame(maxWidth: .infinity)
-            .padding(.vertical, 14)
-            .background(Color(red: 0x26 / 255.0, green: 0x22 / 255.0, blue: 0x3a / 255.0))
-            .overlay(
-              RoundedRectangle(cornerRadius: 12)
-                .stroke(gold.opacity(0.35), lineWidth: 1)
-            )
-            .clipShape(RoundedRectangle(cornerRadius: 12))
-          }
-          .disabled(chart.notes.isEmpty)
-          .opacity(chart.notes.isEmpty ? 0.4 : 1.0)
-
-          Button(action: {
-            onSave(trimmed())
-          }) {
-            Text("保存")
-              .font(.system(size: 14, weight: .bold))
-              .tracking(2)
-              .foregroundStyle(cream)
-              .frame(maxWidth: .infinity)
-              .padding(.vertical, 14)
-              .background(panel)
-              .overlay(
-                RoundedRectangle(cornerRadius: 12)
-                  .stroke(gold.opacity(0.35), lineWidth: 1)
-              )
-              .clipShape(RoundedRectangle(cornerRadius: 12))
-          }
-          .disabled(!isSaveable)
-          .opacity(isSaveable ? 1.0 : 0.4)
+    VStack(spacing: 8) {
+      // ローカル「保存」ボタンは現時点で導線から外している(実装は残置)。
+      // 譜面の永続化は「公開する」フロー内でのみ発生する。
+      Button(action: { onPreview(trimmed()) }) {
+        HStack(spacing: 6) {
+          Text("▶")
+            .font(.system(size: 12, weight: .bold))
+          Text("調整")
         }
-
-        Button(action: {
-          onPublish(trimmed())
-        }) {
-          HStack(spacing: 6) {
-            Image(systemName: "arrow.up.circle.fill")
-              .font(.system(size: 12))
-            Text("この譜面を公開する")
-              .font(.system(size: 14, weight: .bold))
-              .tracking(2)
-            Text("¥1,000")
-              .font(.system(size: 11, weight: .semibold, design: .monospaced))
-              .opacity(0.85)
-          }
-          .foregroundStyle(.white)
-          .frame(maxWidth: .infinity)
-          .padding(.vertical, 14)
-          .background(
-            LinearGradient(
-              colors: [
-                Color(red: 0x5f / 255.0, green: 0xb8 / 255.0, blue: 0xea / 255.0),
-                Color(red: 0x4e / 255.0, green: 0xa7 / 255.0, blue: 0xd9 / 255.0),
-              ],
-              startPoint: .top,
-              endPoint: .bottom
-            )
-          )
-          .clipShape(RoundedRectangle(cornerRadius: 12))
-          .shadow(
-            color: Color(red: 0x4e / 255.0, green: 0xa7 / 255.0, blue: 0xd9 / 255.0).opacity(0.35),
-            radius: 8
-          )
-        }
-        .disabled(!isPublishable)
-        .opacity(isPublishable ? 1.0 : 0.4)
       }
-      .padding(.horizontal, 16)
-      .padding(.top, 12)
-      .padding(.bottom, 20)
-      .background(Color.black.opacity(0.3))
+      .buttonStyle(SecondaryButtonStyleWafuu(fontSize: 14))
+      .disabled(chart.notes.isEmpty)
+      .opacity(chart.notes.isEmpty ? 0.4 : 1)
+
+      Button(action: { onPublish(trimmed()) }) {
+        HStack(spacing: 8) {
+          Text("公開する")
+          Text("¥1,200")
+            .font(WafuuUI.num(15, weight: .medium))
+            .tracking(1)
+            .padding(.horizontal, 6)
+            .padding(.vertical, 2)
+            .background(Color.white.opacity(0.2))
+            .clipShape(RoundedRectangle(cornerRadius: 4))
+        }
+      }
+      .buttonStyle(PrimaryButtonStyleWafuu(fontSize: 15))
+      .disabled(!isPublishable)
+      .opacity(isPublishable ? 1 : 0.4)
     }
+    .padding(.horizontal, 16)
+    .padding(.top, 12)
+    .padding(.bottom, 24)
+    .background(
+      LinearGradient(
+        colors: [.clear, WafuuUI.moss.opacity(0.08)],
+        startPoint: .top,
+        endPoint: .bottom
+      )
+      .overlay(
+        Rectangle()
+          .fill(WafuuUI.sumi.opacity(0.12))
+          .frame(height: 1),
+        alignment: .top
+      )
+    )
   }
 
   private var isPublishable: Bool {
@@ -376,5 +314,4 @@ struct ChartEditView: View {
     onPublish: { _ in },
     onDiscard: {}
   )
-  .preferredColorScheme(.dark)
 }

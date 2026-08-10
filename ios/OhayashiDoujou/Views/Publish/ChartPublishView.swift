@@ -2,14 +2,14 @@ import SwiftUI
 
 /// 譜面公開画面。
 ///
-/// フロー(screens/08_publish.md 準拠):
+/// フロー:
 /// 1. 譜面サマリを表示
 /// 2. 公開 ID を入力
-/// 3. 「IDを確認」→ `/check-id` で事前重複チェック
-/// 4. 利用可能なら「公開する」ボタン → `/publish` に投げて確定 ID 受け取り
-/// 5. 発行 ID を表示、コピー可、ライブラリへ復帰
+/// 3. 「公開する」ボタン → 内部で `/check-id` → 利用可能なら StoreKit 2
+///    → `/publish` → 確定 ID 受け取り(重複時は課金前に停止)
+/// 4. 発行 ID を表示、コピー可、ライブラリへ復帰
 ///
-/// Phase 4 では JWS スタブ、Phase 5 で StoreKit 2 の実 JWS に差し替え。
+/// mockup: `mockups/08_publish_wafuu.html`
 struct ChartPublishView: View {
   let chart: Chart
   var onDismiss: () -> Void
@@ -18,7 +18,6 @@ struct ChartPublishView: View {
   enum Phase: Equatable {
     case input
     case checking
-    case available
     case conflict
     case checkError(String)
     case publishing
@@ -28,62 +27,21 @@ struct ChartPublishView: View {
 
   @State private var publishId: String = ""
   @State private var phase: Phase = .input
-  @State private var displayPrice: String = "¥1,000"
-
-  private let gold = Color(red: 0xf4 / 255.0, green: 0xc9 / 255.0, blue: 0x5d / 255.0)
-  private let goldDim = Color(red: 0xb8 / 255.0, green: 0x93 / 255.0, blue: 0x5a / 255.0)
-  private let cream = Color(red: 0xf5 / 255.0, green: 0xea / 255.0, blue: 0xd0 / 255.0)
-  private let panel = Color(red: 0x1d / 255.0, green: 0x1a / 255.0, blue: 0x2a / 255.0)
-  private let bg = Color(red: 0x14 / 255.0, green: 0x12 / 255.0, blue: 0x1d / 255.0)
-  private let accent = Color(red: 0xc8 / 255.0, green: 0x21 / 255.0, blue: 0x1d / 255.0)
-  private let ok = Color(red: 0x6b / 255.0, green: 0xc9 / 255.0, blue: 0x8a / 255.0)
-  private let warn = Color(red: 1.0, green: 0.42, blue: 0.42)
+  @State private var displayPrice: String = "¥1,200"
 
   var body: some View {
     ZStack {
-      bg.ignoresSafeArea()
+      WafuuBackground()
       VStack(spacing: 0) {
-        header
+        AppHeader(title: "譜面を公開", onBack: onDismiss)
         content
       }
     }
-    .foregroundStyle(cream)
     .task {
-      // 商品情報をプリロードして価格をロケール適用表示に差し替える
       if let price = await StoreKitManager.shared.displayPrice() {
         displayPrice = price
       }
     }
-  }
-
-  private var header: some View {
-    HStack {
-      Button(action: onDismiss) {
-        Image(systemName: "chevron.left")
-          .font(.system(size: 14, weight: .bold))
-          .foregroundStyle(gold.opacity(0.7))
-          .frame(width: 32, height: 32)
-          .background(Color.black.opacity(0.3))
-          .clipShape(Circle())
-      }
-      Spacer()
-      Text("譜面を公開")
-        .font(.system(size: 15, weight: .bold))
-        .tracking(2)
-        .foregroundStyle(gold)
-      Spacer()
-      Color.clear.frame(width: 32, height: 32)
-    }
-    .padding(.horizontal, 20)
-    .padding(.top, 12)
-    .padding(.bottom, 10)
-    .background(
-      LinearGradient(
-        colors: [accent.opacity(0.18), .clear],
-        startPoint: .top,
-        endPoint: .bottom
-      )
-    )
   }
 
   @ViewBuilder
@@ -98,230 +56,262 @@ struct ChartPublishView: View {
   // MARK: - Input body
 
   private var inputBody: some View {
-    ScrollView {
-      VStack(alignment: .leading, spacing: 14) {
-        chartSummary
-        idInputBlock
-        checkStatus
-        publishSection
-        Spacer(minLength: 40)
+    VStack(spacing: 0) {
+      ScrollView {
+        VStack(spacing: 16) {
+          hero
+          chartSummaryCard
+          idInputCard
+          priceCard
+          noticeBox
+        }
+        .padding(.horizontal, 22)
+        .padding(.top, 22)
+        .padding(.bottom, 20)
       }
-      .padding(.horizontal, 20)
-      .padding(.top, 14)
-      .padding(.bottom, 20)
+      footerActions
     }
   }
 
-  private var chartSummary: some View {
-    VStack(alignment: .leading, spacing: 6) {
-      Text(chart.name.isEmpty ? "(名称未設定)" : chart.name)
-        .font(.system(size: 15, weight: .bold))
-        .foregroundStyle(cream)
-      HStack(spacing: 12) {
-        summaryPill(k: "地域", v: chart.region.isEmpty ? "—" : chart.region)
-        summaryPill(k: "時間", v: formatDuration(chart.durationMs))
-        summaryPill(k: "ノーツ", v: "\(chart.notes.count)")
+  private var hero: some View {
+    VStack(spacing: 6) {
+      Text("この譜面を配布する")
+        .font(WafuuUI.serif(22, weight: .bold))
+        .tracking(6)
+        .foregroundStyle(WafuuUI.sumi)
+      Text("公開すると、譜面 ID を知る人が\nダウンロードして遊べるようになります。")
+        .font(WafuuUI.gothic(12))
+        .tracking(2)
+        .foregroundStyle(WafuuUI.sumiSoft)
+        .multilineTextAlignment(.center)
+    }
+    .padding(.bottom, 4)
+  }
+
+  private var chartSummaryCard: some View {
+    HStack(spacing: 12) {
+      chartIcon(for: chart.name)
+      VStack(alignment: .leading, spacing: 3) {
+        Text(chart.name.isEmpty ? "(名称未設定)" : chart.name)
+          .font(WafuuUI.serif(15, weight: .bold))
+          .tracking(1)
+          .foregroundStyle(WafuuUI.sumi)
+          .lineLimit(1)
+        Text("\(chart.region.isEmpty ? "—" : chart.region) · 演奏 \(formatDuration(chart.durationMs)) · \(chart.notes.count) 音")
+          .font(WafuuUI.gothic(11))
+          .tracking(1)
+          .foregroundStyle(WafuuUI.gold)
       }
+      Spacer()
     }
     .padding(12)
-    .background(panel)
+    .background(WafuuUI.cardBackground)
     .overlay(
-      RoundedRectangle(cornerRadius: 12)
-        .stroke(gold.opacity(0.2), lineWidth: 1)
+      RoundedRectangle(cornerRadius: 10)
+        .stroke(WafuuUI.woodDeep, lineWidth: 1.5)
     )
-    .clipShape(RoundedRectangle(cornerRadius: 12))
+    .clipShape(RoundedRectangle(cornerRadius: 10))
+    .shadow(color: .black.opacity(0.12), radius: 2, x: 0, y: 2)
   }
 
-  private func summaryPill(k: String, v: String) -> some View {
-    VStack(alignment: .leading, spacing: 2) {
-      Text(k)
-        .font(.system(size: 10))
-        .tracking(1)
-        .foregroundStyle(goldDim)
-      Text(v)
-        .font(.system(size: 12, weight: .semibold, design: .monospaced))
-        .foregroundStyle(gold)
-    }
+  private func chartIcon(for name: String) -> some View {
+    Text(String(name.prefix(1)))
+      .font(WafuuUI.serif(17, weight: .bold))
+      .foregroundStyle(.white)
+      .frame(width: 46, height: 46)
+      .background(
+        RadialGradient(
+          colors: [WafuuUI.donHi, WafuuUI.don, WafuuUI.donDim],
+          center: UnitPoint(x: 0.35, y: 0.30),
+          startRadius: 0, endRadius: 42
+        )
+      )
+      .clipShape(Circle())
   }
 
-  private var idInputBlock: some View {
-    VStack(alignment: .leading, spacing: 6) {
-      Text("公開 ID(自分で決められます)")
-        .font(.system(size: 10))
-        .tracking(2)
-        .foregroundStyle(gold)
-      TextField("例: shimoda-2026-irihayashi", text: $publishId)
+  private var idInputCard: some View {
+    VStack(alignment: .leading, spacing: 8) {
+      Text("CHART ID(公開後は変更不可)")
+        .font(WafuuUI.num(10, weight: .semibold))
+        .tracking(3)
+        .foregroundStyle(WafuuUI.sumiMist)
+
+      TextField("shimoda-2026-irihayashi", text: $publishId)
         .textFieldStyle(.plain)
-        .font(.system(size: 15, design: .monospaced))
-        .foregroundStyle(cream)
+        .font(WafuuUI.num(18, weight: .medium))
+        .tracking(3)
+        .foregroundStyle(WafuuUI.sumi)
+        .multilineTextAlignment(.center)
         .autocorrectionDisabled(true)
         .textInputAutocapitalization(.never)
         .padding(12)
-        .background(panel)
+        .background(WafuuUI.paper.opacity(0.85))
         .overlay(
-          RoundedRectangle(cornerRadius: 12)
-            .stroke(idBorderColor, lineWidth: 2)
+          RoundedRectangle(cornerRadius: 4)
+            .stroke(idBorderColor, lineWidth: 1.5)
         )
-        .clipShape(RoundedRectangle(cornerRadius: 12))
+        .clipShape(RoundedRectangle(cornerRadius: 4))
         .onChange(of: publishId) { _, new in
           publishId = new.lowercased().filter {
             $0.isLetter || $0.isNumber || $0 == "-"
           }
-          // 入力が変わったら check 状態はリセット
           switch phase {
-          case .available, .conflict, .checkError:
+          case .conflict, .checkError:
             phase = .input
           default:
             break
           }
         }
-      Text("小英字 / 数字 / ハイフン、3〜64 文字。地域内で告知しやすい覚えやすい ID を推奨")
-        .font(.system(size: 10))
+
+      Text("小英字・数字・ハイフン、3〜64 文字")
+        .font(WafuuUI.num(10, weight: .regular))
         .tracking(1)
-        .foregroundStyle(cream.opacity(0.5))
+        .foregroundStyle(WafuuUI.sumiMist)
+
+      checkStatusView
     }
+    .padding(16)
+    .background(WafuuUI.paper.opacity(0.55))
+    .overlay(
+      RoundedRectangle(cornerRadius: 10)
+        .stroke(WafuuUI.woodDark, lineWidth: 1)
+    )
+    .clipShape(RoundedRectangle(cornerRadius: 10))
   }
 
   private var idBorderColor: Color {
     switch phase {
-    case .available: return ok
-    case .conflict, .checkError: return warn
-    default: return isValidId ? gold.opacity(0.4) : gold.opacity(0.15)
+    case .conflict, .checkError: return .red.opacity(0.7)
+    default: return WafuuUI.woodDark
     }
   }
 
   @ViewBuilder
-  private var checkStatus: some View {
+  private var checkStatusView: some View {
     switch phase {
     case .checking:
       HStack(spacing: 8) {
-        ProgressView().tint(gold)
+        ProgressView().tint(WafuuUI.gold)
         Text("ID を確認中…")
-          .font(.system(size: 12))
-          .foregroundStyle(cream.opacity(0.7))
+          .font(WafuuUI.gothic(12))
+          .foregroundStyle(WafuuUI.sumiSoft)
       }
-    case .available:
-      statusBanner(text: "この ID は利用可能です", color: ok)
+      .frame(maxWidth: .infinity)
     case .conflict:
-      statusBanner(text: "この ID は既に使われています。別の ID を試してください", color: warn)
+      statusBanner(text: "この ID は既に使われています。別の ID にしてください。", color: .red)
     case .checkError(let msg):
-      statusBanner(text: msg, color: warn)
+      statusBanner(text: msg, color: .red)
     default:
-      EmptyView()
-    }
-
-    Button(action: checkId) {
-      Text("この ID が使えるか確認")
-        .font(.system(size: 13, weight: .bold))
-        .tracking(2)
-        .foregroundStyle(gold)
-        .frame(maxWidth: .infinity)
-        .padding(.vertical, 12)
-        .background(panel)
-        .overlay(
-          RoundedRectangle(cornerRadius: 12)
-            .stroke(gold.opacity(0.4), lineWidth: 1)
-        )
-        .clipShape(RoundedRectangle(cornerRadius: 12))
-    }
-    .disabled(!canCheck)
-    .opacity(canCheck ? 1.0 : 0.4)
-  }
-
-  private var publishSection: some View {
-    VStack(spacing: 10) {
-      priceCard
-      publishButton
-      caveat
+      Color.clear.frame(height: 0)
     }
   }
 
   private var priceCard: some View {
-    HStack(spacing: 12) {
-      RoundedRectangle(cornerRadius: 10)
-        .fill(accent.opacity(0.25))
-        .frame(width: 40, height: 40)
-        .overlay(
-          Text("♪")
-            .font(.system(size: 22, weight: .bold))
-            .foregroundStyle(gold)
-        )
-      VStack(alignment: .leading, spacing: 2) {
-        Text("公開料金(1曲)")
-          .font(.system(size: 11, weight: .semibold))
-          .foregroundStyle(cream)
-        Text("公開ボタンを押すと即時課金・即時公開")
-          .font(.system(size: 10))
-          .foregroundStyle(cream.opacity(0.7))
-      }
+    HStack {
+      Text("公開料金")
+        .font(WafuuUI.serif(14, weight: .bold))
+        .tracking(3)
+        .foregroundStyle(WafuuUI.sumi)
       Spacer()
-      Text(displayPrice)
-        .font(.system(size: 20, weight: .bold, design: .monospaced))
-        .foregroundStyle(gold)
-        .shadow(color: gold.opacity(0.4), radius: 6)
+      HStack(alignment: .bottom, spacing: 2) {
+        Text(displayPrice)
+          .font(WafuuUI.num(28, weight: .medium))
+          .tracking(1)
+          .foregroundStyle(WafuuUI.donDim)
+        Text("(税込)")
+          .font(WafuuUI.gothic(12))
+          .foregroundStyle(WafuuUI.sumiSoft)
+          .padding(.bottom, 2)
+      }
     }
-    .padding(14)
+    .padding(.vertical, 12)
+    .padding(.horizontal, 18)
     .background(
       LinearGradient(
-        colors: [accent.opacity(0.18), accent.opacity(0.05)],
-        startPoint: .topLeading,
-        endPoint: .bottomTrailing
+        colors: [WafuuUI.woodLight, WafuuUI.woodMid],
+        startPoint: .top,
+        endPoint: .bottom
       )
     )
     .overlay(
-      RoundedRectangle(cornerRadius: 12)
-        .stroke(accent.opacity(0.4), lineWidth: 1)
+      RoundedRectangle(cornerRadius: 10)
+        .stroke(WafuuUI.woodDeep, lineWidth: 1.5)
     )
-    .clipShape(RoundedRectangle(cornerRadius: 12))
+    .clipShape(RoundedRectangle(cornerRadius: 10))
+    .shadow(color: .black.opacity(0.15), radius: 1.5, x: 0, y: 2)
   }
 
-  @ViewBuilder
-  private var publishButton: some View {
-    Button(action: publish) {
-      HStack(spacing: 8) {
-        if case .publishing = phase {
-          ProgressView().tint(.white)
-        }
-        VStack(spacing: 3) {
-          Text("この譜面を公開する")
-            .font(.system(size: 16, weight: .bold))
+  private var noticeBox: some View {
+    VStack(alignment: .leading, spacing: 4) {
+      Text("ご注意")
+        .font(WafuuUI.serif(11, weight: .bold))
+        .foregroundStyle(WafuuUI.sumi)
+      Text("· 公開ボタン押下と同時に決済 → 譜面がアップロードされます\n· 消費型(Consumable)IAP、返金不可\n· 更新公開はできません(修正時は別 ID で新規公開)")
+        .font(WafuuUI.gothic(11))
+        .tracking(1)
+        .foregroundStyle(WafuuUI.sumiSoft)
+        .lineSpacing(2)
+    }
+    .padding(12)
+    .background(WafuuUI.sumi.opacity(0.05))
+    .overlay(
+      Rectangle().fill(WafuuUI.gold).frame(width: 3),
+      alignment: .leading
+    )
+    .clipShape(RoundedRectangle(cornerRadius: 6))
+  }
+
+  private var footerActions: some View {
+    VStack(spacing: 8) {
+      if case .publishError(let msg) = phase {
+        statusBanner(text: msg, color: .red)
+          .padding(.horizontal, 20)
+          .padding(.top, 6)
+      }
+      Button(action: publish) {
+        HStack(spacing: 10) {
+          if case .checking = phase {
+            ProgressView().tint(.white)
+          } else if case .publishing = phase {
+            ProgressView().tint(.white)
+          }
+          Text("公開する")
+          Text(displayPrice)
+            .font(WafuuUI.num(20, weight: .medium))
             .tracking(2)
-          Text("\(displayPrice) で即時アップロード")
-            .font(.system(size: 10))
-            .opacity(0.85)
+            .padding(.horizontal, 8)
+            .padding(.vertical, 2)
+            .background(Color.white.opacity(0.2))
+            .clipShape(RoundedRectangle(cornerRadius: 4))
         }
       }
-      .foregroundStyle(.white)
-      .frame(maxWidth: .infinity)
-      .padding(.vertical, 15)
-      .background(
-        LinearGradient(
-          colors: [Color(red: 0xdd / 255.0, green: 0x42 / 255.0, blue: 0x38 / 255.0), accent],
-          startPoint: .top,
-          endPoint: .bottom
-        )
+      .buttonStyle(PrimaryButtonStyleWafuu(fontSize: 16))
+      .disabled(!canPublish)
+      .opacity(canPublish ? 1 : 0.4)
+      .padding(.horizontal, 20)
+
+      Button(action: onDismiss) {
+        Text("後にする")
+          .font(WafuuUI.gothic(12))
+          .tracking(2)
+          .foregroundStyle(WafuuUI.sumiSoft)
+      }
+      .padding(.bottom, 24)
+    }
+    .padding(.top, 12)
+    .background(
+      LinearGradient(
+        colors: [.clear, WafuuUI.moss.opacity(0.08)],
+        startPoint: .top,
+        endPoint: .bottom
       )
-      .clipShape(RoundedRectangle(cornerRadius: 14))
-      .shadow(color: accent.opacity(0.5), radius: 12)
-    }
-    .disabled(!canPublish)
-    .opacity(canPublish ? 1.0 : 0.4)
-
-    if case .publishError(let msg) = phase {
-      statusBanner(text: msg, color: warn)
-    }
-  }
-
-  private var caveat: some View {
-    VStack(spacing: 6) {
-      Text("※ 購入は返金・キャンセル不可(即時消費)")
-      Text("※ Consumable IAP、公開時に即時課金")
-    }
-    .font(.system(size: 9))
-    .foregroundStyle(cream.opacity(0.5))
-    .tracking(1)
-    .multilineTextAlignment(.center)
-    .padding(.top, 4)
+      .overlay(
+        Rectangle()
+          .fill(WafuuUI.sumi.opacity(0.12))
+          .frame(height: 1),
+        alignment: .top
+      )
+    )
   }
 
   // MARK: - Success body
@@ -330,40 +320,46 @@ struct ChartPublishView: View {
     VStack(spacing: 22) {
       Spacer()
       Circle()
-        .fill(ok.opacity(0.15))
+        .fill(WafuuUI.moss.opacity(0.15))
         .frame(width: 100, height: 100)
         .overlay(
-          Image(systemName: "checkmark.circle.fill")
-            .font(.system(size: 56))
-            .foregroundStyle(ok)
+          Text("✓")
+            .font(.system(size: 60, weight: .bold))
+            .foregroundStyle(WafuuUI.moss)
         )
       VStack(spacing: 6) {
         Text("公開完了")
-          .font(.system(size: 20, weight: .bold))
-          .tracking(4)
-          .foregroundStyle(gold)
+          .font(WafuuUI.serif(24, weight: .bold))
+          .tracking(6)
+          .foregroundStyle(WafuuUI.sumi)
         Text("この ID を地域内で告知してください")
-          .font(.system(size: 12))
-          .foregroundStyle(cream.opacity(0.75))
+          .font(WafuuUI.gothic(12))
+          .tracking(2)
+          .foregroundStyle(WafuuUI.sumiSoft)
       }
       VStack(spacing: 8) {
         Text(publishedId)
-          .font(.system(size: 18, weight: .semibold, design: .monospaced))
-          .foregroundStyle(cream)
+          .font(WafuuUI.num(18, weight: .semibold))
+          .tracking(2)
+          .foregroundStyle(WafuuUI.sumi)
           .padding(14)
           .frame(maxWidth: .infinity)
-          .background(panel)
+          .background(WafuuUI.paper.opacity(0.85))
           .overlay(
-            RoundedRectangle(cornerRadius: 12)
-              .stroke(gold.opacity(0.35), lineWidth: 1)
+            RoundedRectangle(cornerRadius: 8)
+              .stroke(WafuuUI.woodDark, lineWidth: 1)
           )
-          .clipShape(RoundedRectangle(cornerRadius: 12))
+          .clipShape(RoundedRectangle(cornerRadius: 8))
         Button {
           UIPasteboard.general.string = publishedId
         } label: {
-          Label("ID をコピー", systemImage: "doc.on.doc")
-            .font(.system(size: 12, weight: .semibold))
-            .foregroundStyle(gold)
+          HStack(spacing: 4) {
+            Text("⎘")
+            Text("ID をコピー")
+          }
+          .font(WafuuUI.gothic(12, weight: .semibold))
+          .tracking(1)
+          .foregroundStyle(WafuuUI.gold)
         }
       }
       .padding(.horizontal, 20)
@@ -372,22 +368,10 @@ struct ChartPublishView: View {
         onPublished(publishedId)
       } label: {
         Text("ライブラリへ戻る")
-          .font(.system(size: 15, weight: .bold))
-          .tracking(3)
-          .foregroundStyle(.white)
-          .frame(maxWidth: .infinity)
-          .padding(.vertical, 14)
-          .background(
-            LinearGradient(
-              colors: [Color(red: 0xdd / 255.0, green: 0x42 / 255.0, blue: 0x38 / 255.0), accent],
-              startPoint: .top,
-              endPoint: .bottom
-            )
-          )
-          .clipShape(RoundedRectangle(cornerRadius: 14))
       }
+      .buttonStyle(PrimaryButtonStyleWafuu(fontSize: 15))
       .padding(.horizontal, 20)
-      .padding(.bottom, 24)
+      .padding(.bottom, 28)
     }
   }
 
@@ -400,34 +384,33 @@ struct ChartPublishView: View {
     }
   }
 
-  private var canCheck: Bool {
-    if case .checking = phase { return false }
-    return isValidId
-  }
-
   private var canPublish: Bool {
-    if case .publishing = phase { return false }
-    if case .available = phase { return true }
-    return false
+    guard isValidId else { return false }
+    switch phase {
+    case .checking, .conflict, .publishing:
+      return false
+    default:
+      return true
+    }
   }
 
   private func statusBanner(text: String, color: Color) -> some View {
     HStack(spacing: 8) {
       Circle().fill(color).frame(width: 8, height: 8)
       Text(text)
-        .font(.system(size: 12))
-        .foregroundStyle(cream)
+        .font(WafuuUI.gothic(12))
+        .foregroundStyle(WafuuUI.sumi)
         .fixedSize(horizontal: false, vertical: true)
       Spacer(minLength: 0)
     }
     .padding(.horizontal, 12)
     .padding(.vertical, 8)
-    .background(color.opacity(0.1))
+    .background(color.opacity(0.12))
     .overlay(
-      RoundedRectangle(cornerRadius: 10)
-        .stroke(color.opacity(0.35), lineWidth: 1)
+      RoundedRectangle(cornerRadius: 8)
+        .stroke(color.opacity(0.5), lineWidth: 1)
     )
-    .clipShape(RoundedRectangle(cornerRadius: 10))
+    .clipShape(RoundedRectangle(cornerRadius: 8))
   }
 
   private func formatDuration(_ ms: Int) -> String {
@@ -437,45 +420,46 @@ struct ChartPublishView: View {
 
   // MARK: - Actions
 
-  private func checkId() {
+  /// 「公開する」ボタンから呼ばれる。
+  /// 課金前に `/check-id` で ID の空き確認 → 空きがあれば StoreKit 課金 → `/publish` に進む。
+  /// 事前チェックで衝突していれば課金ダイアログを出さずに停止する
+  /// (=課金だけ完了して公開失敗する事故を防ぐ)。
+  private func publish() {
     let id = publishId
     guard isValidId else { return }
     phase = .checking
-    Task {
-      do {
-        let available = try await APIClient.shared.checkID(id)
-        await MainActor.run {
-          phase = available ? .available : .conflict
-        }
-      } catch let error as APIError {
-        await MainActor.run {
-          phase = .checkError(error.localizedDescription)
-        }
-      } catch {
-        await MainActor.run {
-          phase = .checkError("通信に失敗しました。時間をおいて再試行してください。")
-        }
-      }
-    }
-  }
 
-  private func publish() {
-    let id = publishId
-    guard case .available = phase, isValidId else { return }
-    phase = .publishing
-
-    // Chart の id を公開 ID に差し替えて送る(元の chart は draft ID の可能性がある)
     var toPublish = chart
     toPublish.id = id
 
     Task {
-      // 1) StoreKit 2 で決済ダイアログを開く。JWS を取り出す。
+      // 1) ID の空き確認
+      let available: Bool
+      do {
+        available = try await APIClient.shared.checkID(id)
+      } catch let error as APIError {
+        await MainActor.run { phase = .checkError(error.localizedDescription) }
+        return
+      } catch {
+        await MainActor.run {
+          phase = .checkError("通信に失敗しました。時間をおいて再試行してください。")
+        }
+        return
+      }
+
+      guard available else {
+        await MainActor.run { phase = .conflict }
+        return
+      }
+
+      // 2) StoreKit 課金
+      await MainActor.run { phase = .publishing }
+
       let pending: StoreKitManager.PendingPurchase
       do {
         pending = try await StoreKitManager.shared.purchase()
       } catch StoreKitManager.PurchaseError.userCancelled {
-        // ユーザーキャンセルは静かに ID 確認済み状態に戻す
-        await MainActor.run { phase = .available }
+        await MainActor.run { phase = .input }
         return
       } catch let purchaseError as StoreKitManager.PurchaseError {
         await MainActor.run {
@@ -491,15 +475,13 @@ struct ChartPublishView: View {
         return
       }
 
-      // 2) backend に JWS + 譜面を投げる。
+      // 3) /publish 実行 + ローカル保存
       do {
         let confirmedId = try await APIClient.shared.publish(
           signedTransaction: pending.jws,
           chart: toPublish
         )
 
-        // 3) publish 成功 → StoreKit の transaction を finish
-        //    (失敗時は finish しない、次回起動の Transaction.updates で再試行機会)
         await StoreKitManager.shared.finish(pending)
 
         toPublish.id = confirmedId
@@ -509,7 +491,6 @@ struct ChartPublishView: View {
           phase = .success(confirmedId)
         }
       } catch let error as APIError {
-        // publish 失敗 → transaction は finish しないまま残す
         await MainActor.run {
           phase = .publishError(error.localizedDescription)
         }
@@ -528,5 +509,4 @@ struct ChartPublishView: View {
     onDismiss: {},
     onPublished: { _ in }
   )
-  .preferredColorScheme(.dark)
 }

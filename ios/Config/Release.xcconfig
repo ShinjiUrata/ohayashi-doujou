@@ -7,3 +7,5 @@ PRODUCT_BUNDLE_IDENTIFIER = com.zembrem.ohayashidoujou
 // Cloud Run の URL(独自ドメイン不採用、Cloud Run 発行のデフォルト URL)。
 API_BASE_URL = https:/$()/api-p4eslkaoea-an.a.run.app
 CHARTS_BASE_URL = https:/$()/storage.googleapis.com/ohayashi-charts-prod
+
+IAP_PUBLISH_PRODUCT_ID = rhythm.chart.publish.single

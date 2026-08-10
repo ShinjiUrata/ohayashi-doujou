@@ -3,7 +3,7 @@
   "nonRenewingSubscriptions" : [],
   "products" : [
     {
-      "displayPrice" : "1000",
+      "displayPrice" : "1200",
       "familyShareable" : false,
       "internalID" : "OHAYASHI-CHART-PUBLISH-SINGLE",
       "localizations" : [
@@ -18,7 +18,7 @@
           "locale" : "en_US"
         }
       ],
-      "productID" : "rhythm.chart.publish.single",
+      "productID" : "rhythm.chart.publish.single.dev",
       "referenceName" : "譜面公開 (1曲)",
       "type" : "Consumable"
     }

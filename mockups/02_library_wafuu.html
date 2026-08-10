@@ -1,0 +1,244 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>お囃子道場 — 譜面ライブラリ</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Noto+Serif+JP:wght@500;700&family=Zen+Kaku+Gothic+New:wght@400;500;700&family=Bebas+Neue&family=Klee+One:wght@400;600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="assets/wafuu.css">
+<style>
+  /* ライブラリ 固有 */
+  .lib-subheader {
+    padding: 12px 20px 8px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    font-family: "Bebas Neue", sans-serif;
+    font-size: 10px;
+    letter-spacing: 3px;
+    color: var(--sumi-mist);
+  }
+  .lib-list {
+    flex: 1;
+    padding: 4px 16px 12px;
+    overflow-y: auto;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+  }
+
+  .chart-card {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 12px 14px;
+    background: linear-gradient(180deg, #fbf3dc 0%, #f0e0b0 100%);
+    border: 1.5px solid var(--wood-deep);
+    border-radius: 10px;
+    box-shadow:
+      inset 0 1px 0 rgba(255, 255, 255, 0.45),
+      0 2px 4px rgba(0, 0, 0, 0.12);
+    cursor: pointer;
+    text-decoration: none;
+    color: inherit;
+  }
+  .chart-card .icon {
+    width: 44px;
+    height: 44px;
+    border-radius: 50%;
+    background:
+      radial-gradient(circle at 35% 30%, var(--red-hi), var(--red) 55%, var(--red-dim) 100%);
+    color: #fff;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-family: "Noto Serif JP", serif;
+    font-weight: 700;
+    font-size: 15px;
+    box-shadow: 0 2px 6px rgba(200, 33, 29, 0.35);
+    flex-shrink: 0;
+  }
+  .chart-card .body {
+    flex: 1;
+    min-width: 0;
+  }
+  .chart-card .name {
+    font-family: "Noto Serif JP", serif;
+    font-weight: 700;
+    font-size: 15px;
+    color: var(--sumi);
+    letter-spacing: 1px;
+    line-height: 1.2;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+  .chart-card .meta {
+    display: flex;
+    gap: 10px;
+    font-size: 10px;
+    color: var(--sumi-soft);
+    margin-top: 4px;
+    letter-spacing: 1px;
+  }
+  .chart-card .meta .region { color: var(--gold); font-weight: 600; }
+  .chart-card .meta .duration { font-family: "Bebas Neue", sans-serif; }
+  .chart-card .meta .date { font-family: "Bebas Neue", sans-serif; opacity: 0.7; }
+  .chart-card .chev {
+    color: var(--gold);
+    font-size: 20px;
+    opacity: 0.5;
+  }
+
+  /* フッタ:録音ボタン */
+  .lib-footer {
+    padding: 12px 16px 28px;
+    background:
+      linear-gradient(180deg,
+        transparent 0%,
+        rgba(74, 108, 58, 0.10) 100%);
+    border-top: 1px solid var(--line);
+  }
+  .lib-footer .rec-btn {
+    width: 100%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 10px;
+    padding: 14px;
+    background: linear-gradient(180deg, var(--red-hi) 0%, var(--red) 60%, var(--red-dim) 100%);
+    color: #fff;
+    border: 1.5px solid var(--red-dim);
+    border-radius: 10px;
+    font-family: "Noto Serif JP", serif;
+    font-size: 15px;
+    font-weight: 700;
+    letter-spacing: 4px;
+    box-shadow:
+      inset 0 1px 0 rgba(255, 255, 255, 0.25),
+      0 4px 10px rgba(200, 33, 29, 0.35);
+  }
+  .rec-btn .dot {
+    width: 10px;
+    height: 10px;
+    border-radius: 50%;
+    background: #fff;
+  }
+</style>
+</head>
+<body>
+
+<div class="stage">
+  <div>
+    <div class="stage-title">お囃子道場 — 譜面ライブラリ</div>
+    <div class="stage-subtitle">WAFUU MODERN · CHART LIBRARY</div>
+  </div>
+
+  <div class="phone"><div class="screen"><div class="screen-inner">
+
+    <div class="app-header">
+      <button class="back-btn">メニュー</button>
+      <div class="app-title">譜面ライブラリ</div>
+      <div class="header-action">
+        <button class="btn-ghost" style="padding: 4px 10px; font-size: 11px;">＋ DL</button>
+      </div>
+    </div>
+
+    <div class="lib-subheader">
+      <span>保存済み 5 件</span>
+      <span>作成日順 ↓</span>
+    </div>
+
+    <div class="lib-list">
+      <a class="chart-card">
+        <div class="icon">獅</div>
+        <div class="body">
+          <div class="name">獅子舞 入り囃子</div>
+          <div class="meta">
+            <span class="region">下田町</span>
+            <span class="duration">2:24</span>
+            <span class="date">2026-07-08</span>
+          </div>
+        </div>
+        <div class="chev">›</div>
+      </a>
+
+      <a class="chart-card">
+        <div class="icon">屋</div>
+        <div class="body">
+          <div class="name">屋台囃子 練習用</div>
+          <div class="meta">
+            <span class="region">下田町</span>
+            <span class="duration">1:48</span>
+            <span class="date">2026-07-05</span>
+          </div>
+        </div>
+        <div class="chev">›</div>
+      </a>
+
+      <a class="chart-card">
+        <div class="icon">神</div>
+        <div class="body">
+          <div class="name">神楽 太鼓の型</div>
+          <div class="meta">
+            <span class="region">加茂</span>
+            <span class="duration">3:12</span>
+            <span class="date">2026-07-03</span>
+          </div>
+        </div>
+        <div class="chev">›</div>
+      </a>
+
+      <a class="chart-card">
+        <div class="icon">祭</div>
+        <div class="body">
+          <div class="name">秋祭り 本囃子</div>
+          <div class="meta">
+            <span class="region">磐田</span>
+            <span class="duration">4:35</span>
+            <span class="date">2026-06-30</span>
+          </div>
+        </div>
+        <div class="chev">›</div>
+      </a>
+
+      <a class="chart-card">
+        <div class="icon">練</div>
+        <div class="body">
+          <div class="name">練習用 基本リズム</div>
+          <div class="meta">
+            <span class="region">—</span>
+            <span class="duration">0:48</span>
+            <span class="date">2026-06-23</span>
+          </div>
+        </div>
+        <div class="chev">›</div>
+      </a>
+    </div>
+
+    <div class="lib-footer">
+      <button class="rec-btn">
+        <span class="dot"></span>
+        新しい譜面を録音する
+      </button>
+    </div>
+
+  </div></div></div>
+</div>
+
+<div class="legend">
+  <h2>譜面ライブラリ 設計メモ</h2>
+  <ul>
+    <li>ヘッダ:戻る「メニュー」+ タイトル「譜面ライブラリ」+ 右端に「＋ DL」ゴーストボタン</li>
+    <li>サブヘッダ:件数 + ソート表示(<code>Bebas Neue</code>、小さく)</li>
+    <li>カード:2 層グラデーションの木札風、朱の丸アイコン(譜面名の頭文字)</li>
+    <li>メタ情報:地域名(金)/ 演奏時間 / 作成日</li>
+    <li>フッター:録音ボタンをプライマリで底に固定(赤・プライマリ)</li>
+    <li>DL 導線をヘッダ右にも配置(1 タップで到達可能に)</li>
+  </ul>
+</div>
+
+</body>
+</html>

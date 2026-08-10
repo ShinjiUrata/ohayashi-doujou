@@ -1,0 +1,775 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>お囃子道場 — 和風モダン UI(base と洗練の中間)</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Noto+Serif+JP:wght@500;700&family=Zen+Kaku+Gothic+New:wght@400;500;700&family=Bebas+Neue&family=Klee+One:wght@400;600&family=Kaisei+Decol:wght@500;700&display=swap" rel="stylesheet">
+<style>
+  /* ==============================================================
+     和風モダン v2:base(装飾豊か)と v1(フラット過ぎ)の中間
+     - base の物質感(木・縄・紙)は残す
+     - タイポと配色を洗練
+     - 過剰な装飾は削り、hairline や余白で上品さを出す
+     ============================================================== */
+  :root {
+    --wood-light:  #f2e5c5;   /* 明るい檜 */
+    --wood-cream:  #e9d6ac;   /* 桐色 */
+    --wood-mid:    #c8a976;   /* 中間木 */
+    --wood-dark:   #8b6a3c;   /* 焦げ茶 */
+    --wood-deep:   #5c4225;   /* 濃い縁 */
+    --wood-sumi:   #2b1a0e;   /* 木炭 */
+
+    --sumi:        #2a2620;   /* 墨(主文字) */
+    --sumi-soft:   #5c5248;
+    --sumi-mist:   #8a7f70;
+
+    --gold:        #b8935a;
+    --gold-soft:   #d8bd85;
+    --gold-hi:     #f0d896;
+
+    --moss:        #4d6c3e;   /* 深緑 */
+    --moss-mid:    #6b8556;
+    --moss-soft:   #9ab08b;
+
+    --red:         #FD4720;
+    --red-dim:     #B0300F;
+    --red-hi:      #FF7051;
+
+    --blue:        #44C2C1;
+    --blue-dim:    #268786;
+    --blue-hi:     #78D6D5;
+
+    --paper:       #fdf6e3;
+    --line:        rgba(42, 26, 14, 0.12);
+    --line-strong: rgba(42, 26, 14, 0.28);
+  }
+
+  * { box-sizing: border-box; }
+
+  html, body {
+    margin: 0;
+    padding: 0;
+    background: #1a1611;
+    color: var(--sumi);
+    font-family: "Zen Kaku Gothic New", -apple-system, "Hiragino Sans", sans-serif;
+    min-height: 100vh;
+  }
+
+  .stage {
+    min-height: 100vh;
+    padding: 40px 20px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 36px;
+    background: radial-gradient(ellipse at top, #302820 0%, #14100c 80%);
+  }
+  .stage-title {
+    color: var(--gold-soft);
+    font-family: "Noto Serif JP", serif;
+    font-weight: 700;
+    font-size: 22px;
+    letter-spacing: 8px;
+    text-shadow: 0 2px 12px rgba(0, 0, 0, 0.6);
+  }
+  .stage-subtitle {
+    color: #756449;
+    font-size: 10px;
+    letter-spacing: 6px;
+    margin-top: -14px;
+    text-transform: uppercase;
+    font-family: "Bebas Neue", sans-serif;
+  }
+
+  /* --- iPhone frame --- */
+  .phone {
+    width: 390px;
+    height: 844px;
+    border-radius: 52px;
+    background: #0a0805;
+    padding: 12px;
+    box-shadow:
+      0 40px 80px rgba(0, 0, 0, 0.7),
+      0 0 0 1px #3a2b18,
+      inset 0 0 0 2px #1a130c;
+    position: relative;
+  }
+  .phone::before {
+    content: "";
+    position: absolute;
+    top: 22px;
+    left: 50%;
+    transform: translateX(-50%);
+    width: 110px;
+    height: 32px;
+    background: #000;
+    border-radius: 20px;
+    z-index: 10;
+  }
+  .screen {
+    width: 100%;
+    height: 100%;
+    border-radius: 42px;
+    overflow: hidden;
+    position: relative;
+    background: var(--wood-cream);
+  }
+
+  /* ==============================================================
+     背景:base の木目を穏やかに、節目を抑制
+     - 縦木目の頻度と濃度を base の 60% 程度に
+     - 節目 4 個 → 2 個、opacity 下げる
+     ============================================================== */
+  .screen::before {
+    content: "";
+    position: absolute;
+    inset: 0;
+    background:
+      /* 節目(1〜2 個の薄いシミ) */
+      radial-gradient(ellipse 20px 3px at 26% 22%, rgba(90, 60, 30, 0.14), transparent 70%),
+      radial-gradient(ellipse 22px 3px at 72% 68%, rgba(90, 60, 30, 0.11), transparent 70%),
+      /* 縦の木目(base より疎に、薄く) */
+      repeating-linear-gradient(
+        90deg,
+        transparent 0 6px,
+        rgba(139, 106, 60, 0.04) 6px 7px,
+        transparent 7px 14px,
+        rgba(92, 66, 37, 0.05) 14px 15px,
+        transparent 15px 22px
+      ),
+      linear-gradient(180deg,
+        var(--wood-light) 0%,
+        var(--wood-cream) 100%
+      );
+    z-index: 0;
+    pointer-events: none;
+  }
+
+  .game {
+    position: absolute;
+    inset: 0;
+    display: flex;
+    flex-direction: column;
+    z-index: 1;
+  }
+
+  /* ==============================================================
+     ヘッダ:木札の物質感は残しつつ、モダンなタイポと余白で洗練
+     - 縄穴の派手さは抑制
+     - 縁は 1.5px、角を控えめに丸く
+     - タイトルは Noto Serif JP、数字は Bebas Neue
+     ============================================================== */
+  .header {
+    padding: 58px 16px 14px;
+    display: flex;
+    align-items: stretch;
+    gap: 10px;
+    background:
+      linear-gradient(180deg,
+        rgba(74, 108, 58, 0.10) 0%,
+        transparent 100%
+      );
+    border-bottom: 1px solid var(--line);
+  }
+
+  .banner {
+    flex: 1;
+    background:
+      linear-gradient(180deg, #f6e9c9 0%, #ead7a4 100%);
+    border: 1.5px solid var(--wood-deep);
+    border-radius: 6px;
+    padding: 8px 14px;
+    text-align: center;
+    box-shadow:
+      inset 0 1px 0 rgba(255, 255, 255, 0.5),
+      inset 0 -1px 2px rgba(139, 106, 60, 0.15),
+      0 2px 4px rgba(0, 0, 0, 0.15);
+    position: relative;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+  }
+  /* 左右の縄結び装飾(base よりも控えめに) */
+  .banner::before, .banner::after {
+    content: "";
+    position: absolute;
+    top: 50%;
+    width: 5px;
+    height: 20px;
+    background: linear-gradient(180deg, var(--wood-mid), var(--wood-dark));
+    transform: translateY(-50%);
+    border-radius: 2px;
+  }
+  .banner::before { left: -4px; }
+  .banner::after  { right: -4px; }
+
+  .banner .label {
+    font-family: "Bebas Neue", sans-serif;
+    font-size: 8px;
+    letter-spacing: 3px;
+    color: var(--sumi-mist);
+    margin-bottom: 1px;
+  }
+  .banner .title {
+    font-family: "Noto Serif JP", serif;
+    font-weight: 700;
+    font-size: 15px;
+    color: var(--sumi);
+    letter-spacing: 3px;
+    line-height: 1.15;
+  }
+  .banner .region {
+    font-size: 9px;
+    color: var(--sumi-soft);
+    letter-spacing: 2px;
+    margin-top: 3px;
+  }
+
+  /* 木札(掛け札) — 縁は残す、縄穴は極小化 */
+  .stat-plate {
+    width: 68px;
+    background:
+      linear-gradient(180deg, var(--wood-light) 0%, var(--wood-mid) 100%);
+    border: 1.5px solid var(--wood-deep);
+    border-radius: 4px 4px 8px 8px;
+    padding: 6px 4px 8px;
+    text-align: center;
+    box-shadow:
+      inset 0 1px 0 rgba(255, 255, 255, 0.4),
+      0 2px 4px rgba(0, 0, 0, 0.18);
+    position: relative;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    gap: 2px;
+  }
+  .stat-plate::before {
+    /* 縄穴(小さく上品に) */
+    content: "";
+    position: absolute;
+    top: -3px;
+    left: 50%;
+    width: 4px;
+    height: 4px;
+    border-radius: 50%;
+    background: #0a0805;
+    transform: translateX(-50%);
+    box-shadow: 0 0 0 1.5px var(--wood-deep);
+  }
+  .stat-plate .k {
+    font-family: "Bebas Neue", sans-serif;
+    font-size: 8px;
+    color: var(--sumi-mist);
+    letter-spacing: 3px;
+  }
+  .stat-plate .v {
+    font-family: "Bebas Neue", sans-serif;
+    font-size: 22px;
+    line-height: 1;
+    color: var(--sumi);
+    letter-spacing: 1px;
+  }
+  .stat-plate.combo .v { color: var(--red-dim); }
+
+  /* ==============================================================
+     プレイフィールド:base の木の柱は残す、太さと質感を控えめに
+     ============================================================== */
+  .field {
+    flex: 1;
+    position: relative;
+    padding: 12px 18px 0;
+  }
+
+  .lanes {
+    height: 100%;
+    position: relative;
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 0;
+  }
+
+  .lane {
+    position: relative;
+  }
+  /* レーン境界:木目の柱を 2px に(base 3px と v1 1px の中間) */
+  .lane:not(:first-child)::before {
+    content: "";
+    position: absolute;
+    top: 0;
+    bottom: 0;
+    left: 0;
+    width: 2px;
+    background:
+      linear-gradient(180deg,
+        var(--wood-deep) 0%,
+        var(--wood-dark) 30%,
+        var(--wood-dark) 70%,
+        var(--wood-deep) 100%);
+    box-shadow:
+      inset -1px 0 0 rgba(255, 255, 255, 0.15),
+      inset 1px 0 0 rgba(0, 0, 0, 0.25);
+    z-index: 2;
+  }
+  /* 中央のセンターラインだけ金色でわずかに強調 */
+  .lane:nth-child(3)::before {
+    background:
+      linear-gradient(180deg,
+        var(--wood-deep) 0%,
+        var(--gold) 30%,
+        var(--gold) 70%,
+        var(--wood-deep) 100%);
+    width: 2px;
+  }
+
+  /* ==============================================================
+     ノーツ(フラット、色は既決)
+     ============================================================== */
+  .note {
+    position: absolute;
+    left: 50%;
+    transform: translateX(-50%);
+    width: 44px;
+    height: 44px;
+    border-radius: 50%;
+  }
+  .note.don {
+    width: 52px;
+    height: 52px;
+    background: var(--red);
+    box-shadow:
+      0 0 0 2px var(--gold),
+      0 0 0 3px var(--red-dim);
+  }
+  .note.ka {
+    background: var(--blue);
+    box-shadow:
+      0 0 0 2px #c9d4dc,
+      0 0 0 3px var(--blue-dim);
+  }
+  .note.don-both {
+    width: 70px;
+    height: 70px;
+    background: var(--red);
+    box-shadow:
+      0 0 0 3px var(--gold),
+      0 0 0 4px var(--red-dim);
+    z-index: 3;
+  }
+
+  /* ホールドの帯:base の縞は捨て、上品なグラデ帯に。ただし v1 より濃度を上げる */
+  .note.hold::after {
+    content: "";
+    position: absolute;
+    bottom: 100%;
+    left: 50%;
+    transform: translateX(-50%);
+    width: 24px;
+    height: 90px;
+    background:
+      linear-gradient(180deg,
+        rgba(253, 71, 32, 0.28) 0%,
+        rgba(253, 71, 32, 0.7) 55%,
+        var(--red) 100%);
+    border-radius: 5px 5px 0 0;
+    box-shadow: inset 0 0 0 1px var(--red-dim);
+    z-index: -1;
+  }
+  .note.ka.hold::after {
+    background:
+      linear-gradient(180deg,
+        rgba(68, 194, 193, 0.28) 0%,
+        rgba(68, 194, 193, 0.7) 55%,
+        var(--blue) 100%);
+    box-shadow: inset 0 0 0 1px var(--blue-dim);
+  }
+
+  /* ==============================================================
+     判定ライン:注連縄 + 紙垂 を「上品化」して残す
+     - base より 20% 細く、紙垂も控えめに 2 本
+     ============================================================== */
+  .judge {
+    position: absolute;
+    left: 12px;
+    right: 12px;
+    bottom: 220px;
+    height: 44px;
+    display: flex;
+    align-items: center;
+    justify-content: space-around;
+    padding: 0 4px;
+  }
+  .judge-rope {
+    position: absolute;
+    left: -6px;
+    right: -6px;
+    top: 20px;
+    height: 3px;
+    background:
+      linear-gradient(180deg,
+        var(--gold-hi) 0%,
+        var(--gold) 45%,
+        var(--wood-dark) 100%);
+    border-radius: 2px;
+    box-shadow: 0 0 8px rgba(184, 147, 90, 0.35);
+  }
+  /* 紙垂は 2 本のみ、幅を細く */
+  .judge-shide {
+    position: absolute;
+    top: 23px;
+    width: 3px;
+    height: 10px;
+    background: var(--paper);
+    box-shadow: 0 1px 2px rgba(0, 0, 0, 0.25);
+  }
+  .judge-shide.s1 { left: 28%; }
+  .judge-shide.s2 { left: 72%; }
+
+  /* 判定リング:base の木の丸枠を残す、破線は薄く */
+  .ring {
+    width: 38px;
+    height: 38px;
+    border-radius: 50%;
+    background:
+      radial-gradient(circle, transparent 58%, var(--wood-deep) 58%, var(--wood-deep) 63%, transparent 63%);
+    position: relative;
+    z-index: 1;
+  }
+  .ring::before {
+    content: "";
+    position: absolute;
+    inset: 4px;
+    border-radius: 50%;
+    border: 1px dashed rgba(184, 147, 90, 0.55);
+  }
+  .ring.ka::after {
+    content: "";
+    position: absolute;
+    inset: 9px;
+    border-radius: 50%;
+    border: 1.5px solid var(--blue-dim);
+    opacity: 0.55;
+  }
+  .ring.don::after {
+    content: "";
+    position: absolute;
+    inset: 9px;
+    border-radius: 50%;
+    border: 1.5px solid var(--red-dim);
+    opacity: 0.55;
+  }
+
+  /* ==============================================================
+     太鼓(base と同一:太鼓の達人風フラット)
+     畳の縁は 8px に(base 12px と v1 6px の中間)
+     ============================================================== */
+  .taiko-area {
+    position: absolute;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    height: 220px;
+    display: flex;
+    align-items: flex-end;
+    justify-content: center;
+    overflow: hidden;
+    background:
+      linear-gradient(180deg,
+        transparent 0%,
+        rgba(74, 108, 58, 0.08) 40%,
+        rgba(74, 108, 58, 0.20) 100%);
+  }
+  .taiko-area::before {
+    /* 畳の縁 8px */
+    content: "";
+    position: absolute;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    height: 8px;
+    background:
+      linear-gradient(180deg, var(--moss) 0%, var(--moss-mid) 100%);
+    box-shadow:
+      inset 0 1px 0 rgba(255, 255, 255, 0.15),
+      inset 0 -2px 4px rgba(0, 0, 0, 0.22);
+    z-index: 3;
+  }
+  .taiko-area::after {
+    /* 畳目 */
+    content: "";
+    position: absolute;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    height: 8px;
+    background:
+      repeating-linear-gradient(
+        90deg,
+        rgba(0, 0, 0, 0.22) 0 2px,
+        transparent 2px 6px
+      );
+    z-index: 4;
+  }
+
+  .taiko {
+    width: 320px;
+    height: 320px;
+    position: relative;
+    bottom: -110px;
+  }
+
+  /* ==============================================================
+     デザインメモ
+     ============================================================== */
+  .legend {
+    max-width: 760px;
+    background: #1e1a15;
+    border: 1px solid #4a3826;
+    border-radius: 14px;
+    padding: 24px 28px;
+    color: #c8b48c;
+    font-size: 13px;
+    line-height: 1.8;
+    box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5);
+  }
+  .legend h2 {
+    color: var(--gold-soft);
+    font-family: "Noto Serif JP", serif;
+    font-weight: 700;
+    font-size: 16px;
+    letter-spacing: 4px;
+    margin: 0 0 14px;
+    padding-bottom: 10px;
+    border-bottom: 1px solid #4a3826;
+  }
+  .legend h3 {
+    color: var(--gold);
+    font-family: "Bebas Neue", sans-serif;
+    font-size: 12px;
+    letter-spacing: 3px;
+    margin: 18px 0 6px;
+  }
+  .legend p { margin: 6px 0; }
+  .legend ul { margin: 4px 0; padding-left: 22px; }
+  .legend li { margin: 3px 0; }
+  .legend code {
+    background: #0e0b07;
+    color: var(--gold-soft);
+    padding: 2px 6px;
+    border-radius: 3px;
+    font-size: 11px;
+  }
+  .legend .compare {
+    display: grid;
+    grid-template-columns: 1fr 1fr 1fr;
+    gap: 8px;
+    margin-top: 12px;
+    font-size: 11px;
+  }
+  .legend .compare > div {
+    padding: 8px 10px;
+    background: #0e0b07;
+    border-radius: 4px;
+  }
+  .legend .compare strong { color: var(--gold-soft); display: block; margin-bottom: 4px; font-family: "Bebas Neue", sans-serif; letter-spacing: 2px; }
+
+  /* 落下アニメ */
+  @keyframes fall {
+    from { top: -60px; }
+    to   { top: calc(100% - 240px); }
+  }
+  .note.anim-1 { animation: fall 3.0s linear infinite; }
+  .note.anim-2 { animation: fall 3.0s linear infinite; animation-delay: -0.6s; }
+  .note.anim-3 { animation: fall 3.0s linear infinite; animation-delay: -1.2s; }
+  .note.anim-4 { animation: fall 3.0s linear infinite; animation-delay: -1.8s; }
+  .note.anim-5 { animation: fall 3.0s linear infinite; animation-delay: -2.4s; }
+</style>
+</head>
+<body>
+
+<div class="stage">
+
+  <div>
+    <div class="stage-title">お囃子道場 プレイ画面 — 和風モダン v2</div>
+    <div class="stage-subtitle">MIDDLE GROUND · BALANCED</div>
+  </div>
+
+  <div class="phone">
+    <div class="screen">
+      <div class="game">
+
+        <!-- ヘッダ:木札の物質感 + モダンなタイポ -->
+        <div class="header">
+          <div class="stat-plate">
+            <div class="k">SCORE</div>
+            <div class="v">2450</div>
+          </div>
+          <div class="banner">
+            <div class="label">NOW PLAYING</div>
+            <div class="title">獅子舞 入り囃子</div>
+            <div class="region">下田町 / SHIMODA</div>
+          </div>
+          <div class="stat-plate combo">
+            <div class="k">COMBO</div>
+            <div class="v">17</div>
+          </div>
+        </div>
+
+        <!-- プレイフィールド -->
+        <div class="field">
+          <div class="lanes">
+            <div class="lane ka-l">
+              <div class="note ka anim-1"></div>
+            </div>
+            <div class="lane don-l">
+              <div class="note don anim-3"></div>
+              <div class="note don don-both anim-5" style="left: 100%;"></div>
+            </div>
+            <div class="lane don-r">
+              <div class="note don hold anim-2"></div>
+            </div>
+            <div class="lane ka-r">
+              <div class="note ka anim-4"></div>
+            </div>
+          </div>
+
+          <!-- 判定ライン:注連縄(細)+ 紙垂 2 本 + 木の丸枠リング -->
+          <div class="judge">
+            <div class="judge-rope"></div>
+            <div class="judge-shide s1"></div>
+            <div class="judge-shide s2"></div>
+            <div class="ring ka"></div>
+            <div class="ring don"></div>
+            <div class="ring don"></div>
+            <div class="ring ka"></div>
+          </div>
+        </div>
+
+        <!-- 太鼓(base と同一) -->
+        <div class="taiko-area">
+          <svg class="taiko" viewBox="0 0 320 320" xmlns="http://www.w3.org/2000/svg">
+            <circle cx="160" cy="160" r="156" fill="#c8a976"/>
+            <circle cx="160" cy="160" r="140" fill="#8b6a3c"/>
+            <circle cx="160" cy="160" r="137" fill="#f5edd8"/>
+            <g fill="#2b1a0e">
+              <circle cx="160.00" cy="12.00" r="3"/>
+              <circle cx="183.19" cy="13.83" r="3"/>
+              <circle cx="205.85" cy="19.28" r="3"/>
+              <circle cx="227.47" cy="28.22" r="3"/>
+              <circle cx="247.55" cy="40.44" r="3"/>
+              <circle cx="265.61" cy="55.68" r="3"/>
+              <circle cx="281.24" cy="73.59" r="3"/>
+              <circle cx="294.05" cy="93.75" r="3"/>
+              <circle cx="303.76" cy="115.64" r="3"/>
+              <circle cx="310.13" cy="138.75" r="3"/>
+              <circle cx="313.00" cy="162.50" r="3"/>
+              <circle cx="312.28" cy="186.34" r="3"/>
+              <circle cx="307.97" cy="209.71" r="3"/>
+              <circle cx="300.16" cy="232.05" r="3"/>
+              <circle cx="289.02" cy="252.83" r="3"/>
+              <circle cx="274.83" cy="271.53" r="3"/>
+              <circle cx="257.92" cy="287.66" r="3"/>
+              <circle cx="238.70" cy="300.79" r="3"/>
+              <circle cx="217.63" cy="310.54" r="3"/>
+              <circle cx="195.23" cy="316.58" r="3"/>
+              <circle cx="172.05" cy="318.68" r="3"/>
+              <circle cx="148.70" cy="316.68" r="3"/>
+              <circle cx="125.77" cy="310.54" r="3"/>
+              <circle cx="103.88" cy="300.39" r="3"/>
+              <circle cx="83.61" cy="286.63" r="3"/>
+              <circle cx="65.51" cy="269.68" r="3"/>
+              <circle cx="50.05" cy="249.97" r="3"/>
+              <circle cx="37.69" cy="228.02" r="3"/>
+              <circle cx="28.75" cy="204.42" r="3"/>
+              <circle cx="23.48" cy="179.80" r="3"/>
+              <circle cx="22.00" cy="154.87" r="3"/>
+              <circle cx="24.36" cy="130.30" r="3"/>
+              <circle cx="30.48" cy="106.78" r="3"/>
+              <circle cx="40.15" cy="84.94" r="3"/>
+              <circle cx="53.02" cy="65.37" r="3"/>
+              <circle cx="68.68" cy="48.61" r="3"/>
+              <circle cx="86.63" cy="35.13" r="3"/>
+              <circle cx="106.34" cy="25.28" r="3"/>
+              <circle cx="127.20" cy="19.34" r="3"/>
+              <circle cx="148.59" cy="17.47" r="3"/>
+            </g>
+          </svg>
+        </div>
+
+      </div>
+    </div>
+  </div>
+
+  <!-- ============================================================== -->
+  <!-- デザインメモ -->
+  <!-- ============================================================== -->
+  <div class="legend">
+    <h2>和風モダン v2(中間版)の設計方針</h2>
+    <p>
+      前回の v1 がフラット過ぎたので、<strong>base(装飾豊か)</strong>と <strong>v1(hairline ミニマル)</strong>の中間で組み直した版。
+      base の物質感(木・縄・紙・畳)は残し、v1 の洗練されたタイポと余白の使い方を継承。
+    </p>
+
+    <h3>調整箇所の対比(base / v1 / v2)</h3>
+    <div class="compare">
+      <div>
+        <strong>Background</strong>
+        base: 縦木目 + 節目 4 個<br>
+        v1: 極薄い縦繊維<br>
+        <strong style="color:#f0d896">v2: 縦木目やや疎、節目 2 個</strong>
+      </div>
+      <div>
+        <strong>Header</strong>
+        base: 木札 + 縦掛け札<br>
+        v1: フラットカード<br>
+        <strong style="color:#f0d896">v2: 木札を残し縄穴を極小化</strong>
+      </div>
+      <div>
+        <strong>Lane Divider</strong>
+        base: 3px 木の柱<br>
+        v1: 1px hairline<br>
+        <strong style="color:#f0d896">v2: 2px 木の柱、中央だけ金</strong>
+      </div>
+      <div>
+        <strong>Judgment Line</strong>
+        base: 太い注連縄 + 紙垂 3<br>
+        v1: 金 hairline のみ<br>
+        <strong style="color:#f0d896">v2: 細めの注連縄 + 紙垂 2</strong>
+      </div>
+      <div>
+        <strong>Judge Ring</strong>
+        base: 木の丸枠 + 破線<br>
+        v1: 和紙背景 + 細枠<br>
+        <strong style="color:#f0d896">v2: 木の丸枠 + 薄い破線</strong>
+      </div>
+      <div>
+        <strong>畳の縁</strong>
+        base: 10px<br>
+        v1: 6px + hairline<br>
+        <strong style="color:#f0d896">v2: 8px + 畳目</strong>
+      </div>
+    </div>
+
+    <h3>タイポ(v1 から継承)</h3>
+    <ul>
+      <li>タイトル: <strong>Noto Serif JP</strong>(モダン明朝)</li>
+      <li>小見出し・数字: <strong>Bebas Neue</strong>(欧文コンデンス)</li>
+      <li>本文: <strong>Zen Kaku Gothic New</strong>(モダン角ゴシック)</li>
+    </ul>
+
+    <h3>変更しない要素(base と共通、確定済み)</h3>
+    <ul>
+      <li>太鼓の意匠(太鼓の達人風フラット、40 個の黒鋲)</li>
+      <li>ノーツ色(ドン <code>#FD4720</code> / カッ <code>#44C2C1</code>)</li>
+      <li>ノーツはフラット、文字なし、両手ドンはレーン境界上に浮かせる</li>
+      <li>ホールドの尾は頭の上に伸びる</li>
+      <li>レーン上部にラベルなし</li>
+    </ul>
+  </div>
+
+</div>
+
+</body>
+</html>

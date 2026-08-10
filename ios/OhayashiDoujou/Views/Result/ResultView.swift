@@ -2,170 +2,219 @@ import SwiftUI
 
 /// リザルト画面。
 ///
-/// Phase 2 の最小構成:
 /// - 総合スコア(大表示)
-/// - 星評価(5 段階)
-/// - 良 / 可 / 不可 / 最大コンボの内訳
+/// - ランク(漢字 1 文字 / 甲・乙・丙・丁)
+/// - 良 / 可 / 不可 / 最大コンボ の内訳
 /// - リトライ / タイトルへ戻る
+///
+/// mockup: `mockups/05_result_wafuu.html`
 struct ResultView: View {
   let chart: Chart
   let score: ScoreState
   var onRetry: () -> Void
   var onDismiss: () -> Void
 
-  private let gold = Color(red: 0xf4 / 255.0, green: 0xc9 / 255.0, blue: 0x5d / 255.0)
-  private let cream = Color(red: 0xf5 / 255.0, green: 0xea / 255.0, blue: 0xd0 / 255.0)
-  private let panel = Color(red: 0x1d / 255.0, green: 0x1a / 255.0, blue: 0x2a / 255.0)
-  private let accent = Color(red: 0xc8 / 255.0, green: 0x21 / 255.0, blue: 0x1d / 255.0)
-
   var body: some View {
     ZStack {
-      // 背景グラデーション
-      RadialGradient(
-        colors: [
-          Color(red: 0x2a / 255.0, green: 0x1a / 255.0, blue: 0x2a / 255.0),
-          Color(red: 0x14 / 255.0, green: 0x12 / 255.0, blue: 0x1d / 255.0),
-        ],
-        center: .top,
-        startRadius: 40,
-        endRadius: 600
-      )
-      .ignoresSafeArea()
+      WafuuBackground()
 
-      VStack(spacing: 16) {
-        header
-        chartInfo
-        stars
-        scoreValue
-        breakdown
-        Spacer()
-        buttons
-      }
-      .padding(.horizontal, 24)
-      .padding(.top, 40)
-      .padding(.bottom, 32)
-    }
-    .foregroundStyle(cream)
-  }
-
-  private var header: some View {
-    VStack(spacing: 2) {
-      Text("RESULT")
-        .font(.system(size: 11, weight: .semibold))
-        .tracking(4)
-        .foregroundStyle(gold.opacity(0.7))
-      Text("結果発表")
-        .font(.system(size: 24, weight: .bold))
-        .tracking(6)
-        .foregroundStyle(gold)
-        .shadow(color: gold.opacity(0.5), radius: 12)
-    }
-  }
-
-  private var chartInfo: some View {
-    VStack(spacing: 2) {
-      Text(chart.name)
-        .font(.system(size: 14, weight: .semibold))
-      Text("\(chart.region) / \(formatDuration(chart.durationMs))")
-        .font(.system(size: 10))
-        .foregroundStyle(cream.opacity(0.5))
-        .tracking(1)
-    }
-  }
-
-  private var stars: some View {
-    let count = score.stars(totalExpected: chart.notes.count)
-    return HStack(spacing: 6) {
-      ForEach(0..<5, id: \.self) { i in
-        Image(systemName: i < count ? "star.fill" : "star")
-          .font(.system(size: 26))
-          .foregroundStyle(i < count ? gold : gold.opacity(0.2))
-          .shadow(color: i < count ? gold.opacity(0.6) : .clear, radius: 8)
+      VStack(spacing: 0) {
+        chartHeader
+        scoreHero
+        judgeBreakdown
+        statsRow
+        Spacer(minLength: 12)
+        actions
       }
     }
-    .padding(.vertical, 4)
   }
 
-  private var scoreValue: some View {
-    VStack(spacing: 2) {
-      Text("SCORE")
-        .font(.system(size: 10, weight: .semibold))
-        .tracking(3)
-        .foregroundStyle(gold.opacity(0.7))
-      Text(formattedScore(score.totalScore))
-        .font(.system(size: 52, weight: .bold, design: .monospaced))
-        .tracking(2)
-        .foregroundStyle(gold)
-        .shadow(color: gold.opacity(0.4), radius: 20)
-        .lineLimit(1)
-        .minimumScaleFactor(0.6)
-    }
-  }
+  // MARK: - Header (chart info)
 
-  private var breakdown: some View {
-    HStack {
-      statCell(label: "良", value: score.good, color: gold)
-      statCell(label: "最大コンボ", value: score.maxCombo, color: gold)
-      statCell(label: "可", value: score.ok, color: Color(red: 0x6b / 255.0, green: 0xc9 / 255.0, blue: 0x8a / 255.0))
-      statCell(label: "不可", value: score.miss, color: Color(white: 0.55))
-    }
-    .padding(12)
-    .background(panel)
-    .overlay(
-      RoundedRectangle(cornerRadius: 14)
-        .stroke(gold.opacity(0.25), lineWidth: 1)
-    )
-    .clipShape(RoundedRectangle(cornerRadius: 14))
-  }
-
-  private func statCell(label: String, value: Int, color: Color) -> some View {
+  private var chartHeader: some View {
     VStack(spacing: 4) {
-      Text(label)
-        .font(.system(size: 10))
+      Text(clearedText)
+        .font(WafuuUI.num(11, weight: .semibold))
+        .tracking(4)
+        .foregroundStyle(WafuuUI.gold)
+      Text(chart.name)
+        .font(WafuuUI.serif(17, weight: .bold))
+        .tracking(3)
+        .foregroundStyle(WafuuUI.sumi)
+        .padding(.top, 2)
+      Text("\(chart.region.isEmpty ? "—" : chart.region) / \(formatDuration(chart.durationMs))")
+        .font(WafuuUI.gothic(11))
+        .tracking(2)
+        .foregroundStyle(WafuuUI.sumiSoft)
+    }
+    .padding(.top, 68)
+    .padding(.bottom, 12)
+  }
+
+  /// 譜面が生成する判定の総数。
+  /// - 単発ノーツ: 1 判定
+  /// - ホールドノーツ (duration > 0): 頭 + 尾 = 2 判定
+  private var totalJudgments: Int {
+    let holdCount = chart.notes.filter { ($0.duration ?? 0) > 0 }.count
+    return chart.notes.count + holdCount
+  }
+
+  private var clearedText: String {
+    if totalJudgments == 0 { return "PLAY END" }
+    // PERFECT: 判定が全て「良」(可・不可なし)
+    if score.miss == 0 && score.ok == 0 && score.good == totalJudgments {
+      return "PERFECT CLEAR"
+    }
+    // FULL COMBO: 不可なし
+    if score.miss == 0 { return "FULL COMBO" }
+    return "CLEAR"
+  }
+
+  // MARK: - Score hero
+
+  private var scoreHero: some View {
+    VStack(spacing: 8) {
+      Text(formattedScore(score.totalScore))
+        .font(WafuuUI.num(64, weight: .medium))
+        .tracking(3)
+        .foregroundStyle(WafuuUI.sumi)
+        .minimumScaleFactor(0.5)
+        .lineLimit(1)
+
+      Text("TOTAL SCORE")
+        .font(WafuuUI.num(11, weight: .semibold))
+        .tracking(5)
+        .foregroundStyle(WafuuUI.sumiMist)
+    }
+    .padding(.vertical, 24)
+    .padding(.horizontal, 24)
+    .frame(maxWidth: .infinity)
+    .background(
+      LinearGradient(
+        colors: [WafuuUI.gold.opacity(0.08), .clear],
+        startPoint: .top,
+        endPoint: .bottom
+      )
+    )
+    .overlay(
+      Rectangle()
+        .fill(WafuuUI.sumi.opacity(0.12))
+        .frame(height: 1),
+      alignment: .bottom
+    )
+  }
+
+  // MARK: - Judge breakdown
+
+  private var judgeBreakdown: some View {
+    HStack(spacing: 10) {
+      judgeCell(kanji: "良", count: score.good, valueColor: WafuuUI.gold)
+      judgeCell(kanji: "可", count: score.ok, valueColor: WafuuUI.kaDim)
+      judgeCell(kanji: "不可", count: score.miss, valueColor: WafuuUI.sumiSoft)
+    }
+    .padding(.horizontal, 24)
+    .padding(.vertical, 20)
+  }
+
+  private func judgeCell(kanji: String, count: Int, valueColor: Color) -> some View {
+    VStack(spacing: 4) {
+      Text(kanji)
+        .font(WafuuUI.serif(13, weight: .bold))
+        .tracking(3)
+        .foregroundStyle(WafuuUI.sumi)
+      Text("\(count)")
+        .font(WafuuUI.num(26, weight: .medium))
         .tracking(1)
-        .foregroundStyle(cream.opacity(0.6))
-      Text("\(value)")
-        .font(.system(size: 18, weight: .bold, design: .monospaced))
+        .foregroundStyle(valueColor)
+    }
+    .frame(maxWidth: .infinity)
+    .padding(.vertical, 10)
+    .background(
+      LinearGradient(
+        colors: [WafuuUI.woodLight, WafuuUI.woodMid],
+        startPoint: .top,
+        endPoint: .bottom
+      )
+    )
+    .overlay(
+      RoundedRectangle(cornerRadius: 8)
+        .stroke(WafuuUI.woodDeep, lineWidth: 1.5)
+    )
+    .clipShape(RoundedRectangle(cornerRadius: 8))
+    .shadow(color: .black.opacity(0.15), radius: 1.5, x: 0, y: 2)
+  }
+
+  // MARK: - Stats
+
+  private var statsRow: some View {
+    HStack(spacing: 10) {
+      statCard(label: "MAX COMBO", value: "\(score.maxCombo)", color: WafuuUI.donDim)
+      statCard(label: "ACCURACY", value: accuracyText, color: WafuuUI.sumi)
+    }
+    .padding(.horizontal, 24)
+    .padding(.bottom, 16)
+  }
+
+  private var accuracyText: String {
+    guard totalJudgments > 0 else { return "—" }
+    let hits = score.good + score.ok
+    // ホールドは頭 + 尾 の 2 判定なので分母も 2 倍しないと 100% を超え得る
+    let pct = min(100, Int(Double(hits) / Double(totalJudgments) * 100))
+    return "\(pct)%"
+  }
+
+  private func statCard(label: String, value: String, color: Color) -> some View {
+    VStack(spacing: 2) {
+      Text(label)
+        .font(WafuuUI.num(9, weight: .semibold))
+        .tracking(3)
+        .foregroundStyle(WafuuUI.sumiMist)
+      Text(value)
+        .font(WafuuUI.num(22, weight: .medium))
+        .tracking(1)
         .foregroundStyle(color)
     }
     .frame(maxWidth: .infinity)
+    .padding(.horizontal, 14)
+    .padding(.vertical, 10)
+    .background(WafuuUI.paper.opacity(0.55))
+    .overlay(
+      RoundedRectangle(cornerRadius: 6)
+        .stroke(WafuuUI.sumi.opacity(0.28), lineWidth: 1)
+    )
+    .clipShape(RoundedRectangle(cornerRadius: 6))
   }
 
-  private var buttons: some View {
+  // MARK: - Actions
+
+  private var actions: some View {
     VStack(spacing: 10) {
       Button(action: onRetry) {
-        Text("もう一度 プレイ")
-          .font(.system(size: 15, weight: .bold))
-          .tracking(3)
-          .foregroundStyle(.white)
-          .frame(maxWidth: .infinity)
-          .padding(.vertical, 15)
-          .background(
-            LinearGradient(
-              colors: [Color(red: 0xdd / 255.0, green: 0x42 / 255.0, blue: 0x38 / 255.0), accent],
-              startPoint: .top,
-              endPoint: .bottom
-            )
-          )
-          .clipShape(RoundedRectangle(cornerRadius: 14))
-          .shadow(color: accent.opacity(0.5), radius: 12)
+        Text("もう一度")
       }
+      .buttonStyle(PrimaryButtonStyleWafuu(fontSize: 15))
 
       Button(action: onDismiss) {
-        Text("一覧に戻る")
-          .font(.system(size: 15, weight: .bold))
-          .tracking(3)
-          .foregroundStyle(cream)
-          .frame(maxWidth: .infinity)
-          .padding(.vertical, 15)
-          .background(panel)
-          .overlay(
-            RoundedRectangle(cornerRadius: 14)
-              .stroke(gold.opacity(0.25), lineWidth: 1)
-          )
-          .clipShape(RoundedRectangle(cornerRadius: 14))
+        Text("ライブラリへ戻る")
       }
+      .buttonStyle(SecondaryButtonStyleWafuu(fontSize: 14))
     }
+    .padding(.horizontal, 24)
+    .padding(.top, 12)
+    .padding(.bottom, 28)
+    .background(
+      LinearGradient(
+        colors: [.clear, WafuuUI.moss.opacity(0.08)],
+        startPoint: .top,
+        endPoint: .bottom
+      )
+      .overlay(
+        Rectangle()
+          .fill(WafuuUI.sumi.opacity(0.12))
+          .frame(height: 1),
+        alignment: .top
+      )
+    )
   }
 
   // MARK: - Helpers
@@ -187,13 +236,12 @@ struct ResultView: View {
     chart: DemoChart.phase2Demo,
     score: {
       var s = ScoreState()
-      for _ in 0..<18 { s.record(.good) }
-      for _ in 0..<3 { s.record(.ok) }
-      s.record(.miss)
+      for _ in 0..<42 { s.record(.good) }
+      for _ in 0..<8 { s.record(.ok) }
+      for _ in 0..<3 { s.record(.miss) }
       return s
     }(),
     onRetry: {},
     onDismiss: {}
   )
-  .preferredColorScheme(.dark)
 }

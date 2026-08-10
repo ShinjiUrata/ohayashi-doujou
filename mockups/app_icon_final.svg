@@ -1,0 +1,92 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" width="1024" height="1024" viewBox="0 0 1024 1024">
+  <defs>
+    <linearGradient id="woodBg" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#F2E5C5"/>
+      <stop offset="55%" stop-color="#E9D6AC"/>
+      <stop offset="100%" stop-color="#C8A976"/>
+    </linearGradient>
+    <radialGradient id="skinGrad" cx="0.4" cy="0.35" r="0.7">
+      <stop offset="0%" stop-color="#FFFCEE"/>
+      <stop offset="60%" stop-color="#F5EDD8"/>
+      <stop offset="100%" stop-color="#E4D6B2"/>
+    </radialGradient>
+    <linearGradient id="bachiGrad" x1="0" y1="0" x2="1" y2="0">
+      <stop offset="0%" stop-color="#B48A5E"/>
+      <stop offset="50%" stop-color="#D8B080"/>
+      <stop offset="100%" stop-color="#8B6A3C"/>
+    </linearGradient>
+    <pattern id="woodGrain" x="0" y="0" width="80" height="1024" patternUnits="userSpaceOnUse">
+      <rect width="80" height="1024" fill="url(#woodBg)"/>
+      <path d="M8 0 Q10 300 8 512 Q6 700 8 1024" stroke="#B8935A" stroke-width="0.6" fill="none" opacity="0.35"/>
+      <path d="M28 0 Q26 200 28 512 Q30 800 28 1024" stroke="#A0824A" stroke-width="0.7" fill="none" opacity="0.28"/>
+      <path d="M52 0 Q54 400 52 512 Q50 750 52 1024" stroke="#8B6A3C" stroke-width="0.5" fill="none" opacity="0.30"/>
+      <path d="M72 0 Q70 250 72 512 Q74 780 72 1024" stroke="#C8A976" stroke-width="0.6" fill="none" opacity="0.35"/>
+    </pattern>
+  </defs>
+
+  <!-- 背景(木目) -->
+  <rect width="1024" height="1024" fill="url(#woodGrain)"/>
+
+  <!-- 太鼓(中央、scale 3.6 = 半径 360px) -->
+  <g transform="translate(512 512) scale(3.6)">
+    <circle r="100" fill="#C8A976"/>
+    <circle r="89.7" fill="#8B6A3C"/>
+    <circle r="87.8" fill="url(#skinGrad)"/>
+    <!-- 鋲 40 個(9°間隔) -->
+    <circle cx="0.0" cy="-94.9" r="2.5" fill="#2B1A0E"/>
+    <circle cx="14.85" cy="-93.73" r="2.5" fill="#2B1A0E"/>
+    <circle cx="29.33" cy="-90.26" r="2.5" fill="#2B1A0E"/>
+    <circle cx="43.08" cy="-84.56" r="2.5" fill="#2B1A0E"/>
+    <circle cx="55.78" cy="-76.78" r="2.5" fill="#2B1A0E"/>
+    <circle cx="67.1" cy="-67.1" r="2.5" fill="#2B1A0E"/>
+    <circle cx="76.78" cy="-55.78" r="2.5" fill="#2B1A0E"/>
+    <circle cx="84.56" cy="-43.08" r="2.5" fill="#2B1A0E"/>
+    <circle cx="90.26" cy="-29.33" r="2.5" fill="#2B1A0E"/>
+    <circle cx="93.73" cy="-14.85" r="2.5" fill="#2B1A0E"/>
+    <circle cx="94.9" cy="0.0" r="2.5" fill="#2B1A0E"/>
+    <circle cx="93.73" cy="14.85" r="2.5" fill="#2B1A0E"/>
+    <circle cx="90.26" cy="29.33" r="2.5" fill="#2B1A0E"/>
+    <circle cx="84.56" cy="43.08" r="2.5" fill="#2B1A0E"/>
+    <circle cx="76.78" cy="55.78" r="2.5" fill="#2B1A0E"/>
+    <circle cx="67.1" cy="67.1" r="2.5" fill="#2B1A0E"/>
+    <circle cx="55.78" cy="76.78" r="2.5" fill="#2B1A0E"/>
+    <circle cx="43.08" cy="84.56" r="2.5" fill="#2B1A0E"/>
+    <circle cx="29.33" cy="90.26" r="2.5" fill="#2B1A0E"/>
+    <circle cx="14.85" cy="93.73" r="2.5" fill="#2B1A0E"/>
+    <circle cx="0.0" cy="94.9" r="2.5" fill="#2B1A0E"/>
+    <circle cx="-14.85" cy="93.73" r="2.5" fill="#2B1A0E"/>
+    <circle cx="-29.33" cy="90.26" r="2.5" fill="#2B1A0E"/>
+    <circle cx="-43.08" cy="84.56" r="2.5" fill="#2B1A0E"/>
+    <circle cx="-55.78" cy="76.78" r="2.5" fill="#2B1A0E"/>
+    <circle cx="-67.1" cy="67.1" r="2.5" fill="#2B1A0E"/>
+    <circle cx="-76.78" cy="55.78" r="2.5" fill="#2B1A0E"/>
+    <circle cx="-84.56" cy="43.08" r="2.5" fill="#2B1A0E"/>
+    <circle cx="-90.26" cy="29.33" r="2.5" fill="#2B1A0E"/>
+    <circle cx="-93.73" cy="14.85" r="2.5" fill="#2B1A0E"/>
+    <circle cx="-94.9" cy="0.0" r="2.5" fill="#2B1A0E"/>
+    <circle cx="-93.73" cy="-14.85" r="2.5" fill="#2B1A0E"/>
+    <circle cx="-90.26" cy="-29.33" r="2.5" fill="#2B1A0E"/>
+    <circle cx="-84.56" cy="-43.08" r="2.5" fill="#2B1A0E"/>
+    <circle cx="-76.78" cy="-55.78" r="2.5" fill="#2B1A0E"/>
+    <circle cx="-67.1" cy="-67.1" r="2.5" fill="#2B1A0E"/>
+    <circle cx="-55.78" cy="-76.78" r="2.5" fill="#2B1A0E"/>
+    <circle cx="-43.08" cy="-84.56" r="2.5" fill="#2B1A0E"/>
+    <circle cx="-29.33" cy="-90.26" r="2.5" fill="#2B1A0E"/>
+    <circle cx="-14.85" cy="-93.73" r="2.5" fill="#2B1A0E"/>
+  </g>
+
+  <!-- バチ 左(縦、-8°傾き) -->
+  <g transform="translate(150 512) rotate(-8)">
+    <rect x="-24" y="-330" width="48" height="660" rx="24" fill="url(#bachiGrad)"/>
+    <ellipse cx="0" cy="-330" rx="30" ry="24" fill="#D8B080"/>
+    <ellipse cx="0" cy="330" rx="26" ry="22" fill="#8B6A3C"/>
+  </g>
+
+  <!-- バチ 右(縦、+8°傾き) -->
+  <g transform="translate(874 512) rotate(8)">
+    <rect x="-24" y="-330" width="48" height="660" rx="24" fill="url(#bachiGrad)"/>
+    <ellipse cx="0" cy="-330" rx="30" ry="24" fill="#D8B080"/>
+    <ellipse cx="0" cy="330" rx="26" ry="22" fill="#8B6A3C"/>
+  </g>
+</svg>

@@ -1,0 +1,274 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>お囃子道場 — 譜面編集</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Noto+Serif+JP:wght@500;700&family=Zen+Kaku+Gothic+New:wght@400;500;700&family=Bebas+Neue&family=Klee+One:wght@400;600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="assets/wafuu.css">
+<style>
+  .edit-body {
+    flex: 1;
+    padding: 14px 18px 12px;
+    overflow-y: auto;
+    display: flex;
+    flex-direction: column;
+    gap: 14px;
+  }
+
+  .edit-section {
+    background: linear-gradient(180deg, #fbf3dc 0%, #f0e0b0 100%);
+    border: 1.5px solid var(--wood-deep);
+    border-radius: 10px;
+    padding: 12px 14px;
+    box-shadow:
+      inset 0 1px 0 rgba(255, 255, 255, 0.45),
+      0 2px 4px rgba(0, 0, 0, 0.12);
+  }
+  .edit-section .title {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    font-family: "Bebas Neue", sans-serif;
+    font-size: 10px;
+    letter-spacing: 3px;
+    color: var(--sumi-mist);
+    margin-bottom: 8px;
+  }
+  .edit-section .title::before {
+    content: "";
+    width: 3px;
+    height: 10px;
+    background: var(--gold);
+  }
+
+  .field-row {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    margin-bottom: 8px;
+  }
+  .field-row:last-child { margin-bottom: 0; }
+
+  /* タイムライン(ノーツを時間軸で並べる) */
+  .timeline {
+    background: rgba(43, 26, 14, 0.5);
+    border-radius: 6px;
+    padding: 10px 12px;
+    height: 100px;
+    position: relative;
+    overflow: hidden;
+  }
+  .tl-ruler {
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: repeating-linear-gradient(
+      90deg,
+      transparent 0 39px,
+      rgba(184, 147, 90, 0.20) 39px 40px);
+  }
+  .tl-note {
+    position: absolute;
+    top: 50%;
+    transform: translate(-50%, -50%);
+    border-radius: 50%;
+  }
+  .tl-note.don { width: 20px; height: 20px; background: var(--red); box-shadow: 0 0 0 1.5px var(--red-dim); }
+  .tl-note.ka { width: 14px; height: 14px; background: var(--blue); box-shadow: 0 0 0 1.5px var(--blue-dim); }
+  .tl-note.both { width: 26px; height: 26px; background: var(--red); box-shadow: 0 0 0 2px var(--gold), 0 0 0 3px var(--red-dim); }
+  .tl-note.hold::after {
+    content: "";
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translateY(-50%);
+    height: 8px;
+    width: 40px;
+    background: linear-gradient(90deg, var(--red) 0%, rgba(253, 71, 32, 0.3) 100%);
+    border-radius: 4px;
+    z-index: -1;
+  }
+
+  .tl-playhead {
+    position: absolute;
+    top: 0;
+    bottom: 0;
+    width: 2px;
+    background: var(--gold-hi);
+    box-shadow: 0 0 8px rgba(240, 216, 150, 0.6);
+    z-index: 2;
+  }
+
+  .edit-tools {
+    display: flex;
+    gap: 6px;
+    margin-top: 10px;
+  }
+  .tool-btn {
+    flex: 1;
+    padding: 8px;
+    background: rgba(43, 26, 14, 0.6);
+    color: var(--paper);
+    border: 1px solid var(--wood-dark);
+    border-radius: 4px;
+    font-family: "Noto Serif JP", serif;
+    font-size: 11px;
+    letter-spacing: 2px;
+    cursor: pointer;
+  }
+  .tool-btn.active {
+    background: var(--red);
+    border-color: var(--red-dim);
+    box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.2);
+  }
+
+  .edit-footer {
+    padding: 12px 16px 28px;
+    border-top: 1px solid var(--line);
+    background:
+      linear-gradient(180deg,
+        transparent 0%,
+        rgba(74, 108, 58, 0.08) 100%);
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 8px;
+  }
+  .edit-footer .primary {
+    grid-column: 1 / -1;
+    padding: 14px;
+    background: linear-gradient(180deg, var(--red-hi) 0%, var(--red) 60%, var(--red-dim) 100%);
+    color: #fff;
+    border: 1.5px solid var(--red-dim);
+    border-radius: 10px;
+    font-family: "Noto Serif JP", serif;
+    font-size: 15px;
+    font-weight: 700;
+    letter-spacing: 4px;
+    box-shadow:
+      inset 0 1px 0 rgba(255, 255, 255, 0.25),
+      0 4px 10px rgba(200, 33, 29, 0.35);
+    cursor: pointer;
+  }
+  .edit-footer .secondary {
+    padding: 10px;
+    background: linear-gradient(180deg, var(--wood-light) 0%, var(--wood-cream) 100%);
+    color: var(--sumi);
+    border: 1.5px solid var(--wood-deep);
+    border-radius: 8px;
+    font-family: "Noto Serif JP", serif;
+    font-size: 13px;
+    letter-spacing: 2px;
+    cursor: pointer;
+  }
+  .edit-footer .ghost {
+    padding: 10px;
+    background: transparent;
+    color: var(--sumi-soft);
+    border: 1px solid var(--line-strong);
+    border-radius: 8px;
+    font-family: "Noto Serif JP", serif;
+    font-size: 13px;
+    letter-spacing: 2px;
+    cursor: pointer;
+  }
+</style>
+</head>
+<body>
+
+<div class="stage">
+  <div>
+    <div class="stage-title">お囃子道場 — 譜面編集</div>
+    <div class="stage-subtitle">WAFUU MODERN · CHART EDIT</div>
+  </div>
+
+  <div class="phone"><div class="screen"><div class="screen-inner">
+
+    <div class="app-header">
+      <button class="back-btn">中止</button>
+      <div class="app-title">譜面を編集</div>
+      <div class="header-action"></div>
+    </div>
+
+    <div class="edit-body">
+
+      <div class="edit-section">
+        <div class="title">CHART INFO</div>
+        <div class="field-row">
+          <div class="field-label">曲名</div>
+          <input class="field-input" value="獅子舞 入り囃子">
+        </div>
+        <div class="field-row">
+          <div class="field-label">地域</div>
+          <input class="field-input" value="下田町">
+        </div>
+      </div>
+
+      <div class="edit-section">
+        <div class="title">TIMELINE · 演奏 0:24 / 全 53 音</div>
+        <div class="timeline">
+          <div class="tl-ruler"></div>
+          <div class="tl-note don" style="left: 5%;"></div>
+          <div class="tl-note ka" style="left: 15%;"></div>
+          <div class="tl-note don" style="left: 25%;"></div>
+          <div class="tl-note both" style="left: 35%;"></div>
+          <div class="tl-note ka" style="left: 45%;"></div>
+          <div class="tl-note don hold" style="left: 55%;"></div>
+          <div class="tl-note don" style="left: 72%;"></div>
+          <div class="tl-note ka" style="left: 82%;"></div>
+          <div class="tl-note don" style="left: 92%;"></div>
+          <div class="tl-playhead" style="left: 38%;"></div>
+        </div>
+        <div class="edit-tools">
+          <button class="tool-btn active">再生</button>
+          <button class="tool-btn">追加</button>
+          <button class="tool-btn">削除</button>
+          <button class="tool-btn">移動</button>
+        </div>
+      </div>
+
+      <div class="edit-section">
+        <div class="title">DIFFICULTY · 難易度</div>
+        <div style="display: flex; gap: 6px;">
+          <button class="tool-btn" style="background: var(--red); color: #fff;">易</button>
+          <button class="tool-btn active" style="background: var(--gold); color: var(--sumi);">中</button>
+          <button class="tool-btn" style="background: rgba(43, 26, 14, 0.6);">難</button>
+        </div>
+      </div>
+
+    </div>
+
+    <div class="edit-footer">
+      <button class="secondary">▶ 試遊する</button>
+      <button class="ghost">保存(下書き)</button>
+      <button class="primary">公開する ¥1,000</button>
+    </div>
+
+  </div></div></div>
+</div>
+
+<div class="legend">
+  <h2>譜面編集 設計メモ</h2>
+  <ul>
+    <li>ヘッダ:「中止」戻る + タイトル「譜面を編集」</li>
+    <li>CHART INFO セクション:曲名・地域名を編集(木札風カード内)</li>
+    <li>TIMELINE:譜面を時間軸で可視化。ノーツ種別ごとに色分け(ドン=赤丸、カッ=青小丸、両手ドン=金縁+大、ホールド=帯)</li>
+    <li>再生ヘッド(金色縦線)で現在位置を表示</li>
+    <li>編集ツール:再生 / 追加 / 削除 / 移動 の 4 モード</li>
+    <li>DIFFICULTY:易 / 中 / 難 の 3 段階を色分けボタンで選択</li>
+    <li>フッター 3 ボタン:
+       <ul>
+         <li>試遊(セカンダリ木札)— アップロード前のプレビュー</li>
+         <li>保存(下書き、ゴースト)— ローカル保存のみ</li>
+         <li>公開する ¥1,000(プライマリ赤)— IAP フローへ</li>
+       </ul>
+    </li>
+  </ul>
+</div>
+
+</body>
+</html>
