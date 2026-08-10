@@ -227,7 +227,6 @@ struct ResultView: View {
   private func formattedScore(_ n: Int) -> String {
     let formatter = NumberFormatter()
     formatter.numberStyle = .decimal
-    formatter.groupingSeparator = " "
     return formatter.string(from: NSNumber(value: n)) ?? "\(n)"
   }
 }
