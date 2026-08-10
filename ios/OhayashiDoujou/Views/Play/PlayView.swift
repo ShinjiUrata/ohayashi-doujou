@@ -72,6 +72,24 @@ struct PlayView: View {
   @State private var showSavedFeedback: Bool = false
   @State private var savedFeedbackTask: Task<Void, Never>?
 
+  // MARK: - エフェクト用状態
+
+  /// コンボ数字のパルス倍率(更新時に一瞬拡大 → 戻る)。
+  @State private var comboScale: CGFloat = 1.0
+
+  /// コンボミルストーン(10 / 25 / 50 / 100)達成バナーのテキスト。
+  /// nil で非表示、値ありで表示 → 1 秒後に自動で nil に戻す。
+  @State private var comboMilestoneText: String? = nil
+  @State private var comboMilestoneTask: Task<Void, Never>?
+
+  /// 不可判定時の画面シェイク用オフセット。
+  @State private var shakeOffset: CGFloat = 0
+  @State private var shakeTask: Task<Void, Never>?
+
+  /// 譜面終端で走らせる金明滅 → 白フェードの不透明度と色。
+  @State private var finishOverlayColor: Color = .clear
+  @State private var finishOverlayOpacity: Double = 0
+
   var body: some View {
     ZStack {
       WafuuBackground()
@@ -79,6 +97,7 @@ struct PlayView: View {
       SpriteView(scene: scene, options: [.ignoresSiblingOrder, .allowsTransparency])
         .ignoresSafeArea()
         .background(Color.clear)
+        .offset(x: shakeOffset) // 不可判定時に横方向に小刻み振動
 
       VStack {
         header
@@ -89,6 +108,34 @@ struct PlayView: View {
           topButtonsRow
         }
         Spacer()
+      }
+
+      // コンボミルストーンバナー(10 / 25 / 50 / 100 コンボ達成時)
+      if let text = comboMilestoneText {
+        VStack {
+          Spacer().frame(height: 130)
+          Text(text)
+            .font(WafuuUI.serif(28, weight: .black))
+            .tracking(6)
+            .foregroundStyle(WafuuUI.goldHi)
+            .shadow(color: WafuuUI.gold.opacity(0.6), radius: 6, x: 0, y: 3)
+            .padding(.horizontal, 22)
+            .padding(.vertical, 10)
+            .background(
+              RoundedRectangle(cornerRadius: 8)
+                .fill(WafuuUI.sumi.opacity(0.75))
+                .overlay(
+                  RoundedRectangle(cornerRadius: 8)
+                    .stroke(WafuuUI.goldHi, lineWidth: 1.5)
+                )
+            )
+            .transition(.asymmetric(
+              insertion: .scale(scale: 0.4).combined(with: .opacity),
+              removal: .scale(scale: 1.4).combined(with: .opacity)
+            ))
+          Spacer()
+        }
+        .allowsHitTesting(false)
       }
 
       countdownOverlay
@@ -108,6 +155,12 @@ struct PlayView: View {
             .padding(.bottom, 36)
         }
       }
+
+      // 譜面終端で金 → 白のフェード(interactive モードでリザルトへ抜ける前)
+      finishOverlayColor
+        .opacity(finishOverlayOpacity)
+        .ignoresSafeArea()
+        .allowsHitTesting(false)
     }
     .statusBarHidden(true)
     .onAppear {
@@ -120,6 +173,16 @@ struct PlayView: View {
     .onDisappear {
       countdownTask?.cancel()
       playbackTimerTask?.cancel()
+      shakeTask?.cancel()
+      comboMilestoneTask?.cancel()
+    }
+    .onChange(of: score.combo) { oldValue, newValue in
+      handleComboChange(from: oldValue, to: newValue)
+    }
+    .onChange(of: score.miss) { oldValue, newValue in
+      if newValue > oldValue {
+        triggerShake()
+      }
     }
   }
 
@@ -686,6 +749,7 @@ struct PlayView: View {
             .font(WafuuUI.num(18, weight: .medium))
             .tracking(1)
             .foregroundStyle(WafuuUI.donDim)
+            .scaleEffect(comboScale)
         }
       } else {
         // autoPlay モードでは右端に保存ボタン
@@ -722,13 +786,78 @@ struct PlayView: View {
         handleAutoPlayFinish()
       } else {
         score = finalScore
-        onFinished(finalScore)
+        // 明滅フェード → 完了後にリザルトへ
+        runFinishFade { onFinished(finalScore) }
       }
     }
     scene.onNoteSelectionChanged = { info in
       withAnimation(.easeInOut(duration: 0.15)) {
         selectedNoteInfo = info
       }
+    }
+  }
+
+  // MARK: - Effect helpers
+
+  /// コンボ数字の更新時: 一瞬拡大 + 節目(10 / 25 / 50 / 100)でバナー。
+  private func handleComboChange(from oldValue: Int, to newValue: Int) {
+    // 0 への reset(不可判定)ではパルスさせない
+    guard newValue > 0, newValue != oldValue else { return }
+    comboScale = 1.5
+    withAnimation(.spring(response: 0.35, dampingFraction: 0.5)) {
+      comboScale = 1.0
+    }
+    if [10, 25, 50, 100].contains(newValue) {
+      showComboMilestone("\(newValue) コンボ!")
+    }
+  }
+
+  private func showComboMilestone(_ text: String) {
+    comboMilestoneTask?.cancel()
+    withAnimation(.spring(response: 0.35, dampingFraction: 0.6)) {
+      comboMilestoneText = text
+    }
+    comboMilestoneTask = Task { @MainActor in
+      try? await Task.sleep(nanoseconds: 900_000_000)
+      if Task.isCancelled { return }
+      withAnimation(.easeOut(duration: 0.35)) {
+        comboMilestoneText = nil
+      }
+    }
+  }
+
+  /// 不可判定時の画面小刻み振動(0.1 秒程度、左右に短くバウンド)。
+  private func triggerShake() {
+    shakeTask?.cancel()
+    shakeTask = Task { @MainActor in
+      let sequence: [CGFloat] = [-8, 8, -6, 6, -4, 4, 0]
+      for offset in sequence {
+        shakeOffset = offset
+        try? await Task.sleep(nanoseconds: 20_000_000)
+        if Task.isCancelled {
+          shakeOffset = 0
+          return
+        }
+      }
+    }
+  }
+
+  /// 譜面終端で走らせるフィナーレ:金 3 発の明滅 → 白フェード → completion。
+  /// - completion 呼び出し後は View 全体が入れ替わるので、この関数内で
+  ///   状態を残しておく必要はない(遷移先で新しい PlayView / ResultView が作られる)。
+  private func runFinishFade(completion: @escaping @MainActor () -> Void) {
+    Task { @MainActor in
+      finishOverlayColor = WafuuUI.goldHi
+      for _ in 0..<3 {
+        withAnimation(.easeInOut(duration: 0.10)) { finishOverlayOpacity = 0.55 }
+        try? await Task.sleep(nanoseconds: 110_000_000)
+        withAnimation(.easeInOut(duration: 0.10)) { finishOverlayOpacity = 0 }
+        try? await Task.sleep(nanoseconds: 110_000_000)
+      }
+      finishOverlayColor = .white
+      withAnimation(.easeInOut(duration: 0.35)) { finishOverlayOpacity = 1.0 }
+      try? await Task.sleep(nanoseconds: 360_000_000)
+      completion()
     }
   }
 

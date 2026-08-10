@@ -66,6 +66,10 @@ final class PlayScene: SKScene {
   private var pendingNotes: [PendingNote] = []
   private var judgeLabel: SKLabelNode?
 
+  /// レーン毎の判定マーカー(◯)への参照。パルスアニメで再利用する。
+  /// index = レーン番号 0…3(ka_l, don_l, don_r, ka_r 順)
+  private var markerOuterRings: [SKShapeNode] = []
+
   private var recentTouches: [RecentTouch] = []
   private var activeHolds: [ObjectIdentifier: ActiveHold] = [:]
 
@@ -568,6 +572,7 @@ final class PlayScene: SKScene {
   }
 
   private func layoutMarkers() {
+    markerOuterRings.removeAll()
     let laneWidth = size.width / CGFloat(laneCount)
     let types: [NoteType] = [.ka_l, .don_l, .don_r, .ka_r]
     for i in 0..<laneCount {
@@ -575,7 +580,7 @@ final class PlayScene: SKScene {
       let type = types[i]
       let isDon = (type == .don_l || type == .don_r)
 
-      // 木の丸枠(外側)
+      // 木の丸枠(外側)。パルスエフェクトでスケール操作するため参照保存。
       let outerRing = SKShapeNode(circleOfRadius: 19)
       outerRing.strokeColor = Self.wWoodDeep
       outerRing.fillColor = .clear
@@ -583,6 +588,7 @@ final class PlayScene: SKScene {
       outerRing.position = CGPoint(x: x, y: hitLineY)
       outerRing.zPosition = 5
       addChild(outerRing)
+      markerOuterRings.append(outerRing)
 
       // 色分け内輪
       let innerRing = SKShapeNode(circleOfRadius: 11)
@@ -843,10 +849,12 @@ final class PlayScene: SKScene {
     // 50ms を超えた古いエントリは相方判定の対象外(掃除)
     recentTouches.removeAll { now - $0.time > Self.bothPairWindowSec }
 
-    // 1) 全タッチを recentTouches / newEntries に登録
+    // 1) 全タッチを recentTouches / newEntries に登録、
+    //    タップ地点にリングエフェクト(即応フィードバック)
     var newEntries: [RecentTouch] = []
     for touch in touches {
       let location = touch.location(in: self)
+      spawnTapRipple(at: location)
       let zone = tapZone(at: location)
       let half: CenterHalf?
       if zone == .center {
@@ -1026,6 +1034,12 @@ final class PlayScene: SKScene {
     score.record(result)
     onScoreChanged?(score)
     showJudge(result)
+
+    // 両手ドン成立エフェクト: 衝撃波 + 太鼓を金でフラッシュ + 中央マーカー 2 つを同時パルス
+    spawnShockwave()
+    flashDrum(color: Self.wGoldHi, strength: 0.7)
+    pulseMarker(atLaneIndex: 1) // don_l
+    pulseMarker(atLaneIndex: 2) // don_r
     return true
   }
 
@@ -1065,6 +1079,12 @@ final class PlayScene: SKScene {
     score.record(result)
     onScoreChanged?(score)
     showJudge(result)
+
+    // 判定成立時のエフェクト: 太鼓フラッシュ + 対応レーンのマーカーパルス
+    flashDrum(color: flashColor(forZone: zone))
+    if let lane = laneIndex(forType: note.type) {
+      pulseMarker(atLaneIndex: lane)
+    }
   }
 
   // MARK: - Hold tracking(既存ロジック維持、node.parent = container を対象に修正)
@@ -1146,6 +1166,17 @@ final class PlayScene: SKScene {
       score.record(result)
       onScoreChanged?(score)
       showJudge(result)
+
+      // ホールド尾判定時のエフェクト(成功時のみ)
+      if result != .miss {
+        flashDrum(color: flashColor(forZone: hold.type.zone), strength: 0.4)
+        if let lane = laneIndex(forType: hold.type) {
+          pulseMarker(atLaneIndex: lane)
+        } else if hold.type == .don_both {
+          pulseMarker(atLaneIndex: 1)
+          pulseMarker(atLaneIndex: 2)
+        }
+      }
     }
   }
 
@@ -1164,38 +1195,159 @@ final class PlayScene: SKScene {
 
   private func showJudge(_ result: JudgeResult) {
     judgeLabel?.removeFromParent()
-    let (text, color): (String, SKColor)
+    let (text, color, size): (String, SKColor, CGFloat)
     switch result {
     case .good:
+      // 金色、少し大きめで祝う
       text = "良!"
-      color = Self.wGold
+      color = Self.wGoldHi
+      size = 44
     case .ok:
-      text = "可"
-      color = Self.wKaDim
+      // 水色、標準サイズ
+      text = "可!"
+      color = Self.wKa
+      size = 38
     case .miss:
+      // 灰色、少し小さめで押し殺す
       text = "不可"
-      color = Self.wSumiSoft
+      color = SKColor(white: 0.45, alpha: 1)
+      size = 36
     }
 
     let label = SKLabelNode(fontNamed: "HiraMinProN-W6")
     label.text = text
-    label.fontSize = 30
+    label.fontSize = size
     label.fontColor = color
-    label.position = CGPoint(x: size.width / 2, y: hitLineY + 100)
+    label.position = CGPoint(x: self.size.width / 2, y: hitLineY + 80)
     label.setScale(0.6)
     label.alpha = 0
     label.zPosition = 100
     addChild(label)
-    label.run(SKAction.sequence([
-      SKAction.group([
-        SKAction.fadeIn(withDuration: 0.1),
-        SKAction.scale(to: 1.1, duration: 0.15),
+    // 浮き上がりモーション: 上に 55pt スライドしながら
+    //   0.10s フェードイン + 1.35 まで拡大
+    //   0.15s で 1.05 に落ち着き、0.30s 留まり、0.25s でフェードアウト
+    label.run(SKAction.group([
+      SKAction.moveBy(x: 0, y: 55, duration: 0.90),
+      SKAction.sequence([
+        SKAction.group([
+          SKAction.fadeIn(withDuration: 0.10),
+          SKAction.scale(to: 1.35, duration: 0.15),
+        ]),
+        SKAction.scale(to: 1.05, duration: 0.12),
+        SKAction.wait(forDuration: 0.28),
+        SKAction.fadeOut(withDuration: 0.25),
+        SKAction.removeFromParent(),
       ]),
-      SKAction.scale(to: 1.0, duration: 0.1),
-      SKAction.wait(forDuration: 0.35),
-      SKAction.fadeOut(withDuration: 0.2),
-      SKAction.removeFromParent(),
     ]))
     judgeLabel = label
+  }
+
+  // MARK: - Visual Effects
+
+  /// タップ位置から白リングが広がってフェード(タップ即応フィードバック)。
+  private func spawnTapRipple(at point: CGPoint) {
+    let ripple = SKShapeNode(circleOfRadius: 10)
+    ripple.strokeColor = Self.wPaper.withAlphaComponent(0.85)
+    ripple.fillColor = .clear
+    ripple.lineWidth = 3
+    ripple.position = point
+    ripple.zPosition = 95
+    addChild(ripple)
+    ripple.run(SKAction.sequence([
+      SKAction.group([
+        SKAction.scale(to: 5.0, duration: 0.35),
+        SKAction.fadeOut(withDuration: 0.35),
+      ]),
+      SKAction.removeFromParent(),
+    ]))
+  }
+
+  /// 太鼓の皮を色付きで一瞬光らせる。判定成功時のフィードバック。
+  ///  - color: フラッシュ色(ドン系 = 赤、カッ系 = 青、両手 = 金)
+  ///  - strength: 初期不透明度(default 0.55)
+  private func flashDrum(color: SKColor, strength: CGFloat = 0.55) {
+    let flash = SKShapeNode(circleOfRadius: drumRadius * 0.878)
+    flash.fillColor = color
+    flash.strokeColor = .clear
+    flash.position = CGPoint(x: size.width / 2, y: drumCenterY)
+    flash.alpha = strength
+    flash.blendMode = .add
+    flash.zPosition = 4  // 皮(zPosition 3)の上、鋲(4)と同じレイヤー
+    addChild(flash)
+    flash.run(SKAction.sequence([
+      SKAction.fadeOut(withDuration: 0.28),
+      SKAction.removeFromParent(),
+    ]))
+  }
+
+  /// レーン(0…3)の判定マーカー ◯ をリズミカルに拡縮させる。
+  private func pulseMarker(atLaneIndex laneIndex: Int) {
+    guard laneIndex >= 0, laneIndex < markerOuterRings.count else { return }
+    let outer = markerOuterRings[laneIndex]
+    outer.removeAction(forKey: "pulse")
+    outer.setScale(1.0)
+    outer.run(SKAction.sequence([
+      SKAction.scale(to: 1.45, duration: 0.08),
+      SKAction.scale(to: 1.0, duration: 0.20),
+    ]), withKey: "pulse")
+  }
+
+  /// NoteType から対応するレーン index を返す(ka_l=0, don_l=1, don_r=2, ka_r=3)。
+  /// don_both は don_l と don_r の 2 つを含めた特別扱いのため、呼び出し側で
+  /// 別途 [1, 2] を pulse する。
+  private func laneIndex(forType type: NoteType) -> Int? {
+    switch type {
+    case .ka_l:  return 0
+    case .don_l: return 1
+    case .don_r: return 2
+    case .ka_r:  return 3
+    case .don_both: return nil
+    }
+  }
+
+  /// 両手ドン(don_both)成立時に太鼓中央から広がる大きな衝撃波。
+  /// 二重リングで重厚感を出す。
+  private func spawnShockwave() {
+    let center = CGPoint(x: size.width / 2, y: drumCenterY)
+
+    let outer = SKShapeNode(circleOfRadius: 28)
+    outer.strokeColor = Self.wGoldHi
+    outer.fillColor = .clear
+    outer.lineWidth = 7
+    outer.position = center
+    outer.zPosition = 92
+    addChild(outer)
+    outer.run(SKAction.sequence([
+      SKAction.group([
+        SKAction.scale(to: 8.0, duration: 0.45),
+        SKAction.fadeOut(withDuration: 0.45),
+      ]),
+      SKAction.removeFromParent(),
+    ]))
+
+    let inner = SKShapeNode(circleOfRadius: 16)
+    inner.strokeColor = Self.wDon
+    inner.fillColor = .clear
+    inner.lineWidth = 5
+    inner.position = center
+    inner.zPosition = 91
+    addChild(inner)
+    inner.run(SKAction.sequence([
+      SKAction.wait(forDuration: 0.06),
+      SKAction.group([
+        SKAction.scale(to: 6.5, duration: 0.4),
+        SKAction.fadeOut(withDuration: 0.4),
+      ]),
+      SKAction.removeFromParent(),
+    ]))
+  }
+
+  /// zone → 太鼓フラッシュ色。
+  private func flashColor(forZone zone: NoteType.Zone) -> SKColor {
+    switch zone {
+    case .leftKa, .rightKa: return Self.wKa
+    case .center:           return Self.wDon
+    case .centerBoth:       return Self.wGoldHi
+    }
   }
 }
