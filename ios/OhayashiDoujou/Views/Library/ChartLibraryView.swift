@@ -50,9 +50,6 @@ struct ChartLibraryView: View {
         Text("保存済み \(summaries.count) 件")
       }
       Spacer()
-      if !summaries.isEmpty && !isLoading {
-        Text("作成日順 ↓")
-      }
     }
     .font(WafuuUI.num(10, weight: .medium))
     .tracking(3)
