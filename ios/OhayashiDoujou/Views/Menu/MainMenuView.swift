@@ -1,16 +1,14 @@
 import SwiftUI
 
-/// アプリのルート画面。タイトルとメインメニュー(3 種の入口)。
+/// アプリのルート画面。タイトルとメインメニュー(2 種の入口)。
 ///
-/// - プレイする → 譜面ライブラリ(選択して再生)
+/// - プレイする → 譜面ライブラリ(選択して再生、DL 導線もここに集約)
 /// - 譜面を作る → 録音モード
-/// - IDで譜面を入手 → 譜面検索 / ダウンロード
 ///
 /// mockup: `mockups/01_title_menu_wafuu.html`
 struct MainMenuView: View {
   var onSelectLibrary: () -> Void
   var onRecord: () -> Void
-  var onDownload: () -> Void
 
   private var appVersion: String {
     let bundle = Bundle.main
@@ -100,13 +98,6 @@ struct MainMenuView: View {
         icon: "●",
         style: .wood(iconColor: WafuuUI.donDim),
         action: onRecord
-      )
-      MenuButton(
-        title: "IDで譜面を入手",
-        subtitle: "配布された譜面IDでダウンロード",
-        icon: "↓",
-        style: .wood(iconColor: WafuuUI.woodDeep),
-        action: onDownload
       )
     }
   }
@@ -255,7 +246,6 @@ private struct MenuButton: View {
 #Preview {
   MainMenuView(
     onSelectLibrary: {},
-    onRecord: {},
-    onDownload: {}
+    onRecord: {}
   )
 }

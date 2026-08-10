@@ -43,11 +43,6 @@ struct ContentView: View {
             withAnimation(.easeInOut(duration: 0.25)) {
               route = .recording
             }
-          },
-          onDownload: {
-            withAnimation(.easeInOut(duration: 0.25)) {
-              route = .downloading
-            }
           }
         )
         .transition(.opacity)
