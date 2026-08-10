@@ -82,10 +82,6 @@ struct PlayView: View {
   @State private var comboMilestoneText: String? = nil
   @State private var comboMilestoneTask: Task<Void, Never>?
 
-  /// 不可判定時の画面シェイク用オフセット。
-  @State private var shakeOffset: CGFloat = 0
-  @State private var shakeTask: Task<Void, Never>?
-
   /// 譜面終端で走らせる金明滅 → 白フェードの不透明度と色。
   @State private var finishOverlayColor: Color = .clear
   @State private var finishOverlayOpacity: Double = 0
@@ -97,7 +93,6 @@ struct PlayView: View {
       SpriteView(scene: scene, options: [.ignoresSiblingOrder, .allowsTransparency])
         .ignoresSafeArea()
         .background(Color.clear)
-        .offset(x: shakeOffset) // 不可判定時に横方向に小刻み振動
 
       VStack {
         header
@@ -173,16 +168,10 @@ struct PlayView: View {
     .onDisappear {
       countdownTask?.cancel()
       playbackTimerTask?.cancel()
-      shakeTask?.cancel()
       comboMilestoneTask?.cancel()
     }
     .onChange(of: score.combo) { oldValue, newValue in
       handleComboChange(from: oldValue, to: newValue)
-    }
-    .onChange(of: score.miss) { oldValue, newValue in
-      if newValue > oldValue {
-        triggerShake()
-      }
     }
   }
 
@@ -822,22 +811,6 @@ struct PlayView: View {
       if Task.isCancelled { return }
       withAnimation(.easeOut(duration: 0.35)) {
         comboMilestoneText = nil
-      }
-    }
-  }
-
-  /// 不可判定時の画面小刻み振動(0.1 秒程度、左右に短くバウンド)。
-  private func triggerShake() {
-    shakeTask?.cancel()
-    shakeTask = Task { @MainActor in
-      let sequence: [CGFloat] = [-8, 8, -6, 6, -4, 4, 0]
-      for offset in sequence {
-        shakeOffset = offset
-        try? await Task.sleep(nanoseconds: 20_000_000)
-        if Task.isCancelled {
-          shakeOffset = 0
-          return
-        }
       }
     }
   }
