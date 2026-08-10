@@ -319,6 +319,13 @@ struct AppHeader<TrailingContent: View>: View {
         endPoint: .bottom
       )
 
+      // タイトルは画面全体の中央に配置する(戻る / trailing の幅に依存しない)
+      Text(title)
+        .font(WafuuUI.serif(15, weight: .bold))
+        .tracking(4)
+        .foregroundStyle(WafuuUI.sumi)
+        .lineLimit(1)
+
       HStack(spacing: 8) {
         if let onBack {
           Button(action: onBack) {
@@ -333,22 +340,11 @@ struct AppHeader<TrailingContent: View>: View {
             .padding(.horizontal, 8)
             .padding(.vertical, 6)
           }
-        } else {
-          Color.clear.frame(width: 64, height: 0)
         }
 
         Spacer()
 
-        Text(title)
-          .font(WafuuUI.serif(15, weight: .bold))
-          .tracking(4)
-          .foregroundStyle(WafuuUI.sumi)
-          .lineLimit(1)
-
-        Spacer()
-
         trailing
-          .frame(minWidth: 64, alignment: .trailing)
       }
       .padding(.horizontal, 16)
     }
