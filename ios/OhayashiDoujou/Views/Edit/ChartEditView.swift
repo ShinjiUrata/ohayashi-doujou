@@ -110,12 +110,11 @@ struct ChartEditView: View {
       HStack(spacing: 14) {
         summaryCell(k: "時間", v: formatDuration(chart.durationMs))
         summaryCell(k: "ノーツ数", v: "\(chart.notes.count)")
-        summaryCell(k: "状態", v: "ドラフト", vColor: WafuuUI.moss)
       }
     }
   }
 
-  private func summaryCell(k: String, v: String, vColor: Color? = nil) -> some View {
+  private func summaryCell(k: String, v: String) -> some View {
     VStack(alignment: .leading, spacing: 2) {
       Text(k)
         .font(WafuuUI.num(9, weight: .semibold))
@@ -124,7 +123,7 @@ struct ChartEditView: View {
       Text(v)
         .font(WafuuUI.num(15, weight: .medium))
         .tracking(1)
-        .foregroundStyle(vColor ?? WafuuUI.sumi)
+        .foregroundStyle(WafuuUI.sumi)
     }
     .frame(maxWidth: .infinity, alignment: .leading)
   }
