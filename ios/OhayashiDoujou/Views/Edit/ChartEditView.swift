@@ -230,25 +230,18 @@ struct ChartEditView: View {
 
   private var footer: some View {
     VStack(spacing: 8) {
-      HStack(spacing: 8) {
-        Button(action: { onPreview(trimmed()) }) {
-          HStack(spacing: 6) {
-            Text("▶")
-              .font(.system(size: 12, weight: .bold))
-            Text("調整")
-          }
+      // ローカル「保存」ボタンは現時点で導線から外している(実装は残置)。
+      // 譜面の永続化は「公開する」フロー内でのみ発生する。
+      Button(action: { onPreview(trimmed()) }) {
+        HStack(spacing: 6) {
+          Text("▶")
+            .font(.system(size: 12, weight: .bold))
+          Text("調整")
         }
-        .buttonStyle(SecondaryButtonStyleWafuu(fontSize: 14))
-        .disabled(chart.notes.isEmpty)
-        .opacity(chart.notes.isEmpty ? 0.4 : 1)
-
-        Button(action: { onSave(trimmed()) }) {
-          Text("保存")
-        }
-        .buttonStyle(GhostButtonStyleWafuu(fontSize: 14))
-        .disabled(!isSaveable)
-        .opacity(isSaveable ? 1 : 0.4)
       }
+      .buttonStyle(SecondaryButtonStyleWafuu(fontSize: 14))
+      .disabled(chart.notes.isEmpty)
+      .opacity(chart.notes.isEmpty ? 0.4 : 1)
 
       Button(action: { onPublish(trimmed()) }) {
         HStack(spacing: 8) {
