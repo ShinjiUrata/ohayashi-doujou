@@ -79,3 +79,9 @@ dev_documents/
 *.bak
 *~
 .cache/
+
+# シミュレータのスクリーンショット原本(整形後の appstore_screenshots/ は
+# App Store 提出資産として tracking する。原本の "Simulator Screenshot -" は
+# 大きく数も多いので gitignore)
+Simulator Screenshot - *.png
+screenshot.png
