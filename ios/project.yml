@@ -42,6 +42,7 @@ targets:
       - path: OhayashiDoujou/Resources/don.wav
       - path: OhayashiDoujou/Resources/ka.wav
       - path: OhayashiDoujou/Resources/StoreKitConfig.storekit
+      - path: OhayashiDoujou/Resources/PrivacyInfo.xcprivacy
     settings:
       base:
         INFOPLIST_FILE: OhayashiDoujou/Resources/Info.plist
