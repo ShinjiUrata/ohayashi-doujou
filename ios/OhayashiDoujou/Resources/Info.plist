@@ -48,6 +48,10 @@
 	<true/>
 	<key>UIStatusBarStyle</key>
 	<string>UIStatusBarStyleLightContent</string>
+	<!-- HTTPS/TLS のみで Apple 標準暗号化を経由するため、非免除暗号化なし。
+	     これにより ASC の「アプリの暗号化に関する書類」提出が不要になる。 -->
+	<key>ITSAppUsesNonExemptEncryption</key>
+	<false/>
 	<key>APIBaseURL</key>
 	<string>$(API_BASE_URL)</string>
 	<key>ChartsBaseURL</key>
