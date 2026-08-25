@@ -57,6 +57,7 @@ final class PlayScene: SKScene {
     let typeRawValue: String  // NoteType.rawValue (SendableでStringに)
     let originalTimeMs: Int
     let deltaMs: Int
+    let isStrong: Bool
   }
 
   // MARK: - State
@@ -342,7 +343,8 @@ final class PlayScene: SKScene {
       originalIndex: idx,
       typeRawValue: note.type.rawValue,
       originalTimeMs: note.t,
-      deltaMs: noteAdjustmentsMs[idx] ?? 0
+      deltaMs: noteAdjustmentsMs[idx] ?? 0,
+      isStrong: note.isStrong
     )
   }
 
@@ -396,11 +398,13 @@ final class PlayScene: SKScene {
     // targetTime == currentTime なので effectiveTargetSec = 0 → 判定
     // ライン上に startY で配置される)
     // note: spawnNote は targetTime を「現在からの相対秒数」として扱うため 0 を渡す
+    // 追加時は常に「弱」(strong = false)、必要なら選択後にトグルで切替
     spawnNote(
       targetTime: 0,
       type: type,
       durationSec: 0,
-      originalIndex: newIndex
+      originalIndex: newIndex,
+      strong: false
     )
 
     // 再生中(scene.speed > 0)なら即座に音を鳴らす
@@ -498,6 +502,86 @@ final class PlayScene: SKScene {
 
     // SwiftUI に更新済みの delta を通知
     onNoteSelectionChanged?(makeSelectionInfo())
+  }
+
+  /// SwiftUI 側の「強/弱切替」ボタンから呼ばれる。
+  /// 選択中ノーツの `strong` フィールドを toggle し、視覚的に即座に反映する。
+  /// 判定ロジックには影響しない(見た目のみ)。
+  ///
+  /// 実装:
+  /// - chart.notes[idx].strong を toggle(nil ⇄ true を切替、false は使わない
+  ///   ことで JSON の冗長化を避ける)
+  /// - 対応する container を removeAllActions してから、
+  ///   元の position を保持したまま該当 pending を差し替える形で再 spawn する
+  ///   のではなく、既存の SKShapeNode 群をリスケール(即時反映、
+  ///   scene.speed = 0 でも動作)
+  /// - SwiftUI 側の selection info を再通知
+  func toggleSelectedNoteStrong() {
+    guard let idx = selectedOriginalIndex,
+          var c = chart,
+          idx >= 0, idx < c.notes.count else { return }
+
+    let newStrong = !c.notes[idx].isStrong
+    // strong = true の時のみフィールドを保存、false は nil に戻すことで
+    // JSON 上のフィールドを増やさない(既存譜面と同じ形になる)
+    c.notes[idx].strong = newStrong ? true : nil
+    self.chart = c
+
+    // 視覚: 該当 pending note のコンテナ内の SKShapeNode 群を再生成し直す
+    // (radius が変わるので既存の circleOfRadius ノードは差し替え必要)
+    // 単純化のため、対象 pending 群を一度削除して spawn し直す。
+    // - 現在の container position を保持して、そこから再開させたい
+    // - autoPlay 停止中に呼ばれる想定なので、SKAction は既に停止していて OK
+    respawnPendingNotes(forOriginalIndex: idx, strong: newStrong)
+
+    // 選択情報を最新化(isStrong が変わる)
+    onNoteSelectionChanged?(makeSelectionInfo())
+  }
+
+  /// 指定 originalIndex の pending note を、現在の位置・落下スケジュールを
+  /// 保持したまま SKShapeNode 構造だけ再構築する(radius 変更用)。
+  /// - autoPlay 停止中(speed = 0)を想定
+  /// - 対象 pending は複数あり得ないが、防御的に全一致を処理
+  ///
+  /// SKShapeNode の circleOfRadius は初期化後に変えられないため、
+  /// 単純に container ごと削除 → spawnNote で新しい半径で再構築する。
+  /// 停止中は pausedAtSec が固定なので、spawnNote の startY 計算値と
+  /// 元の container position.y は一致する(数学的検証済み)。
+  private func respawnPendingNotes(forOriginalIndex idx: Int, strong: Bool) {
+    let matches = pendingNotes.filter { $0.originalIndex == idx }
+    guard !matches.isEmpty,
+          let chart = self.chart,
+          idx >= 0, idx < chart.notes.count else { return }
+
+    let note = chart.notes[idx]
+
+    // 対象の container を全て削除
+    for pending in matches {
+      if let container = pending.node?.parent {
+        container.removeAllActions()
+        container.removeFromParent()
+      }
+    }
+    pendingNotes.removeAll { $0.originalIndex == idx }
+
+    // 再 spawn(現在の再生位置を基準に、note.t までの残り秒数で fall する)
+    let originalTargetSec = TimeInterval(note.t) / 1000.0
+    let currentPlaybackSec = currentPlaybackTimeSec()
+    let effectiveTargetSec = originalTargetSec - currentPlaybackSec
+    let durationSec = TimeInterval(note.duration ?? 0) / 1000.0
+    spawnNote(
+      targetTime: effectiveTargetSec,
+      type: note.type,
+      durationSec: durationSec,
+      originalIndex: idx,
+      strong: strong
+    )
+
+    // 新しく spawn した pending を選択状態にする(scale 1.15 の復元)
+    selectedOriginalIndex = nil
+    if let newPending = pendingNotes.last(where: { $0.originalIndex == idx }) {
+      selectNote(newPending)
+    }
   }
 
   // MARK: - Scene lifecycle
@@ -669,7 +753,8 @@ final class PlayScene: SKScene {
         targetTime: effectiveTargetSec,
         type: note.type,
         durationSec: durationSec,
-        originalIndex: idx
+        originalIndex: idx,
+        strong: note.isStrong
       )
     }
   }
@@ -687,7 +772,8 @@ final class PlayScene: SKScene {
     targetTime: TimeInterval,
     type: NoteType,
     durationSec: TimeInterval,
-    originalIndex: Int = -1
+    originalIndex: Int = -1,
+    strong: Bool = false
   ) {
     let laneWidth = size.width / CGFloat(laneCount)
     let x: CGFloat
@@ -724,8 +810,10 @@ final class PlayScene: SKScene {
     }
 
     // ノーツサイズ(和風モダン v2 準拠、フラット + 2 重縁)
+    // strong == true の時は 1.4 倍に拡大(視覚のみ、判定には影響しない)
     let baseRadius: CGFloat = isDon ? 20 : 16
-    let radius: CGFloat = isBoth ? 26 : baseRadius
+    let baseRadiusWithBoth: CGFloat = isBoth ? 26 : baseRadius
+    let radius: CGFloat = strong ? baseRadiusWithBoth * 1.4 : baseRadiusWithBoth
 
     // 2 重縁を作るため、外側から順に大きさ違いの SKShapeNode をコンテナに追加
     let container = SKNode()

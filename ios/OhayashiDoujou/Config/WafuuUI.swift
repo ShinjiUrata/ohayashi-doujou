@@ -279,6 +279,34 @@ struct GhostButtonStyleWafuu: ButtonStyle {
   }
 }
 
+/// 破壊的操作 CTA(赤系グラデ)。削除確認等の危険なアクション用。
+/// Primary と区別できるよう朱色ではなく濃赤で構成。
+struct DangerButtonStyleWafuu: ButtonStyle {
+  var fontSize: CGFloat = 15
+  func makeBody(configuration: Configuration) -> some View {
+    configuration.label
+      .font(WafuuUI.serif(fontSize, weight: .bold))
+      .tracking(3)
+      .foregroundStyle(.white)
+      .frame(maxWidth: .infinity)
+      .padding(.vertical, 14)
+      .background(
+        LinearGradient(
+          colors: [Color(hex: 0xB8321F), Color(hex: 0x8A1D10)],
+          startPoint: .top,
+          endPoint: .bottom
+        )
+      )
+      .overlay(
+        RoundedRectangle(cornerRadius: 10)
+          .stroke(Color(hex: 0x5C1509), lineWidth: 1.5)
+      )
+      .clipShape(RoundedRectangle(cornerRadius: 10))
+      .shadow(color: Color(hex: 0x8A1D10).opacity(0.4), radius: 5, x: 0, y: 4)
+      .opacity(configuration.isPressed ? 0.85 : 1)
+  }
+}
+
 /// 金の hairline セパレータ。
 struct GoldHairline: View {
   var body: some View {

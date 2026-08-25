@@ -393,63 +393,95 @@ struct PlayView: View {
   /// シークバー真上に表示する ± 調整ボタン。
   /// - 右矢印 ▶ = 0.1s 早める(deltaMs = -100)
   /// - 左矢印 ◀ = 0.1s 遅らせる(deltaMs = +100)
+  ///
+  /// 下段には強弱切替ボタン(視覚のみ、判定には影響しない)。
   @ViewBuilder
   private func noteAdjustControls(for info: PlayScene.NoteSelectionInfo) -> some View {
-    HStack(spacing: 12) {
-      // 左矢印: 遅らせる
+    VStack(spacing: 8) {
+      // 上段: タイミング調整(既存)
+      HStack(spacing: 12) {
+        // 左矢印: 遅らせる
+        Button(action: {
+          scene.applyExternalAdjustment(deltaMs: 100)
+          markUnsaved()
+        }) {
+          Text("◀")
+            .font(.system(size: 22, weight: .bold))
+            .foregroundStyle(.white)
+            .frame(width: 60, height: 48)
+            .background(
+              LinearGradient(
+                colors: [WafuuUI.donHi, WafuuUI.don, WafuuUI.donDim],
+                startPoint: .top,
+                endPoint: .bottom
+              )
+            )
+            .overlay(RoundedRectangle(cornerRadius: 12).stroke(WafuuUI.donDim, lineWidth: 1.5))
+            .clipShape(RoundedRectangle(cornerRadius: 12))
+            .shadow(color: WafuuUI.don.opacity(0.35), radius: 3, x: 0, y: 2)
+        }
+        .buttonStyle(.plain)
+
+        // 中央: ノーツ種別 + 累積調整量
+        VStack(spacing: 2) {
+          Text(noteTypeLabel(info.typeRawValue))
+            .font(WafuuUI.serif(11, weight: .bold))
+            .tracking(1)
+            .foregroundStyle(WafuuUI.sumi)
+          Text(formatDelta(info.deltaMs))
+            .font(WafuuUI.num(15, weight: .medium))
+            .tracking(1)
+            .foregroundStyle(info.deltaMs == 0 ? WafuuUI.sumiSoft : WafuuUI.donDim)
+        }
+        .frame(maxWidth: .infinity)
+
+        // 右矢印: 早める
+        Button(action: {
+          scene.applyExternalAdjustment(deltaMs: -100)
+          markUnsaved()
+        }) {
+          Text("▶")
+            .font(.system(size: 22, weight: .bold))
+            .foregroundStyle(.white)
+            .frame(width: 60, height: 48)
+            .background(
+              LinearGradient(
+                colors: [WafuuUI.donHi, WafuuUI.don, WafuuUI.donDim],
+                startPoint: .top,
+                endPoint: .bottom
+              )
+            )
+            .overlay(RoundedRectangle(cornerRadius: 12).stroke(WafuuUI.donDim, lineWidth: 1.5))
+            .clipShape(RoundedRectangle(cornerRadius: 12))
+            .shadow(color: WafuuUI.don.opacity(0.35), radius: 3, x: 0, y: 2)
+        }
+        .buttonStyle(.plain)
+      }
+
+      // 下段: 強弱切替(視覚のみ、判定には影響しない)
       Button(action: {
-        scene.applyExternalAdjustment(deltaMs: 100)
+        scene.toggleSelectedNoteStrong()
         markUnsaved()
       }) {
-        Text("◀")
-          .font(.system(size: 22, weight: .bold))
-          .foregroundStyle(.white)
-          .frame(width: 60, height: 48)
-          .background(
-            LinearGradient(
-              colors: [WafuuUI.donHi, WafuuUI.don, WafuuUI.donDim],
-              startPoint: .top,
-              endPoint: .bottom
-            )
-          )
-          .overlay(RoundedRectangle(cornerRadius: 12).stroke(WafuuUI.donDim, lineWidth: 1.5))
-          .clipShape(RoundedRectangle(cornerRadius: 12))
-          .shadow(color: WafuuUI.don.opacity(0.35), radius: 3, x: 0, y: 2)
-      }
-      .buttonStyle(.plain)
-
-      // 中央: ノーツ種別 + 累積調整量
-      VStack(spacing: 2) {
-        Text(noteTypeLabel(info.typeRawValue))
-          .font(WafuuUI.serif(11, weight: .bold))
-          .tracking(1)
-          .foregroundStyle(WafuuUI.sumi)
-        Text(formatDelta(info.deltaMs))
-          .font(WafuuUI.num(15, weight: .medium))
-          .tracking(1)
-          .foregroundStyle(info.deltaMs == 0 ? WafuuUI.sumiSoft : WafuuUI.donDim)
-      }
-      .frame(maxWidth: .infinity)
-
-      // 右矢印: 早める
-      Button(action: {
-        scene.applyExternalAdjustment(deltaMs: -100)
-        markUnsaved()
-      }) {
-        Text("▶")
-          .font(.system(size: 22, weight: .bold))
-          .foregroundStyle(.white)
-          .frame(width: 60, height: 48)
-          .background(
-            LinearGradient(
-              colors: [WafuuUI.donHi, WafuuUI.don, WafuuUI.donDim],
-              startPoint: .top,
-              endPoint: .bottom
-            )
-          )
-          .overlay(RoundedRectangle(cornerRadius: 12).stroke(WafuuUI.donDim, lineWidth: 1.5))
-          .clipShape(RoundedRectangle(cornerRadius: 12))
-          .shadow(color: WafuuUI.don.opacity(0.35), radius: 3, x: 0, y: 2)
+        HStack(spacing: 6) {
+          Text(info.isStrong ? "現在: 強" : "現在: 弱")
+            .font(WafuuUI.gothic(11, weight: .medium))
+            .foregroundStyle(WafuuUI.sumiSoft)
+          Text("→")
+            .font(.system(size: 12, weight: .bold))
+            .foregroundStyle(WafuuUI.gold)
+          Text(info.isStrong ? "弱に変更" : "強に変更")
+            .font(WafuuUI.serif(13, weight: .bold))
+            .foregroundStyle(WafuuUI.sumi)
+        }
+        .frame(maxWidth: .infinity)
+        .padding(.vertical, 8)
+        .background(WafuuUI.gold.opacity(0.12))
+        .overlay(
+          RoundedRectangle(cornerRadius: 10)
+            .stroke(WafuuUI.gold.opacity(0.5), lineWidth: 1)
+        )
+        .clipShape(RoundedRectangle(cornerRadius: 10))
       }
       .buttonStyle(.plain)
     }
